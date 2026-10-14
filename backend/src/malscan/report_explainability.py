@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from malscan.analysis_contract import analysis_from_report
+
 
 def ensure_artifact_tree_root(
     report: dict[str, Any], artifact_tree: dict[str, Any] | None
@@ -31,7 +33,11 @@ def ensure_artifact_tree_root(
         "job_id": report["job_id"],
         "display_path": filename,
         "archive_layer": 0,
-        "analysis_status": "complete",
+        "analysis_status": analysis_from_report(report, report.get("job_status"))["static"][
+            "status"
+        ],
+        "job_status": report.get("job_status"),
+        "analysis": analysis_from_report(report, report.get("job_status")),
         "primary_analyzer": None,
         "finding_ids": [],
         "uncertainty_ids": [],
@@ -99,7 +105,7 @@ def _flatten_artifacts(tree: dict[str, Any]) -> list[dict[str, Any]]:
         current["root_artifact_id"] = root_id
         current["display_path"] = display_path
         current["archive_layer"] = archive_layer
-        current["analysis_status"] = current.get("analysis_status") or "complete"
+        current["analysis_status"] = current.get("analysis_status") or "unknown"
         current["primary_analyzer"] = current.get("primary_analyzer")
         current["finding_ids"] = list(current.get("finding_ids") or [])
         current["uncertainty_ids"] = list(current.get("uncertainty_ids") or [])
@@ -112,10 +118,14 @@ def _flatten_artifacts(tree: dict[str, Any]) -> list[dict[str, Any]]:
             "origin_path": origin,
             "container_chain": container_chain,
         }
+        analysis = current.get("analysis")
+        analysis = analysis if isinstance(analysis, dict) else analysis_from_report({})
+        # Keep legacy per-artifact fields while adding the shared v1 contract.
         current["analysis"] = {
+            **analysis,
             "status": current["analysis_status"],
             "primary_analyzer": current["primary_analyzer"],
-            "stage_coverage": [],
+            "stage_coverage": analysis.get("static", {}).get("stage_coverage", []),
         }
         current.pop("children", None)
         nodes.append(current)
@@ -376,7 +386,7 @@ def _build_uncertainties(
 def _build_failure_diagnostics(
     report: dict[str, Any], artifacts: list[dict[str, Any]]
 ) -> dict[str, Any]:
-    archive_extract = report.get("results", {}).get("archive_extract", {})
+    archive_extract = report.get("results", {}).get("archive_extract") or {}
     if archive_extract.get("extraction_failed"):
         return {
             "status": "blocked",
@@ -391,8 +401,9 @@ def _build_failure_diagnostics(
                     "severity": "high",
                     "likely_effect": "possible_false_negative",
                     "confidence": "high",
-                    "message": archive_extract.get("reason")
-                    or "連續 3 次密碼錯誤，封存檔解壓失敗。",
+                    "message": (
+                        archive_extract.get("reason") or "連續 3 次密碼錯誤，封存檔解壓失敗。"
+                    ),
                     "recommended_action": "請取得正確密碼後重新提交分析。",
                 }
             ],
@@ -405,11 +416,66 @@ def _build_failure_diagnostics(
                 }
             ],
         }
+    diagnostics: list[dict[str, Any]] = []
+    for artifact in artifacts:
+        state = artifact.get("analysis_status") or "unknown"
+        coverage = artifact.get("analysis", {}).get("static", {}).get("stage_coverage", [])
+        for stage in coverage:
+            if stage.get("status") in {"ok", "complete", "completed", "not_applicable"}:
+                continue
+            if stage.get("status") == "skipped" and state == "complete":
+                continue
+            diagnostics.append(
+                {
+                    "diagnostic_id": (
+                        f"diag::{artifact['artifact_id']}::{stage['stage']}::"
+                        f"{len(diagnostics) + 1}"
+                    ),
+                    "artifact_id": artifact["artifact_id"],
+                    "stage": stage["stage"],
+                    "code": stage.get("status") or "unknown",
+                    "category": "coverage",
+                    "severity": "medium",
+                    "likely_effect": "incomplete_analysis",
+                    "confidence": "high",
+                    "message": stage.get("reason") or "此分析階段尚未完成或未執行。",
+                    "recommended_action": "查看分析狀態與限制後再評估檔案風險。",
+                }
+            )
+        if state in {"unknown", "password_required", "queued", "running", "failed"}:
+            diagnostics.append(
+                {
+                    "diagnostic_id": (
+                        f"diag::{artifact['artifact_id']}::coverage::{len(diagnostics) + 1}"
+                    ),
+                    "artifact_id": artifact["artifact_id"],
+                    "stage": "analysis",
+                    "code": state,
+                    "category": "coverage",
+                    "severity": "medium",
+                    "likely_effect": "incomplete_analysis",
+                    "confidence": "high",
+                    "message": "此檔案的分析覆蓋尚未確認完成。",
+                    "recommended_action": "等待分析完成，或為等待密碼的檔案補交密碼。",
+                }
+            )
     return {
-        "status": "none",
-        "headline": "未偵測到會阻斷分析覆蓋率的問題。",
-        "diagnostics": [],
-        "suspected_miss_stages": [],
+        "status": "degraded" if diagnostics else "none",
+        "headline": (
+            "部分檔案或階段尚未完成分析。"
+            if diagnostics
+            else "未偵測到會阻斷分析覆蓋率的問題。"
+        ),
+        "diagnostics": diagnostics,
+        "suspected_miss_stages": [
+            {
+                "artifact_id": item["artifact_id"],
+                "stage": item["stage"],
+                "reason": item["message"],
+                "confidence": "high",
+            }
+            for item in diagnostics
+        ],
     }
 
 

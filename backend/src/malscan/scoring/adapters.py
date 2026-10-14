@@ -387,6 +387,19 @@ def _append_sandbox(
     artifact_id: str | None,
     finding: dict[str, Any],
 ) -> None:
+    # Synthetic development data and incomplete provider attempts are not
+    # evidence of a real detonation. Older real reports may omit these fields.
+    if (
+        finding.get("is_mock")
+        or finding.get("synthetic")
+        or finding.get("provider") == "mock"
+        or finding.get("executed") is False
+        or finding.get("status") in {
+            "synthetic", "mock", "disabled", "not_requested", "deferred", "queued",
+            "unavailable", "failed", "timeout", "unsupported",
+        }
+    ):
+        return
     behaviors = list(finding.get("behaviors", []))
     network_connections = list(finding.get("network_connections", []))
     if not network_connections:

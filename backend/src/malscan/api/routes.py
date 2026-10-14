@@ -6,6 +6,7 @@ import os
 import tempfile
 import uuid
 from collections.abc import AsyncGenerator
+from copy import deepcopy
 from datetime import datetime
 from typing import Any, TypeAlias
 
@@ -16,10 +17,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 from sse_starlette.sse import EventSourceResponse
 
+from malscan.analysis_contract import (
+    REPORT_SCHEMA_VERSION,
+    analysis_from_report,
+    summarize_static_artifacts,
+)
 from malscan.config import get_settings
 from malscan.db import get_db, get_session_factory
 from malscan.models import File, Job, JobStatus
 from malscan.models.artifact import Artifact
+from malscan.models.budget import AnalysisBudget
 from malscan.queue import publish_job
 from malscan.report_explainability import build_explainability, ensure_artifact_tree_root
 from malscan.schemas.requests import (
@@ -42,9 +49,7 @@ log = structlog.get_logger()
 
 CHUNK_SIZE = 1024 * 1024  # 1MB chunks
 
-JsonValue: TypeAlias = (
-    str | int | float | bool | None | list["JsonValue"] | dict[str, "JsonValue"]
-)
+JsonValue: TypeAlias = str | int | float | bool | None | list["JsonValue"] | dict[str, "JsonValue"]
 JsonObject: TypeAlias = dict[str, JsonValue]
 
 
@@ -159,6 +164,20 @@ def _ensure_report_risk_shape(report: dict[str, Any]) -> dict[str, Any]:
     return report
 
 
+def _public_report_value(value: Any) -> Any:
+    """Remove password values from extensible/raw report dictionaries."""
+    if isinstance(value, dict):
+        return {
+            key: _public_report_value(item)
+            for key, item in value.items()
+            if str(key).lower()
+            not in {"password", "archive_password", "password_value", "passwords"}
+        }
+    if isinstance(value, list):
+        return [_public_report_value(item) for item in value]
+    return value
+
+
 def _empty_explainability() -> dict[str, Any]:
     return {
         "summary": {
@@ -185,7 +204,7 @@ def _empty_explainability() -> dict[str, Any]:
 
 
 def _ensure_report_explainability_shape(report: dict[str, Any]) -> dict[str, Any]:
-    report["report_schema_version"] = str(report.get("report_schema_version") or "mswr-report-v2")
+    report["report_schema_version"] = REPORT_SCHEMA_VERSION
     if not isinstance(report.get("explainability"), dict):
         report["explainability"] = _empty_explainability()
     else:
@@ -587,7 +606,70 @@ async def get_job_status(job_id: str, db: AsyncSession = Depends(get_db)) -> Job
         total_sub=job.total_sub,
         completed_sub=job.completed_sub,
         malicious_sub=job.malicious_sub,
+        report_available=isinstance(job.result, dict),
     )
+
+
+async def _password_retry_context(job: Job, file_sha256: str, db: AsyncSession) -> dict[str, Any]:
+    """Recover retry provenance from trusted database links, never request fields."""
+    root_job_id = job.id
+    ancestor_hashes: set[str] = set()
+    visited_jobs = {job.id}
+    parent_id = job.parent_job_id
+    while parent_id is not None:
+        if parent_id in visited_jobs or len(visited_jobs) >= 128:
+            raise HTTPException(status_code=409, detail="Job lineage is inconsistent")
+        visited_jobs.add(parent_id)
+        parent_result = await db.execute(
+            select(Job).where(Job.id == parent_id).options(joinedload(Job.file))
+        )
+        parent = parent_result.scalar_one_or_none()
+        if parent is None:
+            raise HTTPException(status_code=409, detail="Job lineage is unavailable")
+        root_job_id = parent.id
+        if parent.file and isinstance(parent.file.sha256, str):
+            ancestor_hashes.add(parent.file.sha256)
+        parent_id = parent.parent_job_id
+
+    artifact_stmt = select(Artifact).where(
+        Artifact.job_id == job.id, Artifact.sha256 == file_sha256
+    )
+    if isinstance(job.artifact_id, uuid.UUID):
+        artifact_stmt = artifact_stmt.where(Artifact.id == job.artifact_id)
+    artifact_result = await db.execute(artifact_stmt.order_by(Artifact.created_at).limit(1))
+    artifact = artifact_result.scalar_one_or_none()
+    context: dict[str, Any] = {
+        "root_job_id": str(root_job_id),
+        "ancestor_hashes": sorted(ancestor_hashes),
+    }
+    if artifact is None:
+        if isinstance(job.artifact_id, uuid.UUID):
+            raise HTTPException(status_code=409, detail="Artifact lineage is unavailable")
+        return context
+    if artifact.root_job_id is not None and artifact.root_job_id != root_job_id:
+        raise HTTPException(status_code=409, detail="Artifact lineage is inconsistent")
+    context["artifact_id"] = str(artifact.id)
+    context["original_filename"] = artifact.original_filename
+    root_artifact = artifact
+    visited_artifacts = {artifact.id}
+    while root_artifact.parent_id is not None:
+        parent_id = root_artifact.parent_id
+        if parent_id in visited_artifacts or len(visited_artifacts) >= 128:
+            raise HTTPException(status_code=409, detail="Artifact lineage is inconsistent")
+        visited_artifacts.add(parent_id)
+        parent_artifact_result = await db.execute(select(Artifact).where(Artifact.id == parent_id))
+        parent_artifact = parent_artifact_result.scalar_one_or_none()
+        if parent_artifact is None:
+            raise HTTPException(status_code=409, detail="Artifact lineage is unavailable")
+        if parent_artifact.root_job_id not in (None, root_job_id):
+            raise HTTPException(status_code=409, detail="Artifact lineage is inconsistent")
+        ancestor_hashes.add(parent_artifact.sha256)
+        root_artifact = parent_artifact
+    if artifact.root_id is not None and artifact.root_id != root_artifact.id:
+        raise HTTPException(status_code=409, detail="Artifact root is inconsistent")
+    context["root_artifact_id"] = str(root_artifact.id)
+    context["ancestor_hashes"] = sorted(ancestor_hashes)
+    return context
 
 
 @router.post("/jobs/{job_id}/password", response_model=PasswordSubmitResponse)
@@ -625,6 +707,8 @@ async def submit_job_password(
     if not file_obj:
         raise HTTPException(status_code=500, detail="Job file metadata not found")
 
+    retry_context = await _password_retry_context(job, file_obj.sha256, db)
+
     attempts_used = job.password_attempts
     attempts_remaining = max(0, 3 - job.password_attempts)
 
@@ -637,10 +721,11 @@ async def submit_job_password(
                 "sha256": file_obj.sha256,
                 "original_filename": file_obj.filename,
                 "archive_password": payload.password,
+                **retry_context,
             }
         )
     except Exception as e:
-        log.error("password_submit_publish_failed", job_id=str(job.id), error=str(e))
+        log.error("password_submit_publish_failed", job_id=str(job.id), error_type=type(e).__name__)
         raise HTTPException(
             status_code=503,
             detail="Failed to submit password retry job",
@@ -731,6 +816,7 @@ async def stream_job_status(job_id: str, request: Request) -> EventSourceRespons
                             total_sub=job.total_sub,
                             completed_sub=job.completed_sub,
                             malicious_sub=job.malicious_sub,
+                            report_available=isinstance(job.result, dict),
                         )
 
                         yield {"event": "message", "data": data.model_dump_json()}
@@ -755,6 +841,7 @@ async def _build_artifact_tree(root_job_id: str, db: AsyncSession) -> JsonObject
     stmt = (
         select(Artifact)
         .where(Artifact.root_job_id == UUID(root_job_id))
+        .options(joinedload(Artifact.job))
         .order_by(Artifact.depth, Artifact.created_at)
     )
     result = await db.execute(stmt)
@@ -767,6 +854,12 @@ async def _build_artifact_tree(root_job_id: str, db: AsyncSession) -> JsonObject
     root: JsonObject | None = None
     extra_roots: list[JsonObject] = []
     for art in artifacts:
+        linked_job = art.job
+        linked_status = getattr(linked_job, "status", None)
+        linked_status = linked_status if isinstance(linked_status, str) else None
+        linked_report = getattr(linked_job, "result", None)
+        linked_report = linked_report if isinstance(linked_report, dict) else {}
+        analysis = analysis_from_report(linked_report, linked_status)
         node: JsonObject = {
             "id": str(art.id),
             "filename": art.original_filename,
@@ -783,6 +876,9 @@ async def _build_artifact_tree(root_job_id: str, db: AsyncSession) -> JsonObject
             "risk_level": art.risk_level,
             "policy_version": art.policy_version,
             "job_id": str(art.job_id) if art.job_id else None,
+            "job_status": linked_status,
+            "analysis_status": analysis["static"]["status"],
+            "analysis": analysis,
             "synthetic_root": False,
             "children": [],
         }
@@ -907,12 +1003,51 @@ async def _count_pending_descendants(root_job_id: str, db: AsyncSession) -> int:
     return int(result.scalar() or 0)
 
 
+async def _refresh_report_budget(report: dict[str, Any], job: Job, db: AsyncSession) -> None:
+    """Overlay durable tree totals, preserving this report's static attempt deadline."""
+    snapshot = report.get("execution_budget")
+    if not isinstance(snapshot, dict):
+        return
+    lineage = (
+        select(Job.id, Job.parent_job_id)
+        .where(Job.id == job.id)
+        .cte("budget_lineage", recursive=True)
+    )
+    # UNION bounds a corrupt cyclic lineage rather than recursing forever.
+    lineage = lineage.union(
+        select(Job.id, Job.parent_job_id).join(lineage, Job.id == lineage.c.parent_job_id)
+    )
+    result = await db.execute(
+        select(AnalysisBudget)
+        .join(lineage, AnalysisBudget.root_job_id == lineage.c.id)
+        .where(lineage.c.parent_job_id.is_(None))
+    )
+    budget = result.scalar_one_or_none()
+    if budget is None:
+        return
+    snapshot.update(
+        limits={
+            "max_files": budget.max_files,
+            "max_bytes": budget.max_bytes,
+            "timeout_seconds": budget.timeout_seconds,
+        },
+        used_files=budget.used_files,
+        used_bytes=budget.used_bytes,
+        accounting_scope="root_artifact_tree",
+        accounting_source="durable_root_budget",
+        # A root can finish before descendants spend their shared allocation.
+        # Its previous deadline must not become a fresh descendant time window.
+        deadline_active=job.status == JobStatus.SCANNING.value
+        and job.current_stage not in {"sandbox", "sandbox_pending"},
+    )
+
+
 @router.get("/reports/{job_id}", response_model=ReportResponse)
 async def get_report(job_id: str, db: AsyncSession = Depends(get_db)) -> dict[str, Any]:
     """
-    Get the analysis report for a completed job.
+    Get the available report, including partial static results while work continues.
 
-    Returns full report including AV results, YARA hits, IOCs, and timings.
+    Execution completion and coverage are reported separately from risk.
     """
     log.info("report_requested", job_id=job_id)
 
@@ -934,26 +1069,12 @@ async def get_report(job_id: str, db: AsyncSession = Depends(get_db)) -> dict[st
     if job is None:
         raise HTTPException(status_code=404, detail="Job not found")
 
-    # Check if job is completed
-    if job.status != JobStatus.DONE.value:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Job not completed. Current status: {job.status}",
-        )
-
-    # Check if result exists
-    if job.result is None:
+    # A stored report is useful even while awaiting a password, descendants,
+    # or the independent sandbox worker. No report yet remains a 404.
+    if not isinstance(job.result, dict):
         raise HTTPException(status_code=404, detail="Report not available yet")
 
     pending_descendants = await _count_pending_descendants(str(job.id), db)
-    if pending_descendants > 0:
-        raise HTTPException(
-            status_code=409,
-            detail=(
-                "Report not ready. "
-                f"Waiting for {pending_descendants} descendant job(s) to finish."
-            ),
-        )
 
     # Format child jobs summary
     child_jobs = []
@@ -970,11 +1091,25 @@ async def get_report(job_id: str, db: AsyncSession = Depends(get_db)) -> dict[st
                 "sha256": sub.file.sha256 if sub.file else "unknown",
                 "status": sub.status,
                 "verdict": sub_verdict,
+                "password_attempts": sub.password_attempts
+                if isinstance(sub.password_attempts, int)
+                else 0,
+                "password_attempts_remaining": max(0, 3 - sub.password_attempts)
+                if isinstance(sub.password_attempts, int)
+                else 3,
             }
         )
 
     # Return stored result with created_at and child_jobs
-    report = dict(job.result)
+    report = _public_report_value(deepcopy(job.result))
+    report["job_status"] = job.status
+    report["pending_descendants"] = pending_descendants
+    report["analysis"] = analysis_from_report(report, job.status)
+    report["report_complete"] = (
+        job.status in {JobStatus.DONE.value, JobStatus.FAILED.value}
+        and pending_descendants == 0
+        and report["analysis"]["dynamic"]["status"] not in {"queued", "running"}
+    )
     report = _ensure_report_risk_shape(report)
     report = _ensure_report_results_shape(report)
     report = _ensure_report_explainability_shape(report)
@@ -986,6 +1121,18 @@ async def get_report(job_id: str, db: AsyncSession = Depends(get_db)) -> dict[st
     report["artifact_tree"] = await _build_artifact_tree(str(job.id), db)
     report = _apply_tree_risk_rollup(report, report["artifact_tree"])
     report["artifact_tree"] = ensure_artifact_tree_root(report, report["artifact_tree"])
+    descendant_statuses: list[str] = []
+
+    def collect_coverage(node: dict[str, Any]) -> None:
+        for child in node.get("children", []):
+            descendant_statuses.append(str(child.get("analysis_status") or "unknown"))
+            collect_coverage(child)
+
+    collect_coverage(report["artifact_tree"])
+    await _refresh_report_budget(report, job, db)
+    report["analysis"]["static"]["status"] = summarize_static_artifacts(
+        report["analysis"]["static"]["status"], descendant_statuses
+    )
     synthesized_explainability = build_explainability(
         report=report,
         artifact_tree=report["artifact_tree"],

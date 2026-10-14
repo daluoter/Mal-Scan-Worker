@@ -11,6 +11,8 @@ import structlog
 from malscan_worker.config import get_settings
 from malscan_worker.consumer import start_sandbox_consumer
 from malscan_worker.metrics import start_metrics_server
+from malscan_worker.sandbox import resolve_sandbox_provider_name
+from malscan_worker.sandbox.preflight import PreflightConfig, check_sandbox_readiness
 
 structlog.configure(
     processors=[
@@ -31,8 +33,24 @@ def handle_shutdown(signum: int, frame: object) -> None:
     shutdown_event.set()
 
 
-async def main() -> None:
+async def main() -> int:
     """Main entrypoint for the dedicated sandbox worker."""
+    if not settings.sandbox_enabled:
+        log.info("sandbox_worker_disabled")
+        return 0
+    settings.require_service_configuration()
+    provider = resolve_sandbox_provider_name(settings)
+    if provider != "mock":
+        readiness = await check_sandbox_readiness(
+            PreflightConfig(
+                provider=provider,
+                base_url=settings.sandbox_base_url,
+                api_token=settings.sandbox_api_token,
+            )
+        )
+        if not readiness["success"]:
+            log.error("sandbox_worker_preflight_failed", status=readiness["status"])
+            return 1
     log.info(
         "sandbox_worker_starting",
         rabbitmq_queue=settings.rabbitmq_sandbox_queue,
@@ -47,6 +65,7 @@ async def main() -> None:
     finally:
         await metrics_runner.cleanup()
         log.info("sandbox_worker_shutdown_complete")
+    return 0
 
 
 if __name__ == "__main__":
@@ -54,7 +73,7 @@ if __name__ == "__main__":
     signal.signal(signal.SIGINT, handle_shutdown)
 
     try:
-        asyncio.run(main())
+        sys.exit(asyncio.run(main()))
     except KeyboardInterrupt:
         log.info("sandbox_worker_interrupted")
         sys.exit(0)

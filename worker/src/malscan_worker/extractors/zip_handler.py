@@ -10,14 +10,23 @@ from pathlib import Path
 
 import structlog
 
-from malscan_worker.exceptions import ArchivePasswordRequiredError, ArchiveWrongPasswordError
+from malscan_worker.budget import BudgetExceeded
+from malscan_worker.exceptions import (
+    ArchivePasswordRequiredError,
+    ArchiveWrongPasswordError,
+)
 from malscan_worker.extractors.base import (
     ExtractedFile,
     ExtractionLimits,
     ExtractionResult,
     FormatHandler,
 )
-from malscan_worker.extractors.safety import check_expansion_ratio, safe_extract_path
+from malscan_worker.extractors.safety import (
+    check_expansion_ratio,
+    check_stream_size,
+    reserve_output,
+    safe_extract_path,
+)
 
 logger = structlog.get_logger(__name__)
 
@@ -135,7 +144,7 @@ class ZipHandler(FormatHandler):
             total_extracted_bytes = 0
             pwd = password.encode() if password else None
 
-            for info in zf.infolist():
+            for member_index, info in enumerate(zf.infolist()):
                 if info.is_dir():
                     continue
 
@@ -148,6 +157,11 @@ class ZipHandler(FormatHandler):
                     warnings.append(f"Path traversal skipped: {info.filename}")
                     continue
 
+                # Separate filesystem targets preserve duplicate-name entries.
+                target = safe_extract_path(str(extract_dir / str(member_index)), info.filename)
+                if target is None:
+                    continue
+
                 if info.file_size > limits.max_single_file_bytes:
                     warnings.append(
                         f"File too large, skipped: {info.filename} ({info.file_size} bytes)"
@@ -158,8 +172,10 @@ class ZipHandler(FormatHandler):
                     warnings.append("Max total extracted bytes reached, stopping")
                     break
 
-                os.makedirs(os.path.dirname(target), exist_ok=True)
+                origin = f"{member_index}:{info.filename}"
                 try:
+                    reserve_output(limits, origin, info.file_size)
+                    os.makedirs(os.path.dirname(target), exist_ok=True)
                     with zf.open(info, pwd=pwd) as src, open(target, "wb") as dst:
                         written = 0
                         while True:
@@ -182,7 +198,25 @@ class ZipHandler(FormatHandler):
                                     archive_type="zip",
                                     password_protected=password_protected,
                                 )
+                            check_stream_size(
+                                limits,
+                                written=written,
+                                total=total_extracted_bytes,
+                                archive_size=archive_size,
+                            )
+                            reserve_output(limits, origin, written)
                             dst.write(chunk)
+                except BudgetExceeded as exc:
+                    if os.path.exists(target):
+                        os.remove(target)
+                    return ExtractionResult(
+                        files=files,
+                        warnings=[*warnings, exc.reason],
+                        archive_type="zip",
+                        password_protected=password_protected,
+                        resource_limited=True,
+                        limit_reason=exc.reason,
+                    )
                 except RuntimeError as e:
                     if _is_password_error(e):
                         raise ArchiveWrongPasswordError("zip") from e
@@ -195,6 +229,7 @@ class ZipHandler(FormatHandler):
                         original_name=os.path.basename(info.filename),
                         size=written,
                         origin_path=info.filename,
+                        occurrence_index=member_index,
                     )
                 )
 
@@ -249,7 +284,7 @@ class ZipHandler(FormatHandler):
             if pwd:
                 zf.setpassword(pwd)
 
-            for info in zf.infolist():
+            for member_index, info in enumerate(zf.infolist()):
                 if info.is_dir():
                     continue
 
@@ -262,6 +297,11 @@ class ZipHandler(FormatHandler):
                     warnings.append(f"Path traversal skipped: {info.filename}")
                     continue
 
+                # Separate filesystem targets preserve duplicate-name entries.
+                target = safe_extract_path(str(extract_dir / str(member_index)), info.filename)
+                if target is None:
+                    continue
+
                 if info.file_size > limits.max_single_file_bytes:
                     warnings.append(
                         f"File too large, skipped: {info.filename} ({info.file_size} bytes)"
@@ -272,8 +312,10 @@ class ZipHandler(FormatHandler):
                     warnings.append("Max total extracted bytes reached, stopping")
                     break
 
-                os.makedirs(os.path.dirname(target), exist_ok=True)
+                origin = f"{member_index}:{info.filename}"
                 try:
+                    reserve_output(limits, origin, info.file_size)
+                    os.makedirs(os.path.dirname(target), exist_ok=True)
                     with zf.open(info, pwd=pwd) as src, open(target, "wb") as dst:
                         written = 0
                         while True:
@@ -296,7 +338,25 @@ class ZipHandler(FormatHandler):
                                     archive_type="zip",
                                     password_protected=password_protected,
                                 )
+                            check_stream_size(
+                                limits,
+                                written=written,
+                                total=total_extracted_bytes,
+                                archive_size=archive_size,
+                            )
+                            reserve_output(limits, origin, written)
                             dst.write(chunk)
+                except BudgetExceeded as exc:
+                    if os.path.exists(target):
+                        os.remove(target)
+                    return ExtractionResult(
+                        files=files,
+                        warnings=[*warnings, exc.reason],
+                        archive_type="zip",
+                        password_protected=password_protected,
+                        resource_limited=True,
+                        limit_reason=exc.reason,
+                    )
                 except RuntimeError as e:
                     if _is_password_error(e):
                         raise ArchiveWrongPasswordError("zip") from e
@@ -309,6 +369,7 @@ class ZipHandler(FormatHandler):
                         original_name=os.path.basename(info.filename),
                         size=written,
                         origin_path=info.filename,
+                        occurrence_index=member_index,
                     )
                 )
 

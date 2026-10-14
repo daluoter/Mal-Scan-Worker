@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate, Link, useLocation } from 'react-router-dom'
 import { apiClient, JobStatus } from '../api/client'
 import PasswordForm from '../components/PasswordForm'
+import { jobNeedsPassword } from '../components/report/reportState'
 import { STATUS_COLORS, STATUS_LABELS } from '../constants/status'
 
 interface LocationState {
@@ -17,48 +18,70 @@ export default function JobStatusPage() {
     const [job, setJob] = useState<JobStatus | null>(null)
     const [error, setError] = useState<string | null>(null)
     const [passwordSubmitError, setPasswordSubmitError] = useState<string | null>(null)
+    const [refreshKey, setRefreshKey] = useState(0)
     const previousStatusRef = useRef<JobStatus['status'] | null>(null)
 
     useEffect(() => {
         if (!jobId) return
 
         setPasswordSubmitError(null)
+        setJob(null)
+        setError(null)
         previousStatusRef.current = null
 
-        const url = apiClient.getJobStreamUrl(jobId)
-        const es = new EventSource(url)
+        const es = apiClient.supportsJobStream() && typeof EventSource !== 'undefined' ? new EventSource(apiClient.getJobStreamUrl(jobId)) : null
+        let cancelled = false
+        let fallbackTimer: ReturnType<typeof setTimeout> | null = null
+        const applyStatus = (data: JobStatus) => {
+            if (cancelled) return
+            setJob(data)
+            setError(null)
+            if (data.status === 'done') {
+                es?.close()
+                navigate(`/reports/${jobId}`)
+            } else if (data.status === 'failed') {
+                es?.close()
+            }
+        }
+        const fetchStatus = async () => {
+            if (cancelled) return
+            try {
+                const data = await apiClient.getJobStatus(jobId)
+                applyStatus(data)
+                if (!cancelled && data.status !== 'done' && (data.status !== 'failed' || data.dispatch_uncertain) && (!es || es.readyState !== EventSource.OPEN)) {
+                    fallbackTimer = setTimeout(fetchStatus, 3000)
+                }
+            } catch (err) {
+                if (!cancelled) {
+                    setError(err instanceof Error ? err.message : '無法取得狀態')
+                    fallbackTimer = setTimeout(fetchStatus, 5000)
+                }
+            }
+        }
+        fetchStatus()
 
-        es.onmessage = (event) => {
+        if (es) es.onmessage = (event) => {
             try {
                 const data = JSON.parse(event.data) as JobStatus
-                setJob(data)
-
-                if (data.status === 'done') {
-                    es.close()
-                    navigate(`/reports/${jobId}`)
-                } else if (data.status === 'failed') {
-                    es.close()
-                }
+                if (fallbackTimer) clearTimeout(fallbackTimer)
+                applyStatus(data)
             } catch {
                 // ignore malformed messages
             }
         }
 
-        es.onerror = () => {
-            // EventSource will auto-reconnect on transient errors.
-            // If the stream was intentionally closed (readyState CLOSED),
-            // fall back to a single REST fetch so the UI is never stuck.
-            if (es.readyState === EventSource.CLOSED) {
-                apiClient.getJobStatus(jobId).then(setJob).catch((err) => {
-                    setError(err instanceof Error ? err.message : '無法取得狀態')
-                })
-            }
+        if (es) es.onerror = () => {
+            // REST keeps password/partial-report state readable while SSE reconnects.
+            if (fallbackTimer) clearTimeout(fallbackTimer)
+            fallbackTimer = setTimeout(fetchStatus, 1000)
         }
 
         return () => {
-            es.close()
+            cancelled = true
+            if (fallbackTimer) clearTimeout(fallbackTimer)
+            es?.close()
         }
-    }, [jobId, navigate])
+    }, [jobId, navigate, refreshKey])
 
     useEffect(() => {
         if (!job) return
@@ -81,7 +104,7 @@ export default function JobStatusPage() {
         deobfuscation: '去混淆分析',
     }
 
-    if (error) {
+    if (error && !job) {
         return (
             <div className="container">
                 <h1 className="text-3xl font-bold mb-6 text-alert-red">
@@ -116,6 +139,7 @@ export default function JobStatusPage() {
         setPasswordSubmitError(null)
         try {
             await apiClient.submitArchivePassword(jobId, { password })
+            setRefreshKey((previous) => previous + 1)
         } catch (submitError) {
             const message = submitError instanceof Error ? submitError.message : '提交密碼失敗，請再試一次'
             setPasswordSubmitError(message)
@@ -131,6 +155,8 @@ export default function JobStatusPage() {
             </h1>
 
             <div className="glass-card p-6">
+                {error && <p className="mb-4 text-sm text-caution-yellow">狀態更新暫時失敗：{error}。稍後自動重試。</p>}
+                {job.dispatch_uncertain && <p className="mb-4 text-sm text-caution-yellow">雲端執行狀態尚未確認，系統會繼續查詢。請保留此工作頁，避免重新上傳建立重複工作；管理者可能需要核對 Cloud Run 執行紀錄。</p>}
                 {/* Terminal Header */}
                 <div className="flex items-center gap-2 mb-4 pb-4 border-b border-white/10">
                     <div className="w-3 h-3 rounded-full bg-alert-red" />
@@ -138,6 +164,12 @@ export default function JobStatusPage() {
                     <div className="w-3 h-3 rounded-full bg-matrix-green" />
                     <span className="ml-2 text-slate-500 text-sm font-mono">malscan-terminal</span>
                 </div>
+
+                {job.report_available && (
+                    <Link to={`/reports/${jobId}`} className="mt-4 inline-block text-sm text-neon-cyan hover:text-neon-purple">
+                        閱讀目前分析報告（後續成果會持續更新） →
+                    </Link>
+                )}
 
                 {/* Job Info - Terminal Style */}
                 <div className="space-y-2 font-mono text-sm">
@@ -167,14 +199,21 @@ export default function JobStatusPage() {
                     </div>
                 </div>
 
-                {job.status === 'password_required' && (
+                {jobNeedsPassword(job) && (
                     <div className="mt-6">
                         <PasswordForm
                             attemptsUsed={job.password_attempts}
                             attemptsRemaining={job.password_attempts_remaining}
+                            attemptsScope={apiClient.isCloudDemo() ? '雲端 demo 最多三次密碼重試，由整個上傳工作共用。' : undefined}
                             onSubmit={handlePasswordSubmit}
                             error={passwordSubmitError ?? job.error_message ?? null}
                         />
+                    </div>
+                )}
+                {apiClient.isCloudDemo() && job.status === 'password_required' && job.password_required_artifacts?.some((id) => id !== job.job_id) && (
+                    <div className="mt-6 rounded-lg border border-caution-yellow/40 p-4">
+                        <p className="mb-3 text-sm text-caution-yellow">子檔需要密碼，請開啟指定檔案提交。整個上傳工作共用剩餘 {job.password_attempts_remaining} 次密碼重試。</p>
+                        <div className="flex flex-col gap-2">{job.password_required_artifacts.filter((id) => id !== job.job_id).map((id) => <Link key={id} className="break-all text-sm text-neon-cyan hover:text-neon-purple" to={`/jobs/${id}`}>等待密碼的子檔：{id}</Link>)}</div>
                     </div>
                 )}
 

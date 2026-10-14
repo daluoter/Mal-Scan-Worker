@@ -7,12 +7,14 @@ from pathlib import Path
 
 import structlog
 
+from malscan_worker.budget import BudgetExceeded
 from malscan_worker.extractors.base import (
     ExtractedFile,
     ExtractionLimits,
     ExtractionResult,
     FormatHandler,
 )
+from malscan_worker.extractors.safety import check_stream_size, reserve_output
 
 logger = structlog.get_logger(__name__)
 
@@ -52,6 +54,9 @@ class GzipHandler(FormatHandler):
         out_path = extract_dir / stem
 
         try:
+            if limits.max_files < 1:
+                raise BudgetExceeded("extraction_file_limit")
+            reserve_output(limits, stem, 0)
             with gzip.open(str(file_path), "rb") as src, open(out_path, "wb") as dst:
                 written = 0
                 while True:
@@ -65,7 +70,13 @@ class GzipHandler(FormatHandler):
                             "Decompressed file exceeds limit "
                             f"({limits.max_single_file_bytes} bytes)"
                         )
-                        return ExtractionResult(files=[], warnings=warnings, archive_type="gzip")
+                        return ExtractionResult(
+                            files=[],
+                            warnings=warnings,
+                            archive_type="gzip",
+                            resource_limited=True,
+                            limit_reason="single_file_bytes_limit",
+                        )
                     if archive_size > 0 and written / archive_size > limits.max_expansion_ratio:
                         os.remove(out_path)
                         return ExtractionResult(
@@ -74,6 +85,8 @@ class GzipHandler(FormatHandler):
                             reason="Zip bomb: gzip expansion ratio exceeded",
                             archive_type="gzip",
                         )
+                    check_stream_size(limits, written=written, total=0, archive_size=archive_size)
+                    reserve_output(limits, stem, written)
                     dst.write(chunk)
 
             return ExtractionResult(
@@ -89,6 +102,16 @@ class GzipHandler(FormatHandler):
                 archive_type="gzip",
             )
 
+        except BudgetExceeded as exc:
+            if out_path.exists():
+                out_path.unlink()
+            return ExtractionResult(
+                files=[],
+                warnings=[exc.reason],
+                archive_type="gzip",
+                resource_limited=True,
+                limit_reason=exc.reason,
+            )
         except Exception as e:
             logger.error("gzip_extraction_error", error=str(e))
             warnings.append(f"Gzip error: {e}")

@@ -1,4 +1,4 @@
-"""Tests for sandbox provider registry, normalization, and fallback."""
+"""Tests for sandbox providers and truthful execution outcomes."""
 
 from __future__ import annotations
 
@@ -26,9 +26,12 @@ def test_mock_provider_normalizes_legacy_and_additive_fields(tmp_path: Path) -> 
         reason="unit test",
     )
 
-    assert result["executed"] is True
+    assert result["executed"] is False
     assert result["provider"] == "mock"
     assert result["is_mock"] is True
+    assert result["synthetic"] is True
+    assert result["status"] == "synthetic"
+    assert result["verdict_hint"] is None
     assert result["errors"] == ["unit test"]
     assert result["behaviors"][0]["type"] == "file_write"
     assert result["network_connections"][0]["protocol"] == "tcp"
@@ -53,7 +56,10 @@ def test_capev2_normalizer_maps_report_to_additive_schema() -> None:
         report={
             "info": {"id": 42},
             "signatures": [
-                {"name": "process_injection", "description": "Injected into another process"},
+                {
+                    "name": "process_injection",
+                    "description": "Injected into another process",
+                },
                 {"name": "ransomware_files", "description": "Mass file encryption"},
             ],
             "behavior": {
@@ -111,6 +117,7 @@ def test_capev2_normalizer_maps_report_to_additive_schema() -> None:
     )
 
     assert normalized["executed"] is True
+    assert normalized["status"] == "completed"
     assert normalized["provider"] == "capev2"
     assert normalized["task_id"] == "42"
     assert normalized["is_mock"] is False
@@ -125,7 +132,10 @@ def test_capev2_normalizer_maps_report_to_additive_schema() -> None:
     ]
     assert normalized["files"] == [{"path": "C:\\temp\\dropper.dll", "action": "write"}]
     assert normalized["registry"] == [
-        {"key": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run", "action": "modify"}
+        {
+            "key": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+            "action": "modify",
+        }
     ]
     assert normalized["mutexes"] == [{"name": "Global\\abc123"}]
     assert normalized["dns"][0]["query"] == "evil.example"
@@ -139,14 +149,17 @@ def test_capev2_normalizer_maps_report_to_additive_schema() -> None:
     assert normalized["pcap"]["available"] is True
     assert normalized["memory_dump"]["available"] is True
     assert normalized["iocs"]["domains"] == ["evil.example"]
-    assert normalized["raw_report_ref"] == "https://cape.local/apiv2/tasks/report/42/?format=json"
+    assert normalized["raw_report_ref"] == "https://cape.local/apiv2/tasks/get/report/42/json/"
 
 
 @pytest.mark.asyncio
-async def test_registry_falls_back_to_mock_when_provider_unavailable(tmp_path: Path) -> None:
+async def test_registry_preserves_unavailability_without_mock(tmp_path: Path) -> None:
     from malscan_worker.sandbox.providers import SandboxProviderRegistry
 
-    registry = SandboxProviderRegistry.default()
+    registry = SandboxProviderRegistry()
+    from malscan_worker.sandbox.providers import CAPEv2SandboxProvider
+
+    registry.register("capev2", lambda **kwargs: CAPEv2SandboxProvider(**kwargs))
     result = await registry.analyze_with_fallback(
         provider_name="capev2",
         file_path=tmp_path / "sample.bin",
@@ -162,6 +175,9 @@ async def test_registry_falls_back_to_mock_when_provider_unavailable(tmp_path: P
         },
     )
 
-    assert result["provider"] == "mock"
-    assert result["is_mock"] is True
-    assert any("fallback" in error.lower() for error in result["errors"])
+    assert result["provider"] == "capev2"
+    assert result["is_mock"] is False
+    assert result["status"] == "unavailable"
+    assert result["executed"] is False
+    assert result["behaviors"] == []
+    assert result["errors"] == ["provider_unavailable"]

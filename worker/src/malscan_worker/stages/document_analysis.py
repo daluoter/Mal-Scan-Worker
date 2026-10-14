@@ -14,14 +14,19 @@ import hashlib
 import os
 import re
 import struct
+import zipfile
+from collections.abc import Callable
+from dataclasses import replace
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
 import structlog
-from malscan.config import get_settings
 
+from malscan_worker.budget import BudgetExceeded, reservation_key
+from malscan_worker.config import get_settings
 from malscan_worker.db import create_artifact
+from malscan_worker.extractors.process import run_parser_bounded
 from malscan_worker.stages.base import Stage, StageContext, StageResult
 from malscan_worker.utils.submission import InternalJobSubmitter
 
@@ -247,7 +252,31 @@ def detect_document_type(file_path: Path, mime: str) -> str | None:
     if head[:8] == _OLE_MAGIC:
         return "ole"
     if head[:4] == _OOXML_MAGIC:
-        return "ooxml"
+        office_extensions = {
+            ".docx",
+            ".docm",
+            ".dotx",
+            ".dotm",
+            ".xlsx",
+            ".xlsm",
+            ".xltx",
+            ".xltm",
+            ".pptx",
+            ".pptm",
+            ".potx",
+            ".potm",
+        }
+        if file_path.suffix.lower() in office_extensions:
+            return "ooxml"
+        try:
+            with zipfile.ZipFile(file_path) as archive:
+                names = set(archive.namelist())
+            if "[Content_Types].xml" in names and any(
+                name.startswith(("word/", "xl/", "ppt/")) for name in names
+            ):
+                return "ooxml"
+        except (OSError, zipfile.BadZipFile):
+            pass
 
     # MIME fallback
     ml = mime.lower()
@@ -291,14 +320,6 @@ class DocumentAnalysisStage(Stage):
         if not ctx.file_path or not ctx.file_path.exists():
             return self._result(started_at, "skipped", {"reason": "File not found"})
 
-        file_size = ctx.file_path.stat().st_size
-        if file_size > MAX_FILE_SIZE_FOR_PARSE:
-            return self._result(
-                started_at,
-                "skipped",
-                {"reason": f"File too large for document parsing ({file_size} bytes)"},
-            )
-
         # Determine document type using magic bytes + MIME from earlier stage
         mime = self._get_mime(ctx)
         doc_type = detect_document_type(ctx.file_path, mime)
@@ -308,6 +329,18 @@ class DocumentAnalysisStage(Stage):
                 started_at,
                 "skipped",
                 {"reason": "Not a supported document format"},
+            )
+
+        file_size = ctx.file_path.stat().st_size
+        if file_size > MAX_FILE_SIZE_FOR_PARSE:
+            return self._result(
+                started_at,
+                "partial",
+                {
+                    "reason": f"File too large for document parsing ({file_size} bytes)",
+                    "resource_limited": True,
+                    "limit_reason": "document_input_bytes_limit",
+                },
             )
 
         log.info(
@@ -338,42 +371,99 @@ class DocumentAnalysisStage(Stage):
         extract_dir = Path(f"/tmp/{ctx.job_id}/doc_artifacts")
         extract_dir.mkdir(parents=True, exist_ok=True)
 
-        # --- dispatch per doc type ---
-        try:
-            if doc_type == "rtf":
-                self._analyse_rtf(ctx, findings, artifacts_on_disk, extract_dir)
-            elif doc_type == "ole":
-                self._analyse_ole(ctx, findings, artifacts_on_disk, extract_dir)
-            elif doc_type == "ooxml":
-                self._analyse_ooxml(ctx, findings, artifacts_on_disk, extract_dir)
-        except Exception as exc:
-            log.error(
-                "document_analysis_parse_error",
-                job_id=ctx.job_id,
-                error=str(exc),
-                exc_info=True,
-            )
-            findings["errors"].append(f"Parser error: {exc}")
+        def parse(
+            reserve: Callable[[str, int, int], None],
+        ) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+            parse_ctx = replace(ctx)
 
-        # --- VBA / macro analysis (works on OLE and OOXML) ---
-        if doc_type in ("ole", "ooxml"):
+            def reserve_checked(origin: str, files: int, bytes: int) -> None:
+                try:
+                    reserve(origin, files, bytes)
+                except BudgetExceeded as exc:
+                    findings["resource_limited"] = True
+                    findings["limit_reason"] = exc.reason
+                    raise
+
+            parse_ctx.reserve_output = reserve_checked
+            # --- dispatch per doc type ---
             try:
-                self._analyse_vba(ctx, findings)
+                if doc_type == "rtf":
+                    self._analyse_rtf(parse_ctx, findings, artifacts_on_disk, extract_dir)
+                elif doc_type == "ole":
+                    self._analyse_ole(parse_ctx, findings, artifacts_on_disk, extract_dir)
+                elif doc_type == "ooxml":
+                    self._analyse_ooxml(parse_ctx, findings, artifacts_on_disk, extract_dir)
             except Exception as exc:
                 log.error(
-                    "document_vba_error",
+                    "document_analysis_parse_error",
                     job_id=ctx.job_id,
                     error=str(exc),
                     exc_info=True,
                 )
-                findings["errors"].append(f"VBA parser error: {exc}")
+                findings["errors"].append(f"Parser error: {exc}")
+
+            # --- VBA / macro analysis (works on OLE and OOXML) ---
+            if doc_type in ("ole", "ooxml"):
+                try:
+                    self._analyse_vba(parse_ctx, findings)
+                except Exception as exc:
+                    log.error(
+                        "document_vba_error",
+                        job_id=ctx.job_id,
+                        error=str(exc),
+                        exc_info=True,
+                    )
+                    findings["errors"].append(f"VBA parser error: {exc}")
+            return findings, artifacts_on_disk
+
+        settings = getattr(ctx, "analysis_settings", None) or get_settings()
+        try:
+            findings, artifacts_on_disk = await run_parser_bounded(
+                parse,
+                root_budget=ctx.root_budget,
+                job_id=ctx.job_id,
+                source="document-analysis",
+                timeout_seconds=settings.extraction_timeout,
+            )
+        except BudgetExceeded as exc:
+            findings["resource_limited"] = True
+            findings["limit_reason"] = exc.reason
+            findings["errors"].append(exc.reason)
+        except Exception as exc:
+            findings["errors"].append(f"Document parser failed: {type(exc).__name__}")
+
+        for artifact in artifacts_on_disk:
+            artifact["budget_key"] = reservation_key(
+                ctx.job_id,
+                "document-analysis",
+                artifact.get("budget_origin")
+                or artifact.get("filename")
+                or artifact.get("name")
+                or Path(artifact["path"]).name,
+            )
 
         # --- submit extracted artifacts as sub-jobs ---
         sub_jobs_created = 0
-        if artifacts_on_disk and ctx.job and not ctx.skip_artifact_submission:
-            sub_jobs_created = await self._submit_artifacts(ctx, artifacts_on_disk)
+        if (
+            artifacts_on_disk
+            and (ctx.job or ctx.analysis_services)
+            and not ctx.skip_artifact_submission
+        ):
+            depth = ctx.job.depth if ctx.job else ctx.depth
+            max_depth = getattr(ctx.analysis_services, "max_depth", settings.max_job_depth)
+            if depth >= max_depth:
+                findings["resource_limited"] = True
+                findings["limit_reason"] = "max_depth"
+                findings["errors"].append(f"Max depth {max_depth} reached")
+            else:
+                try:
+                    sub_jobs_created = await self._submit_artifacts(ctx, artifacts_on_disk)
+                except Exception as exc:
+                    findings["errors"].append(f"Artifact submission failed: {type(exc).__name__}")
 
         findings["sub_jobs_created"] = sub_jobs_created
+        if findings.get("errors"):
+            findings["reason"] = findings.get("limit_reason") or findings["errors"][0]
 
         # Truncate large lists to keep report manageable
         findings["suspicious_keywords"] = findings["suspicious_keywords"][:100]
@@ -389,7 +479,11 @@ class DocumentAnalysisStage(Stage):
             sub_jobs=sub_jobs_created,
         )
 
-        return self._result(started_at, "ok", findings)
+        return self._result(
+            started_at,
+            "partial" if findings.get("resource_limited") or findings["errors"] else "ok",
+            findings,
+        )
 
     # ------------------------------------------------------------------
     # RTF analysis
@@ -411,7 +505,10 @@ class DocumentAnalysisStage(Stage):
         for ctrl in RTF_SUSPICIOUS_CONTROLS:
             if ctrl in raw:
                 findings["parser_findings"].append(
-                    {"type": "rtf_control", "value": ctrl.decode("ascii", errors="replace")}
+                    {
+                        "type": "rtf_control",
+                        "value": ctrl.decode("ascii", errors="replace"),
+                    }
                 )
 
         # 2. oletools.rtfobj — extract embedded OLE objects from RTF
@@ -420,7 +517,7 @@ class DocumentAnalysisStage(Stage):
             if HAS_RTFOBJ:
                 self._rtfobj_extract(ctx, raw, findings, artifacts, extract_dir)
             else:
-                self._rtf_fallback_extract(raw, findings, artifacts, extract_dir)
+                self._rtf_fallback_extract(raw, findings, artifacts, extract_dir, ctx=ctx)
         except Exception as exc:
             log.warning("rtfobj_extract_error", job_id=ctx.job_id, error=str(exc))
             findings["errors"].append(f"rtfobj extraction error: {exc}")
@@ -513,7 +610,7 @@ class DocumentAnalysisStage(Stage):
             safe_name = _safe_filename(orig_name, idx, ext)
             out_path = extract_dir / safe_name
 
-            out_path.write_bytes(data)
+            self._write_artifact(ctx, out_path, data)
 
             art_record = {
                 "filename": safe_name,
@@ -531,6 +628,8 @@ class DocumentAnalysisStage(Stage):
         findings: dict[str, Any],
         artifacts: list[dict[str, Any]],
         extract_dir: Path,
+        *,
+        ctx: StageContext | None = None,
     ) -> None:
         """Fallback: scan for hex-encoded OLE blobs (\\objdata hex dump)."""
         findings["errors"].append("oletools.rtfobj unavailable — using fallback hex extraction")
@@ -575,7 +674,7 @@ class DocumentAnalysisStage(Stage):
             ext = ".exe" if is_pe else ".bin"
             safe_name = _safe_filename(f"rtf_hex_blob_{idx}", idx, ext)
             out_path = extract_dir / safe_name
-            out_path.write_bytes(blob)
+            self._write_artifact(ctx, out_path, blob)
 
             art = {
                 "filename": safe_name,
@@ -617,7 +716,10 @@ class DocumentAnalysisStage(Stage):
         # 4. Check for external link / template reference in binary doc
         if b"http://" in raw or b"https://" in raw or b"\\\\\\\\1" in raw:
             findings["parser_findings"].append(
-                {"type": "external_reference", "detail": "OLE document contains URL/UNC reference"}
+                {
+                    "type": "external_reference",
+                    "detail": "OLE document contains URL/UNC reference",
+                }
             )
 
     def _oleid_scan(self, ctx: StageContext, findings: dict[str, Any]) -> None:
@@ -688,7 +790,7 @@ class DocumentAnalysisStage(Stage):
                     data = getattr(obj, "data", b"") or b""
                     obj_class = getattr(obj, "class_name", "") or ""
                 elif hasattr(obj, "read"):
-                    data = obj.read()
+                    data = obj.read(MAX_EXTRACTED_ARTIFACT_SIZE + 1)
                 elif isinstance(obj, bytes):
                     data = obj
 
@@ -716,7 +818,7 @@ class DocumentAnalysisStage(Stage):
                     ext = _guess_artifact_ext(data, orig_name)
                     safe_name = _safe_filename(orig_name, idx, ext)
                     out_path = extract_dir / safe_name
-                    out_path.write_bytes(data)
+                    self._write_artifact(ctx, out_path, data)
 
                     art = {
                         "filename": safe_name,
@@ -800,6 +902,9 @@ class DocumentAnalysisStage(Stage):
         try:
             with zipfile.ZipFile(file_path, "r") as zf:
                 names = zf.namelist()
+                if "[Content_Types].xml" not in names:
+                    findings["errors"].append("OOXML package is missing [Content_Types].xml")
+                    return
 
                 # Check for vbaProject.bin → macros present
                 for n in names:
@@ -816,7 +921,16 @@ class DocumentAnalysisStage(Stage):
                 for n in names:
                     if n.endswith(".rels"):
                         try:
-                            rels_data = zf.read(n).decode("utf-8", errors="replace")
+                            with zf.open(n) as rel_stream:
+                                rel_bytes = rel_stream.read(1_000_001)
+                            if len(rel_bytes) > 1_000_000:
+                                findings["errors"].append(
+                                    f"Relationship XML exceeds parse limit: {n}"
+                                )
+                                findings["resource_limited"] = True
+                                findings["limit_reason"] = "document_metadata_bytes_limit"
+                                continue
+                            rels_data = rel_bytes.decode("utf-8", errors="replace")
                             self._scan_rels_xml(rels_data, dangerous_rels, findings)
                         except Exception:
                             pass
@@ -827,11 +941,29 @@ class DocumentAnalysisStage(Stage):
                     if idx >= MAX_EMBEDDED_OBJECTS:
                         break
                     try:
-                        data = zf.read(bin_name)
+                        info = zf.getinfo(bin_name)
+                        if info.file_size > MAX_EXTRACTED_ARTIFACT_SIZE:
+                            findings["errors"].append(
+                                f"Embedded object exceeds size limit: {bin_name}"
+                            )
+                            findings["resource_limited"] = True
+                            findings["limit_reason"] = "document_embedded_bytes_limit"
+                            continue
+                        # Reserve declared output before decompressing it into memory.
+                        provisional_name = _safe_filename(os.path.basename(bin_name), idx, ".bin")
+                        reserve = ctx.reserve_output if ctx else None
+                        if reserve:
+                            reserve(provisional_name, 1, info.file_size)
+                        with zf.open(bin_name) as stream:
+                            data = stream.read(MAX_EXTRACTED_ARTIFACT_SIZE + 1)
+                    except BudgetExceeded:
+                        break
                     except Exception:
                         continue
 
                     if len(data) > MAX_EXTRACTED_ARTIFACT_SIZE:
+                        findings["resource_limited"] = True
+                        findings["limit_reason"] = "document_embedded_bytes_limit"
                         continue
 
                     obj_info = {
@@ -857,7 +989,7 @@ class DocumentAnalysisStage(Stage):
                     ext = _guess_artifact_ext(data, bin_name)
                     safe_name = _safe_filename(os.path.basename(bin_name), idx, ext)
                     out_path = extract_dir / safe_name
-                    out_path.write_bytes(data)
+                    self._write_artifact(ctx, out_path, data, budget_origin=provisional_name)
 
                     art = {
                         "filename": safe_name,
@@ -865,6 +997,7 @@ class DocumentAnalysisStage(Stage):
                         "size": len(data),
                         "source": f"ooxml_embed_{bin_name}",
                         "path": str(out_path),
+                        "budget_origin": provisional_name,
                     }
                     findings["extracted_artifacts"].append(art)
                     artifacts.append(art)
@@ -913,7 +1046,10 @@ class DocumentAnalysisStage(Stage):
         for ot in ole_types:
             if ot.lower() in rels_xml.lower():
                 findings["parser_findings"].append(
-                    {"type": "ooxml_rel_type", "detail": f"Relationship type '{ot}' found"}
+                    {
+                        "type": "ooxml_rel_type",
+                        "detail": f"Relationship type '{ot}' found",
+                    }
                 )
 
     # ------------------------------------------------------------------
@@ -1009,14 +1145,17 @@ class DocumentAnalysisStage(Stage):
         artifacts: list[dict[str, Any]],
     ) -> int:
         """Submit extracted artifacts as sub-jobs with artifact records."""
-        settings = get_settings()
-        max_depth = getattr(settings, "max_job_depth", 3)
-        if ctx.job and ctx.job.depth >= max_depth:
-            log.info("doc_analysis_max_depth_reached", depth=ctx.job.depth)
+        settings = getattr(ctx, "analysis_settings", None) or get_settings()
+        max_depth = getattr(
+            ctx.analysis_services, "max_depth", getattr(settings, "max_job_depth", 3)
+        )
+        depth = ctx.job.depth if ctx.job else ctx.depth
+        if depth >= max_depth:
+            log.info("doc_analysis_max_depth_reached", depth=depth)
             return 0
 
         parent_job_id = str(ctx.job.id) if ctx.job else ctx.job_id
-        parent_job_depth = ctx.job.depth if ctx.job else 0
+        parent_job_depth = depth
         root_job_id = ctx.root_job_id or ctx.job_id
 
         # Create root artifact if needed (depth=0 with embedded objects)
@@ -1040,7 +1179,8 @@ class DocumentAnalysisStage(Stage):
             ctx.root_artifact_id = root_artifact_id
             ctx.artifact_id = root_artifact_id
 
-        submitter = await InternalJobSubmitter.get_instance()
+        services = ctx.analysis_services
+        submitter = await InternalJobSubmitter.get_instance() if not services else None
         submitted = 0
         seen_hashes: set[str] = set()
         ancestor_hashes = ctx.ancestor_hashes or set()
@@ -1051,20 +1191,48 @@ class DocumentAnalysisStage(Stage):
                 continue
 
             file_size = os.path.getsize(art_path)
+            digest = hashlib.sha256()
             with open(art_path, "rb") as f:
-                file_sha256 = hashlib.sha256(f.read()).hexdigest()
+                while chunk := f.read(1024 * 1024):
+                    digest.update(chunk)
+            file_sha256 = digest.hexdigest()
 
-            original_name = art_info.get("name", os.path.basename(art_path))
-            origin_path = art_info.get("origin_path", original_name)
-
-            # Cycle detection
-            if file_sha256 in ancestor_hashes:
-                log.warning("doc_analysis_cycle_detected", sha256=file_sha256)
-                continue
-
-            # Extraction-level dedup
-            skip = file_sha256 in seen_hashes
+            original_name = art_info.get(
+                "filename", art_info.get("name", os.path.basename(art_path))
+            )
+            origin_path = art_info.get("origin_path", art_info.get("source", original_name))
+            if ctx.root_budget:
+                await ctx.root_budget.reserve(
+                    art_info.get("budget_key")
+                    or reservation_key(ctx.job_id, "document-analysis", original_name),
+                    1,
+                    file_size,
+                )
+            cycle = file_sha256 in ancestor_hashes or file_sha256 == ctx.sha256
+            duplicate = file_sha256 in seen_hashes
+            skip = cycle or duplicate
             seen_hashes.add(file_sha256)
+
+            if services:
+                child = await services.submit_child(
+                    file_path=art_path,
+                    filename=original_name,
+                    content_type="application/octet-stream",
+                    sha256_hash=file_sha256,
+                    file_size=file_size,
+                    parent_job_id=parent_job_id,
+                    parent_job_depth=parent_job_depth,
+                    artifact_id=None,
+                    root_artifact_id=root_artifact_id,
+                    root_job_id=root_job_id,
+                    ancestor_hashes=ancestor_hashes | {ctx.sha256},
+                    origin_path=origin_path,
+                    extraction_source="document-analysis",
+                    archive_type=None,
+                )
+                if child and not skip:
+                    submitted += 1
+                continue
 
             artifact_record = await create_artifact(
                 parent_id=parent_artifact_id,
@@ -1077,12 +1245,19 @@ class DocumentAnalysisStage(Stage):
                 extraction_source="document-analysis",
                 root_job_id=root_job_id,
                 verdict="skipped" if skip else None,
-                extraction_note="duplicate_within_extraction" if skip else None,
+                extraction_note=(
+                    "ancestor_cycle"
+                    if cycle
+                    else "duplicate_within_extraction"
+                    if duplicate
+                    else None
+                ),
             )
 
             if skip:
                 continue
 
+            assert submitter is not None
             sub_job_id = await submitter.submit_subjob(
                 file_path=art_path,
                 filename=original_name,
@@ -1100,6 +1275,21 @@ class DocumentAnalysisStage(Stage):
                 submitted += 1
 
         return submitted
+
+    @staticmethod
+    def _write_artifact(
+        ctx: StageContext | None,
+        path: Path,
+        data: bytes,
+        *,
+        budget_origin: str | None = None,
+    ) -> None:
+        if len(data) > MAX_EXTRACTED_ARTIFACT_SIZE:
+            raise BudgetExceeded("document_embedded_bytes_limit")
+        reserve = ctx.reserve_output if ctx else None
+        if reserve:
+            reserve(budget_origin or path.name, 1, len(data))
+        path.write_bytes(data)
 
     # ------------------------------------------------------------------
     # Utilities

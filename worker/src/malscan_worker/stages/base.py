@@ -1,6 +1,7 @@
 """Base classes for pipeline stages."""
 
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -29,6 +30,12 @@ class StageContext:
     root_job_id: str | None = None
     ancestor_hashes: set[str] = field(default_factory=set)
     skip_artifact_submission: bool = False
+    # Optional ports allow the same stages to run with persistent self-hosted
+    # adapters or a portable runtime without an ORM session.
+    analysis_services: Any | None = None
+    root_budget: Any | None = None
+    depth: int = 0
+    reserve_output: Callable[[str, int, int], None] | None = field(default=None, repr=False)
 
 
 @dataclass
@@ -43,6 +50,8 @@ class StageResult:
     findings: dict[str, Any]
     artifacts: list[str]
     error: str | None = None
+    tool_version: str | None = None
+    rules_version: str | None = None
 
 
 class Stage(ABC):

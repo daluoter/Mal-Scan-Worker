@@ -1,8 +1,10 @@
 import { useState, useCallback, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { apiClient } from '../api/client'
 
-const MAX_SIZE = 100 * 1024 * 1024 // 100MB
+const CLOUD_DEMO = apiClient.isCloudDemo()
+const MAX_SIZE = CLOUD_DEMO ? 20_000_000 : 100 * 1024 * 1024
+const SIZE_LABEL = CLOUD_DEMO ? '20 MB（20,000,000 bytes）' : '100 MB'
 
 export default function UploadPage() {
     const navigate = useNavigate()
@@ -10,6 +12,7 @@ export default function UploadPage() {
     const [isDragging, setIsDragging] = useState(false)
     const [isUploading, setIsUploading] = useState(false)
     const [error, setError] = useState<string | null>(null)
+    const [recoveryJobId, setRecoveryJobId] = useState<string | null>(null)
     const [isBackendOnline, setIsBackendOnline] = useState<boolean | null>(null)
 
     // Health check polling
@@ -24,8 +27,8 @@ export default function UploadPage() {
     }, [])
 
     const handleFile = useCallback((selectedFile: File) => {
-        if (selectedFile.size > MAX_SIZE) {
-            setError(`檔案大小超過 100MB 限制（實際：${(selectedFile.size / 1024 / 1024).toFixed(2)}MB）`)
+        if (selectedFile.size < 1 || selectedFile.size > MAX_SIZE) {
+            setError(`請選擇非空白且不超過 ${SIZE_LABEL} 的檔案（實際：${selectedFile.size.toLocaleString()} bytes）`)
             return
         }
         setError(null)
@@ -62,6 +65,7 @@ export default function UploadPage() {
 
         setIsUploading(true)
         setError(null)
+        setRecoveryJobId(null)
 
         try {
             const result = await apiClient.uploadFile(file)
@@ -73,6 +77,7 @@ export default function UploadPage() {
             })
         } catch (err) {
             setError(err instanceof Error ? err.message : '上傳失敗')
+            setRecoveryJobId((err as Error & { jobId?: string }).jobId ?? null)
         } finally {
             setIsUploading(false)
         }
@@ -88,6 +93,7 @@ export default function UploadPage() {
                 <p className="text-slate-400">
                     上傳檔案進行惡意軟體分析
                 </p>
+                {CLOUD_DEMO && <p className="mt-3 text-sm text-caution-yellow">雲端 demo 提供靜態分析，使用量與保存時間有限。報告權限保存在此分頁；重新整理後可繼續查看，請保留此分頁。</p>}
             </div>
 
             {/* Main Card */}
@@ -148,7 +154,7 @@ export default function UploadPage() {
                                 拖放檔案到此處
                             </p>
                             <p className="text-slate-400 text-sm">
-                                或點擊選擇檔案 • 最大 100MB
+                                或點擊選擇檔案 • 最大 {SIZE_LABEL}
                             </p>
                         </div>
                     )}
@@ -160,6 +166,7 @@ export default function UploadPage() {
                         <span className="font-mono text-sm">⚠ {error}</span>
                     </div>
                 )}
+                {recoveryJobId && <p className="mt-4 text-sm text-caution-yellow">上傳回應未成功，已保留既有工作。<Link className="ml-2 text-neon-cyan underline" to={`/jobs/${recoveryJobId}`}>先查看此工作狀態</Link>，避免重複上傳。</p>}
 
                 {/* Upload Button */}
                 <button

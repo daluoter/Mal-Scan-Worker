@@ -7,13 +7,19 @@ from pathlib import Path
 
 import structlog
 
+from malscan_worker.budget import BudgetExceeded
 from malscan_worker.extractors.base import (
     ExtractedFile,
     ExtractionLimits,
     ExtractionResult,
     FormatHandler,
 )
-from malscan_worker.extractors.safety import remove_symlinks, safe_extract_path
+from malscan_worker.extractors.safety import (
+    check_stream_size,
+    remove_symlinks,
+    reserve_output,
+    safe_extract_path,
+)
 
 logger = structlog.get_logger(__name__)
 
@@ -54,7 +60,7 @@ class TarHandler(FormatHandler):
         try:
             with tarfile.open(str(file_path), "r:*") as tf:
                 total_bytes = 0
-                for member in tf.getmembers():
+                for member_index, member in enumerate(tf):
                     if not member.isfile():
                         continue
 
@@ -67,6 +73,10 @@ class TarHandler(FormatHandler):
                         warnings.append(f"Path traversal skipped: {member.name}")
                         continue
 
+                    target = safe_extract_path(str(extract_dir / str(member_index)), member.name)
+                    if target is None:
+                        continue
+
                     if member.size > limits.max_single_file_bytes:
                         warnings.append(
                             f"File too large, skipped: {member.name} ({member.size} bytes)"
@@ -77,6 +87,8 @@ class TarHandler(FormatHandler):
                         warnings.append("Max total extracted bytes reached")
                         break
 
+                    origin = f"{member_index}:{member.name}"
+                    reserve_output(limits, origin, member.size)
                     os.makedirs(os.path.dirname(target), exist_ok=True)
                     src = tf.extractfile(member)
                     if src is None:
@@ -88,6 +100,13 @@ class TarHandler(FormatHandler):
                             if not chunk:
                                 break
                             written += len(chunk)
+                            check_stream_size(
+                                limits,
+                                written=written,
+                                total=total_bytes,
+                                archive_size=file_path.stat().st_size,
+                            )
+                            reserve_output(limits, origin, written)
                             dst.write(chunk)
 
                     total_bytes += written
@@ -97,9 +116,20 @@ class TarHandler(FormatHandler):
                             original_name=os.path.basename(member.name),
                             size=written,
                             origin_path=member.name,
+                            occurrence_index=member_index,
                         )
                     )
 
+        except BudgetExceeded as exc:
+            if "target" in locals() and target is not None and os.path.exists(target):
+                os.remove(target)
+            return ExtractionResult(
+                files=files,
+                warnings=[*warnings, exc.reason],
+                archive_type="tar",
+                resource_limited=True,
+                limit_reason=exc.reason,
+            )
         except tarfile.TarError as e:
             warnings.append(f"Tar error: {e}")
         except Exception as e:

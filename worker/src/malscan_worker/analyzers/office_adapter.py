@@ -56,6 +56,8 @@ class OfficeAnalyzerAdapter(FormatAnalyzer):
             errors = []
         if stage_result.error:
             errors = [*errors, stage_result.error]
+        if findings.get("resource_limited"):
+            errors = [*errors, str(findings.get("limit_reason", "document_resource_limit"))]
         errors = self._unique_strings(errors)
 
         extracted_artifacts = findings.get("extracted_artifacts", [])
@@ -79,6 +81,8 @@ class OfficeAnalyzerAdapter(FormatAnalyzer):
             "macros": findings.get("macros", {}),
             "embedded_objects": embedded_objects,
             "parser_findings": parser_findings,
+            "resource_limited": bool(findings.get("resource_limited")),
+            "limit_reason": findings.get("limit_reason"),
         }
         heuristics = self._build_heuristics(findings, indicators)
 

@@ -64,7 +64,7 @@ async def test_run_pipeline_success(mocker, tmp_path):
     update_job_stage = mocker.patch(
         "malscan_worker.pipeline.update_job_stage", new_callable=AsyncMock
     )
-    mocker.patch("malscan_worker.pipeline.update_job_result", new_callable=AsyncMock)
+    mocker.patch("malscan_worker.pipeline.update_job_result_strict", new_callable=AsyncMock)
     mocker.patch(
         "malscan_worker.pipeline.get_job_for_context",
         new_callable=AsyncMock,
@@ -123,7 +123,7 @@ async def test_run_pipeline_stage_failure(mocker, tmp_path):
     )
     mocker.patch("malscan_worker.pipeline.update_job_status", new_callable=AsyncMock)
     mocker.patch("malscan_worker.pipeline.update_job_stage", new_callable=AsyncMock)
-    mocker.patch("malscan_worker.pipeline.update_job_result", new_callable=AsyncMock)
+    mocker.patch("malscan_worker.pipeline.update_job_result_strict", new_callable=AsyncMock)
     mocker.patch(
         "malscan_worker.pipeline.get_job_for_context",
         new_callable=AsyncMock,
@@ -183,7 +183,7 @@ async def test_run_pipeline_sets_root_artifact_context_before_stage_execution(mo
     )
     mocker.patch("malscan_worker.pipeline.update_job_status", new_callable=AsyncMock)
     mocker.patch("malscan_worker.pipeline.update_job_stage", new_callable=AsyncMock)
-    mocker.patch("malscan_worker.pipeline.update_job_result", new_callable=AsyncMock)
+    mocker.patch("malscan_worker.pipeline.update_job_result_strict", new_callable=AsyncMock)
     mocker.patch(
         "malscan_worker.pipeline.get_job_for_context",
         new_callable=AsyncMock,
@@ -365,7 +365,7 @@ def test_build_analysis_result_adds_score_trace_and_report_version():
 
     report = _build_analysis_result("job-1", "file-1", ctx, results, 123)
 
-    assert report["report_schema_version"] == "mswr-report-v2"
+    assert report["report_schema_version"] == "mswr-report-v3"
     assert report["risk"]["policy_version"] == POLICY_VERSION
     assert report["risk"]["score_trace"]["components"][0]["type"] == "evidence"
     evidence = report["risk"]["evidence"][0]
@@ -460,10 +460,6 @@ async def test_run_pipeline_defers_sandbox_and_keeps_job_scanning(mocker, tmp_pa
         "malscan_worker.pipeline.update_job_stage",
         new_callable=AsyncMock,
     )
-    update_result = mocker.patch(
-        "malscan_worker.pipeline.update_job_result",
-        new_callable=AsyncMock,
-    )
     update_result_strict = mocker.patch(
         "malscan_worker.pipeline.update_job_result_strict", new_callable=AsyncMock
     )
@@ -511,8 +507,8 @@ async def test_run_pipeline_defers_sandbox_and_keeps_job_scanning(mocker, tmp_pa
     )
 
     assert result["job_id"] == job_id
-    update_result.assert_not_awaited()
-    update_result_strict.assert_awaited_once()
+    # Every completed phase is persisted, followed by the final static report.
+    assert update_result_strict.await_count == 6
     update_status.assert_any_await(
         job_id,
         "scanning",
@@ -598,7 +594,7 @@ async def test_finalize_deferred_sandbox_job_reuses_persisted_sandbox_result(moc
 
     download_file.assert_not_awaited()
     execute_sandbox.assert_not_awaited()
-    update_result.assert_not_awaited()
+    update_result.assert_awaited_once_with("job-1", stored_report)
     update_artifact_risk.assert_awaited_once_with(
         artifact_id="artifact-1",
         verdict="suspicious",

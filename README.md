@@ -2,705 +2,163 @@
 
 # MalScanWorker
 
-惡意附件分析 Pipeline 系統
+以靜態分析為核心的檔案分析平台：上傳檔案，追蹤壓縮檔與嵌入子檔，取得包含偵測證據、來源關係、分析範圍與未完成原因的報告。自架部署可另外啟用 CAPE 動態分析；雲端 demo 使用相同靜態核心，以有限額度展示產品。
 
-## 架構
+**[開啟雲端 demo](https://malscan-v2-demo.pages.dev)** · [支援格式](docs/analysis-support.md) · [v2 架構](docs/v2-architecture.md) · [後續進度](docs/roadmap.md)
 
+## 目前里程碑
+
+**2026-10-15（Asia/Taipei）整理：v2 雲端完整流程首次驗收成功。** 實際執行於 2026-10-14 23:08–23:12（Asia/Taipei）。使用者從正式前端上傳 13 bytes 的 `hello.txt`，經 Cloudflare 控制層、無 Google 私鑰的派送服務、Cloud Run Job 與私有 R2，取得可下載的完整 JSON 靜態報告：`job_status=done`、`report_complete=true`、靜態分析完成、動態分析停用。
+
+這次 Cloud Run 執行從建立至完成約 **3 分 58 秒**，其中資源就緒至回報啟動約 **2 分 45 秒**，報告內分析時間約 **29.3 秒**。這是一次實測基準，並非速度承諾；畫面的「排隊」目前也涵蓋執行環境準備。
+
+先前 **20,000,000 bytes 上傳／R2 下載／掃描 PoC** 已完成，但它與新版完整應用驗收分開記錄。新版雲端的上限大小、巢狀不同密碼、斷線恢復、重送、到期清理及實際費用仍需逐項驗收。詳見[里程碑紀錄](docs/milestones/2026-10-15-cloud-demo.md)與[本機驗證](docs/v2-validation.md)。
+
+## 可以分析什麼
+
+| 能力 | 目前提供的結果 |
+| --- | --- |
+| 通用靜態分析 | 檔案型別與 hash、ClamAV、YARA、IOC、去混淆候選與啟發式證據 |
+| 格式分析 | Windows PE、Office OLE／OOXML／RTF、PDF、LNK、支援的 scripts；各格式深度不同 |
+| 遞迴子檔 | ZIP、7z、RAR、TAR、gzip、bzip2，以及支援的文件嵌入物件；保留原檔到子檔的來源樹 |
+| 密碼與續跑 | 支援封存格式的密碼補交、巢狀不同密碼、已完成 stage checkpoint 與累計提取預算 |
+| 可解釋報告 | 各階段狀態、工具／規則版本、直接與子檔風險來源、部分成果及未完成原因 |
+| 選用動態分析 | 自架串接真實 CAPEv2，將可取得的 process／file／registry／network 等證據補入報告 |
+
+報告將「已分析但未命中」、「工具失敗」、「無規則」、「等待密碼」、「超出預算」與「格式不支援」分開呈現。`complete` 表示該次宣告範圍已完成，沒有命中也不表示保證安全。
+
+加密 Office／PDF 解密、ISO 提取、ELF／Mach-O／郵件／APK 的專用深度分析尚未提供。RAR 能力取決於可用的外部解壓器；PDF 附件描述不代表附件已提取掃描。完整能力以[支援矩陣](docs/analysis-support.md)及每份報告的 coverage 為準。
+
+## 選擇執行方式
+
+| 模式 | 適合用途 | 需要的基礎設施 |
+| --- | --- | --- |
+| 雲端 demo | 直接試用有限額度的靜態分析 | 使用現有 [demo](https://malscan-v2-demo.pages.dev)，或依部署文件建立自己的環境 |
+| 自架靜態服務 | 自己的伺服器接收上傳、持續處理工作 | Docker Compose：API、Go Ingest、worker、PostgreSQL、RabbitMQ、MinIO、ClamAV、Nginx；前端另外啟動 |
+| 單次靜態 CLI | 本機分析、批次整合、容器工作與 checkpoint 恢復 | Linux、Python 及分析依賴；本機或 S3／R2 儲存，不需要 PostgreSQL／RabbitMQ |
+| 自架靜態＋動態 | 在靜態成果上加入真實行為證據 | 自架靜態服務，加上可用的 CAPE host、guest／snapshot 與隔離網路 |
+
+### 雲端 demo 架構
+
+```mermaid
+flowchart TD
+    Browser[瀏覽器／Cloudflare Pages] --> Control[Cloudflare Worker API]
+    Control --> State[SQLite Durable Object：工作／配額／派送身份]
+    Control --> Source[私有 R2：來源檔案]
+    Control --> Dispatch[Cloud Run dispatcher：HMAC 驗證／單次 claim]
+    Dispatch -->|執行身份的短效 Google 憑證| Job[Cloud Run Job：共用靜態核心]
+    Job --> Source
+    Job --> Results[私有 R2：報告／狀態／checkpoint]
+    Control --> Results
 ```
-User → GitHub Pages (React) → Nginx Reverse Proxy
-                                    │
-                         ┌──────────┴──────────┐
-                         │                      │
-                   POST /api/v1/files    GET /api/v1/**
-                         │                      │
-                         ▼                      ▼
-                Go Ingest Service         FastAPI (Backend)
-              (chi + pgx + minio-go        (SQLAlchemy + asyncpg)
-               + amqp091-go)                    │
-                    │                           │
-          ┌─────────┼─────────┐                 │
-          ▼         ▼         ▼                 │
-       MinIO   PostgreSQL  RabbitMQ             │
-      (檔案)    (metadata)    │                 │
-                              ▼                 │
-                         Worker(s) ◄────────────┘
-                      clamscan / yara CLI
-                              │
-                              ▼
-                     Supabase PostgreSQL
-                         (reports)
-```
 
-**資料流：**
-1. 使用者透過前端上傳檔案 → Nginx 依據路由分流
-2. **Go Ingest Service** 處理檔案上傳：存入 MinIO、寫入 job metadata 至 PostgreSQL、發布任務至 RabbitMQ
-3. **Worker(s)** 從 RabbitMQ 消費任務，執行 ClamAV / YARA / format-analysis / deobfuscation 等分析，計算目前 artifact 的 direct/local risk，並將報告寫回資料庫
-4. **FastAPI Backend** 提供 job 狀態查詢與報告取得 API，並在讀取 `/reports/{job_id}` 時做 descendant tree-aware risk rollup
+Worker 保存工作身份、單次上傳授權與額度；dispatcher 驗證簽章並原子取得派送 claim，再以自身 service account 的短效憑證啟動指定 Job。**Cloudflare 不保存 Google service account 私鑰**。來源與結果 bucket 不公開，瀏覽器以工作 capability 取得自己的狀態與報告。
 
-## 快速開始
+目前 demo 固定靜態分析，限制為：
 
-### 前置需求
+| 項目 | 目前設定 |
+| --- | --- |
+| 原檔大小 | 1–20,000,000 bytes |
+| 整棵樹累計提取 | 20 個檔案／100,000,000 bytes／深度 3 |
+| 分析時間窗／Cloud Run task timeout | 840 秒／900 秒 |
+| 新工作額度 | 每日 10 個 |
+| 執行額度 | 每日 20 次、每月 40 次；包含密碼續跑與結果不確定的派送 |
+| 資料保留 | 設定為 24 小時，實際到期清理仍列入雲端驗收 |
 
-- VirtualBox + Ubuntu Server VM（用於 k3s）
-- [Supabase](https://supabase.com/) 專案（免費方案即可）
-- GitHub 帳號（用於 GHCR 和 GitHub Pages）
+免費額度是 demo 的成本目標，**不保證帳單為零**；Cloud Run、建置與映像、Secret Manager、儲存及日誌都需要成本觀察。產品的自架能力不受 demo 額度限制。
 
-> ⚠️ **VirtualBox 網路設定注意事項**
->
-> VirtualBox 預設使用 NAT 模式，這會導致外部無法連線到 VM（包括 `http://VM_IP:30080`）。
->
-> **解決方法：** 將 VirtualBox 網路介面卡改為「**Bridged Adapter（橋接介面卡）**」
->
-> 設定步驟：VM 設定 → 網路 → 介面卡 1 → 附加到：選擇「Bridged Adapter」
+操作時請使用正式 [Pages 網址](https://malscan-v2-demo.pages.dev)，保留上傳時的瀏覽器分頁。capability 存在該分頁的 `sessionStorage`；重新整理可保留，關閉分頁通常會失去存取權。遇到回應遺失，先查看既有工作，避免重複上傳。
 
----
+建立自己的雲端環境請閱讀 [Cloud Run 部署](deployment/cloud-run/README.md)、[keyless dispatcher](deployment/dispatcher/README.md)、[Cloudflare 控制層](deployment/cloudflare/README.md)及[前端 build](frontend/README.md)。現有 demo 前端使用 Cloudflare Pages；既有 GitHub Pages workflow 是另一條部署路徑，須明確設定 `ENABLE_GITHUB_PAGES_DEPLOY=true` 才會發布。
 
-## 完整部署步驟
+### 自架靜態服務：本機快速開始
 
-### 1. Fork/Clone 專案
+需要 Git、Docker Compose v2，以及啟動前端用的 Node.js／npm。以下採用 Compose 的本機開發預設，不需要 Supabase、Kubernetes 或沙箱 VM。
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/MalScanWorker.git
+git clone https://github.com/daluoter/MalScanWorker.git
 cd MalScanWorker
+docker compose up -d --build
+docker compose ps
 ```
 
-### 2. 設定 GitHub Repository
+新安裝由 API 建立資料表。若根目錄已有 `.env`，請先檢查 `DATABASE_URL`：Compose 容器應連到 `postgres:5432`，不是容器內的 `localhost`。`.env.example` 是設定欄位參考，不能直接將其主機位址與 placeholder 密碼用於這段 Compose 快速開始。
 
-#### 2.1 啟用 GitHub Pages
-1. 前往 repo **Settings** → **Pages**
-2. **Source** 選擇 **GitHub Actions**
-
-#### 2.2 設定 Repository Variables
-前往 **Settings** → **Secrets and variables** → **Actions** → **Variables**
-
-新增以下變數：
-| 變數名稱 | 值範例 |
-|----------|--------|
-| `API_BASE_URL` | `http://YOUR_VM_IP:30080` |
-
-### 3. 設定 k3s 環境（VM 內）
+在另一個終端機啟動前端：
 
 ```bash
-# 安裝 k3s
-curl -sfL https://get.k3s.io | sh -
-
-# 驗證安裝
-sudo kubectl get nodes
+cd MalScanWorker/frontend
+npm ci
+VITE_BASE_PATH=/ VITE_API_BASE_URL=http://localhost:8000 npm run dev
 ```
 
-### 4. 建立 Docker Images
+開啟 `http://localhost:5173`；API 經 Nginx 位於 `http://localhost:8000`。首次 ClamAV 準備病毒庫可能需要等待。Compose 預設停用動態分析；目前服務的帳密與開放連接埠供本機開發，對外部署前應自行配置存取控制與正式憑證。
 
-專案已配置 GitHub Actions 自動建構並推送到 GHCR。
-你只需要確保 CI/CD 通過，images 會自動建立在：
-- `ghcr.io/YOUR_USERNAME/malscan-api:latest`
-- `ghcr.io/YOUR_USERNAME/malscan-worker:latest`
-- `ghcr.io/YOUR_USERNAME/malscan-ingest:latest`
+更新既有資料庫前先備份，停止舊 worker，使用指向該資料庫的 `DATABASE_URL`，從 `backend` 目錄執行 `poetry run alembic upgrade head`，再啟動新版服務。migration 位於 [backend/alembic](backend/alembic)；舊資料表不會僅因新模型加入欄位就完整升級。
 
-#### 手動建構（可選）
-```bash
-# Backend API
-cd backend
-docker build -t ghcr.io/YOUR_USERNAME/malscan-api:latest .
-docker push ghcr.io/YOUR_USERNAME/malscan-api:latest
+### 單次靜態 CLI 與密碼續跑
 
-# Worker（從專案根目錄建構）
-cd ..
-docker build -f worker/Dockerfile -t ghcr.io/YOUR_USERNAME/malscan-worker:latest .
-docker push ghcr.io/YOUR_USERNAME/malscan-worker:latest
+需要 Linux、Python 3.11+、Poetry，以及 libmagic／ClamAV 等原生依賴；RAR 另需解壓工具。以下假設本機 `clamscan` 已安裝並有有效病毒庫；若缺少工具或規則，報告會留下未完成原因。
 
-# Ingest (Go)
-cd ingest
-docker build -t ghcr.io/YOUR_USERNAME/malscan-ingest:latest .
-docker push ghcr.io/YOUR_USERNAME/malscan-ingest:latest
-```
-
-### 5. 部署到 k3s
-
-#### 5.1 建立 Namespace
-```bash
-sudo kubectl apply -f k8s/namespace.yaml
-```
-
-#### 5.2 建立 Secrets
-```bash
-sudo kubectl create secret generic malscan-secrets \
-  --namespace=malscan \
-  --from-literal=DATABASE_URL="postgresql://postgres:YOUR_PASSWORD@YOUR_SUPABASE_HOST:5432/postgres" \
-  --from-literal=MINIO_ACCESS_KEY="minioadmin" \
-  --from-literal=MINIO_SECRET_KEY="YOUR_MINIO_SECRET" \
-  --from-literal=RABBITMQ_URL="amqp://guest:guest@rabbitmq:5672/"
-```
-
-#### 5.3 建立資料目錄（在 k3s 節點上）
-```bash
-# MinIO 和 RabbitMQ 需要持久化儲存
-sudo mkdir -p /data/malscan/minio
-sudo mkdir -p /data/malscan/rabbitmq
-sudo chmod 777 /data/malscan/minio /data/malscan/rabbitmq
-```
-
-#### 5.4 修改 k8s manifests（替換 OWNER）
-編輯以下檔案，將 `OWNER` 替換為你的 GitHub 帳號：
-- `k8s/api/deployment.yaml`
-- `k8s/worker/deployment.yaml`
-- `k8s/ingest/deployment.yaml`
-
-```bash
-# 使用 sed 批次替換
-sed -i 's/OWNER/YOUR_USERNAME/g' k8s/api/deployment.yaml
-sed -i 's/OWNER/YOUR_USERNAME/g' k8s/worker/deployment.yaml
-sed -i 's/OWNER/YOUR_USERNAME/g' k8s/ingest/deployment.yaml
-```
-
-#### 5.5 部署所有資源
-```bash
-# 1. 建立 namespace 和 configmap
-sudo kubectl apply -f k8s/namespace.yaml
-sudo kubectl apply -f k8s/configmap.yaml
-
-# 2. 建立 PersistentVolume（需要在 namespace 建立前）
-sudo kubectl apply -f k8s/minio/pv.yaml
-sudo kubectl apply -f k8s/rabbitmq/pv.yaml
-
-# 3. 部署基礎服務
-sudo kubectl apply -f k8s/minio/pvc.yaml
-sudo kubectl apply -f k8s/minio/deployment.yaml
-sudo kubectl apply -f k8s/rabbitmq/pvc.yaml
-sudo kubectl apply -f k8s/rabbitmq/deployment.yaml
-
-# 4. 部署應用服務
-sudo kubectl apply -f k8s/yara-rules/
-sudo kubectl apply -f k8s/ingest/
-sudo kubectl apply -f k8s/api/
-sudo kubectl apply -f k8s/worker/
-sudo kubectl apply -f k8s/nginx/
-```
-
-預設 Kubernetes 部署僅執行靜態分析：`k8s/configmap.yaml` 將 `SANDBOX_ENABLED` 設為 `false`，因此 sandbox stage 會略過，不會執行 mock 或等待動態分析。選用的 CAPE 動態分析需要使用者自行提供 CAPE 基礎設施，並另外部署會消費 sandbox queue 的 sandbox worker；本 Kubernetes manifests 不包含該 consumer Deployment。
-
-#### 5.6 驗證部署
-```bash
-sudo kubectl get pods -n malscan
-sudo kubectl get svc -n malscan
-```
-
-### 6. 存取服務
-
-| 服務 | URL |
-|------|-----|
-| 前端 | https://YOUR_USERNAME.github.io/MalScanWorker/ |
-| API | http://VM_IP:30080 |
-| MinIO Console | http://VM_IP:NodePort (查 `kubectl get svc`) |
-| RabbitMQ Management | http://VM_IP:NodePort |
-
-### 7. 使用 Cloudflare Tunnel 連通前後端
-
-> ⚠️ **為什麼需要這個？**
->
-> GitHub Pages 使用 HTTPS，而瀏覽器的安全策略（Mixed Content）會阻止從 HTTPS 頁面向 HTTP API 發送請求。
-> 使用 Cloudflare Tunnel 可以免費為你的 VM API 提供 HTTPS 端點。
-
-#### 7.1 安裝 cloudflared（在 VM 內）
-
-```bash
-# Debian/Ubuntu
-curl -L --output cloudflared.deb https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
-sudo dpkg -i cloudflared.deb
-
-# 或使用 snap
-sudo snap install cloudflared
-```
-
-#### 7.2 啟動 Quick Tunnel
-
-```bash
-# 將 30080 替換為你的 API NodePort
-sudo cloudflared tunnel --url http://localhost:30080
-```
-
-成功後會顯示類似以下的公開 URL：
-```
-Your quick Tunnel has been created! Visit it at:
-https://random-words-here.trycloudflare.com
-```
-
-> 💡 **注意：** Quick Tunnel 每次重啟 URL 都會改變。如果需要固定 URL，請參考 [Named Tunnels](https://developers.cloudflare.com/cloudflare-one/connections/connect-apps/)。
-
-#### 7.3 更新 GitHub Repository Variables
-
-1. 前往 repo **Settings** → **Secrets and variables** → **Actions** → **Variables**
-2. 編輯 `API_BASE_URL` 變數，將值改為 Cloudflare Tunnel 提供的 HTTPS URL：
-   ```
-   https://random-words-here.trycloudflare.com
-   ```
-   > ⚠️ **注意：** URL 末尾**不要**加斜杠 `/`
-
-#### 7.4 重新部署前端
-
-觸發 GitHub Pages 重新部署（以下任一方式）：
-- 推送任何 commit 到 `main` 分支
-- 前往 **Actions** → **Frontend Deploy** → **Run workflow**
-
-#### 7.5 驗證連通
-
-1. 打開 https://YOUR_USERNAME.github.io/MalScanWorker/
-2. 上傳一個測試檔案
-3. 應該看到上傳成功並進入分析進度頁面
-
-> 🔍 **除錯提示：** 如果遇到問題，打開瀏覽器 DevTools (F12) → Network 標籤，檢查 API 請求的 URL 和響應。
-
----
-
-## 本機開發
-
-開發時，我們需要兩個部分：
-1. **基礎設施（Infra）**：PostgreSQL, MinIO, RabbitMQ, ClamAV
-2. **應用程式（App）**：前端、Ingest 服務、後端 API、Worker
-
-> ⚠️ **避免「幽靈消費者」問題 (Ghost Consumer)**
->
-> 如果你打算使用 `poetry run` 在本機啟動 Worker 進行開發除錯，**絕對不要**使用 `docker compose up -d` 啟動全部服務！
-> 因為 `docker-compose.yml` 中也包含了一個 `worker` 服務，若同時啟動，會導致 RabbitMQ 上出現兩個 consumers，造成部分任務被 Docker 中的舊版 Worker 搶走，導致分析結果異常。
->
-> **正確的做法**：只啟動基礎設施容器，然後在本機手動啟動應用程式。
-
-### 1. 啟動基礎設施 (PostgreSQL, MinIO, RabbitMQ, ClamAV)
-
-在專案根目錄執行，僅啟動所需的基礎設施，**不啟動** API、Ingest 和 Worker：
-
-```bash
-docker compose up -d postgres minio rabbitmq clamav
-```
-
-### 2. 設定環境變數 (`.env`)
-
-後端與 Worker 需要連線至本機建立的基礎設施。請切換目錄建立對應的 `.env` 檔案：
-
-#### Backend (`backend/.env`)
-```bash
-cd backend
-cat <<EOF > .env
-DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/malscan
-MINIO_ENDPOINT=localhost:9000
-MINIO_ACCESS_KEY=minioadmin
-MINIO_SECRET_KEY=minioadmin
-RABBITMQ_URL=amqp://guest:guest@localhost:5672/
-EOF
-```
-
-#### Worker (`worker/.env`)
-```bash
-cd ../worker
-cat <<EOF > .env
-DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/malscan
-MINIO_ENDPOINT=localhost:9000
-MINIO_ACCESS_KEY=minioadmin
-MINIO_SECRET_KEY=minioadmin
-RABBITMQ_URL=amqp://guest:guest@localhost:5672/
-RABBITMQ_SANDBOX_QUEUE=malscan.jobs.sandbox
-CLAMAV_HOST=localhost
-CLAMAV_PORT=3310
-SANDBOX_PROVIDER=mock
-SANDBOX_BASE_URL=
-SANDBOX_API_TOKEN=
-SANDBOX_TIMEOUT_SECONDS=900
-SANDBOX_POLL_INTERVAL_SECONDS=10
-SANDBOX_ENABLE_URL_SUBMISSION=false
-EOF
-```
-
-> `SANDBOX_MOCK` 仍保留為相容性 fallback，但新的主要設定方式是 `SANDBOX_PROVIDER`。若要接 CAPEv2，請將 `SANDBOX_PROVIDER` 設為 `capev2` 並補上 `SANDBOX_BASE_URL`。
-
-#### Ingest (`ingest/.env`)
-```bash
-cd ../ingest
-cat <<EOF > .env
-LISTEN_ADDR=:8080
-DATABASE_URL=postgres://postgres:postgres@localhost:5432/malscan?sslmode=disable
-MINIO_ENDPOINT=localhost:9000
-MINIO_ACCESS_KEY=minioadmin
-MINIO_SECRET_KEY=minioadmin
-MINIO_USE_SSL=false
-MINIO_BUCKET=uploads
-RABBITMQ_URL=amqp://guest:guest@localhost:5672/
-EOF
-```
-
-> 💡 資料庫表格會在後端和 Worker 啟動時自動建立，無需手動執行 migration。
-
-### 3. 啟動前端
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-### 4. 啟動 Ingest 服務 (Go)
-```bash
-cd ingest
-go run ./cmd/ingest
-```
-
-Ingest 預設每分鐘允許 **6 次上傳**，突發上限為 **2 次**。可透過 `UPLOAD_RATE_LIMIT_ENABLED`、`UPLOAD_RATE_LIMIT_RPM` 和 `UPLOAD_RATE_LIMIT_BURST` 設定。此記憶體內限制適用於單一 ingest 程序；多個 replicas 各自使用獨立的 token bucket。若需要整個叢集共用限制，請使用分散式或邊緣限流。
-
-可選的伺服器端 Bearer 認證預設停用 (`UPLOAD_AUTH_ENABLED=false`)，啟用後只保護 Go Ingest 的 `POST /api/v1/files`。在 ingest 服務端設定以下環境變數，並將範例值替換成安全提供的金鑰（不要提交真實金鑰）：
-```bash
-UPLOAD_AUTH_ENABLED=true
-UPLOAD_API_KEY=REPLACE_WITH_GENERATED_64_HEX_CHARACTERS
-```
-使用 `openssl rand -hex 32` 產生金鑰。可信任的用戶端以標準 Bearer 標頭上傳：
-```bash
-export UPLOAD_API_KEY='<securely supplied server key>'
-curl -X POST http://localhost:8080/api/v1/files \\
-  -H "Authorization: Bearer ${UPLOAD_API_KEY}" \\
-  -F 'file=@sample.bin'
-```
-**重要：不要將金鑰放進任何 `VITE_*` 變數、前端程式碼、瀏覽器或 GitHub Pages；前端建置內容是公開的，不能保密。此功能刻意沒有前端整合；請勿將伺服器金鑰提供給瀏覽器。**
-
-### 5. 啟動後端
-```bash
-cd backend
-poetry install
-poetry run uvicorn malscan.main:app --reload
-```
-
-### 6. 啟動 Worker
 ```bash
 cd worker
 poetry install
-poetry run python -m malscan_worker.main
-poetry run python -m malscan_worker.sandbox_main
+export CLAMAV_MODE=cli
+export YARA_RULES_PATH="$PWD/rules"
+
+poetry run python -m malscan_worker.runtime --file /path/sample.zip --output-dir /path/analysis
+# 中斷後沿用來源、output-dir 與保留的 checkpoint
+poetry run python -m malscan_worker.runtime --file /path/sample.zip --output-dir /path/analysis --resume
+# 根壓縮檔密碼透過隱藏提示輸入
+poetry run python -m malscan_worker.runtime --file /path/sample.zip --output-dir /path/analysis --resume --ask-password
 ```
 
-### 📦 測試完整容器化環境（Docker Compose）
+內層不同密碼使用 `--password-artifact ARTIFACT_ID` 指定等待中的子檔；不要將密碼放進命令列。退出成功只表示結果已保存，請查看輸出的 `batch_analysis` 與 `report.json`。
 
-若你完成開發，想在本機以 **完整容器化** 的方式測試整個系統：
+CLI 預設提取上限為 100 檔／500,000,000 bytes／深度 3，每次 attempt 時間窗 3,600 秒；可用 `--max-files`、`--max-expanded-bytes`、`--max-depth`、`--attempt-timeout` 調整。恢復保留整棵樹的累計額度，不會重新發一份提取預算。S3／R2 adapter 與私有簽章 checkpoint 用法見 [Cloud Run 文件](deployment/cloud-run/README.md)。
 
-1. **請先確保關閉**所有本機正在運行的 `poetry run` 和 `go run`（API、Ingest 和 Worker），以避免潛在的連線或消費者衝突。
-2. 執行以下指令，強制重新編譯修改過的 Worker、API 和 Ingest image，確保容器使用的是最新的程式碼：
+### 自架動態分析：配置後一個命令啟用
+
+先準備容器可連線的 CAPE host、API 權限、分析 guest／snapshot 與隔離網路，在根目錄 `.env` 設定：
+
+```dotenv
+SANDBOX_ENABLED=true
+SANDBOX_PROVIDER=capev2
+SANDBOX_BASE_URL=https://cape.example.internal
+SANDBOX_API_TOKEN=REPLACE_WITH_YOUR_CAPE_TOKEN
+```
 
 ```bash
-# 在專案根目錄下
-docker compose up -d --build
+scripts/enable-sandbox.sh
 ```
 
-此指令使用預設 Compose 設定：啟動靜態掃描 worker，但不啟動選用的 `sandbox-worker`。動態沙箱的啟動方式請參考下方「動態沙箱整合」中的 Docker Compose 說明。
+腳本先透過唯讀 `/apiv2/machines/list/` 檢查 API 與未鎖定 guest，再啟動一般 worker 和 sandbox worker。**它不安裝 CAPE、不建立 VM，也不驗證 guest 開機或 snapshot 還原**。本機 HTTP fixture 已驗證串接與恢復；真實 CAPE detonation 尚待外部驗收。
 
----
+靜態報告可先閱讀，動態結果之後補入。provider 失敗會保留 `failed`／`unavailable`，不改用 mock；提交結果不確定時要求 reconciliation，避免盲目重送。mock 僅供明確選擇的開發測試，合成結果不當成真實行為。恢復與多 task 限制見 [v2 架構](docs/v2-architecture.md)。
 
-## 密碼保護與遞迴壓縮檔分析
+## 報告、規則與病毒庫
 
-當上傳的壓縮檔需要密碼時，系統會先進入密碼流程；密碼正確後，會啟動遞迴解壓與子檔案分析。
+報告契約為 `report_schema_version=mswr-report-v3`、`analysis.schema_version=mswr-analysis-v1`，分別記錄 `static`／`dynamic` 狀態。artifact tree、stage coverage、風險證據與可取得的工具版本共同說明這次實際分析到哪裡；支援 JSON 下載及可閱讀的部分成果。
 
-### 支援格式
-- **Archive:** ZIP、7z、RAR、TAR、GZIP、BZ2
-- **ISO:** 目前保留為 stub（尚未啟用實際解壓）
+| 里程碑報告中的資訊 | 意義 |
+| --- | --- |
+| YARA `4.5.4` | `yara-python` 工具版本，不是規則版本 |
+| YARA 規則 SHA256 | 識別本次載入的規則內容；目前內建 [5 個檔案、15 條規則](worker/rules)，是基礎規則集 |
+| ClamAV `1.4.3` | 該次雲端映像使用的防毒引擎版本 |
+| 資料庫 `28153`、`2026-10-14 06:24:15` | 該次資料庫序號與產生時間，不表示永遠是官方最新版 |
 
-### 支援的加密方式
-- **ZIP:** ZipCrypto / AES-256（WZ_AES）
-- **7z:** AES-256
-- **RAR:** AES-128 / AES-256
+雲端映像在**建置時**更新 ClamAV 簽章，每次掃描不下載病毒庫；目前有七天 freshness guard，超齡會讓防毒階段回報失敗。**自動每日重建／更新尚未完成**。Compose 則以獨立 ClamAV 服務運作，預設啟用其更新器。擴充 YARA 規則時也需處理授權、來源、版本、誤報與效能，而不只是增加規則數量。
 
-### 使用流程
-1. 上傳有密碼的壓縮檔 → 系統自動偵測並進入 `password_required`
-2. 在工作狀態頁輸入密碼 → 系統重新嘗試解壓並繼續分析
-3. 密碼正確後，Worker 會為衍生檔建立 artifact 記錄並派送 sub-job（遞迴分析）
-4. 若 dedup 命中舊檔但 MinIO 物件已被 lifecycle 清除，系統會自動補傳，避免子任務 `NoSuchKey`
-5. 最多可重試 **3 次**
-   - 密碼正確：正常解壓並分析內部檔案
-   - 3 次皆錯誤：產生最終報告，明確標示「解壓縮失敗」
+## 開發、驗證與後續工作
 
-### 報告與導覽行為
-- 主報告會等整個 descendant job tree 完成後才顯示
-  - 若仍有子任務進行中，`GET /api/v1/reports/{job_id}` 會回傳 `409`
-  - 前端會顯示等待中狀態並自動輪詢，不會提早顯示未完成報告
-  - 回傳的最終 `score` / `risk_level` / `risk` 會反映整棵 artifact tree 的 rollup 結果，不只是一層 local scan
-- 解壓成功：報告顯示解壓資訊（檔案數、子任務數、解壓總大小）
-- 解壓失敗：報告顯示紅色橫幅提示
-- 若密碼連續錯誤 3 次，最終報告會保留 `verdict = "unknown"`，並附帶保守的零分 `risk` 區塊，避免把未完成分析誤標為 `clean`
-- 子檔案的 Job/Report 頁面提供「返回上一層分析」入口
+| 位置 | 用途 |
+| --- | --- |
+| [frontend](frontend) | React／TypeScript 前端；self-host 與 cloud-demo transport |
+| [backend](backend)、[ingest](ingest) | 自架 FastAPI 查詢／報告 API 與 Go streaming 上傳 |
+| [worker](worker) | 共用靜態 stages、遞迴提取、portable runtime、CAPE adapter |
+| [deployment](deployment) | Cloudflare、Cloud Run Job 與 keyless dispatcher 部署 |
+| [k8s](k8s)、[GitHub Actions](.github/workflows) | 既有 Kubernetes 範例與 CI／映像／前端 workflows；與現有雲端 demo 分開維護 |
 
----
+本機已驗證 backend／worker／frontend 測試、真 PostgreSQL 預算與 attempt、真 ZIP／7z 不同密碼恢復、完整容器／S3 checkpoint，以及 Worker 與 Python dispatcher 的 HTTP 串接。測試數量、命令與證據邊界見[驗證紀錄](docs/v2-validation.md)；它們不取代 live provider 或實際帳單驗收。
 
-## 格式專用分析器架構（Phase 1）
-
-Worker 新增了 `format-analysis` 階段，提供格式專用（format-specific）分析能力，補足先前主要依賴 generic 掃描（ClamAV/YARA/regex IOC）的可見性缺口。
-
-### AnalyzerRegistry 是什麼
-
-`AnalyzerRegistry` 是一個「第一個匹配就採用」的分析器註冊與分派器：
-
-- 使用 `file-type` 階段產生的 MIME 與檔案 magic bytes 判斷
-- 依照固定順序選擇可處理該檔案的 analyzer
-- 維持可插拔擴充模式，後續可持續新增格式分析器
-
-目前預設順序：
-
-1. `PEAnalyzer`
-2. `OfficeAnalyzerAdapter`
-3. `PDFAnalyzer`
-4. `LNKAnalyzer`
-5. `ScriptAnalyzer`
-
-### 本階段已支援格式
-
-- PE（EXE/DLL）
-- Office（RTF/OLE/OOXML）
-- PDF
-- LNK
-- Script（PowerShell / JavaScript / VBScript / Batch / HTA）
-
-### DocumentAnalysisStage 的整合方式
-
-既有 `DocumentAnalysisStage` 並未拆解重寫，而是透過 `OfficeAnalyzerAdapter`（adapter/shim）包裝進新架構：
-
-- 保留既有 Office 深度分析邏輯
-- 將舊 findings 轉換成統一 `AnalyzerResult`
-- 讓 Office 能與 PE/PDF/LNK/Script 共用同一套格式分析輸出與評分流
-
-### 行為與設定變更
-
-- Pipeline 流程變更為：
-  - 平行靜態階段（file-type/clamav/yara/ioc-extract）
-  - `format-analysis`
-  - 後續序列階段（archive-extract/sandbox）
-- 報告新增 `results.format_analysis` 區塊
-- `results.document_analysis` 暫時保留（向後相容）
-- 格式分析階段可提交抽取 artifacts 並建立 sub-job
-- 遞迴提交沿用 max depth 保護機制，避免無限擴張
-
-### 結構化 Heuristics 輸出
-
-- `AnalyzerResult` 與 `results.format_analysis` 現在會保留 `heuristics` 陣列
-- 每筆 heuristic 會帶出 `key`、`category`、`scope`、`role`、`severity`、`confidence`、`summary`、`evidence`、`tags`
-- 目前已覆蓋 PE、PDF、Office、LNK、Script 等可解釋的靜態 heuristic
-- `archive-extract` 也會輸出 `archive_summary` 與 `heuristics`，涵蓋可執行檔集中、密碼保護、path traversal、深層巢狀等 archive signals
-
-### 本階段刻意不做
-
-- 不重構 `DocumentAnalysisStage` 內部為原生 Office analyzer（僅 adapter）
-- 不做 PDF JS 模擬/深度去混淆
-- 不做完整 LNK ExtraData 生態解析
-- 不做 Script AST/符號執行等進階語意分析
-- 不做跨格式關聯偵測（例如 LNK -> Script -> Downloader 鏈）
-
-### 限制與後續工作
-
-- 部分第三方 parser 屬 optional dependency，缺失時採 graceful degradation
-- 規則偏重可解釋性的 heuristic；後續可持續校準誤報/漏報
-- 可進一步加入跨格式關聯與 threat-intel enrichment
-
----
-
-## 多訊號風險評分與報告欄位
-
-系統現在使用 evidence-driven 的多訊號風險評分，取代舊的單薄 `verdict/score` 判定。
-
-### 風險計算流程
-
-- Worker 在 job 完成時，只計算當前 artifact 的 direct/local risk
-- Backend 在 `GET /api/v1/reports/{job_id}` 且所有 descendants 完成後，使用同一套 scoring policy 做 canonical tree-aware rollup
-- 這樣可以避免 parent job 太早完成，導致 parent risk 沒有反映後續子檔案結果
-
-### 主要訊號來源
-
-- ClamAV signature
-- YARA metadata-based classification
-- raw IOC extraction
-- `format-analysis` structured indicators
-- `format-analysis` / `archive-extract` structured heuristics
-- deobfuscation evidence
-- sandbox behaviors
-- descendant inheritance（由 backend rollup）
-
-### Heuristic Evidence 正規化
-
-- Backend 會先將 `format-analysis` 與 `archive-extract` 的 `heuristics` 正規化成 scoring evidence，再回退到 legacy indicators / `risk_score`
-- Heuristic evidence 會依 family cap 分組限制權重，避免單一格式或單一類型 signals 過度放大最終分數
-- 目前包含 `entropy`、`packer`、`api`、`structure`、`resource`、`script`、`lolbin`、`archive` 等 cap families
-
-### 報告相容欄位
-
-- top-level `verdict` 仍保留為 legacy compatibility 欄位
-- top-level `score` 仍保留為 legacy-compatible alias（對應最終 `risk_score`）
-- compatibility mapping:
-  - `clean -> clean`
-  - `low / medium / high -> suspicious`
-  - `malicious -> malicious`
-
-### 新增風險欄位
-
-- top-level `risk_level`: `clean | low | medium | high | malicious`
-- top-level `risk` 區塊包含：
-  - `policy_version`
-  - `risk_score`
-  - `risk_level`
-  - `legacy_verdict`
-  - `malicious_gate_open`
-  - `high_gate_open`
-  - `independent_source_count`
-  - `breakdown`
-  - `evidence`
-  - `top_evidence`
-  - `descendant_summary`
-
-### Artifact Tree 風險欄位
-
-- `artifact_tree` 節點現在會帶出：
-  - `verdict`
-  - `score`
-  - `risk_level`
-  - `policy_version`
-- root `artifact_tree` node 會與頂層最終 report risk 保持一致，避免同一份報告內 root node 與 top-level verdict/risk 不一致
-
----
-
-## Explainability v2 與繁中介面
-
-系統目前已將報告 explainability 區塊升級為 additive `mswr-report-v2` 合約，並維持既有 `GET /api/v1/reports/{job_id}` 相容欄位不變。
-
-### Explainability v2 重點
-
-- 保留既有 top-level `verdict`、`score`、`risk_level`
-- 保留 `risk.policy_version`、`risk.breakdown`、`risk.evidence`、`risk.top_evidence`、`risk.descendant_summary`
-- 保留 `results.*`
-- 保留 `artifact_tree`
-- 新增 `report_schema_version`
-- 新增 `risk.score_trace`
-- 新增 `explainability.summary`、`explainability.findings`、`explainability.iocs`、`explainability.decoded_strings`、`explainability.timeline`、`explainability.failure_diagnostics`
-
-### Root artifact 與 tree-aware 報告
-
-- 每份報告都會有 canonical root artifact
-- 若是舊資料缺少 root artifact，backend 會在回傳報告時補上 synthetic root
-- root report 的風險會反映整棵 descendant artifact tree，而不只是一層 local scan
-
-### 報告內容與 UI 語系
-
-- 前端報告頁、工作狀態頁、上傳頁的主要使用者可見文字已統一為繁體中文
-- backend/worker 直接產生的 explainability 摘要、timeline、failure diagnostics 等文案也已改為繁體中文
-- 這樣可避免只靠前端翻譯層維護，讓 API 與 UI 顯示內容保持一致
-
-### 密碼耗盡情境
-
-- 若封存檔連續 3 次密碼錯誤，worker 會產生 `verdict = "unknown"`、`risk_score = 0` 的保守報告
-- `results.archive_extract.reason` 與 `explainability.failure_diagnostics` 會明確標示為密碼耗盡造成的分析阻斷
-- 這類報告會明確說明只覆蓋最外層檔案，避免把未完成分析誤解為乾淨樣本
-
----
-
-## 動態沙箱整合
-
-系統現在支援 provider-based sandbox integration，並以「最小破壞、最大可用」方式將長時間 detonation 與原本靜態 worker 解耦。
-
-### 為什麼採 dedicated sandbox queue / worker
-
-- 靜態 worker 先完成既有 static/recursive stages，再把 detonation 工作送到 `malscan.jobs.sandbox`
-- 原本 job 會暫時維持 `status = scanning`、`current_stage = sandbox_pending`
-- 專用 `sandbox-worker` 完成 detonation 後，回填 `results.sandbox`、重算 direct risk、再把 job 標記為 `done`
-- 這樣 CAPE 延遲或不穩定時，不會卡住原本的靜態掃描吞吐量
-
-### 新增環境變數
-
-- `SANDBOX_PROVIDER=mock|capev2`
-- `SANDBOX_BASE_URL`
-- `SANDBOX_API_TOKEN`
-- `SANDBOX_TIMEOUT_SECONDS`
-- `SANDBOX_POLL_INTERVAL_SECONDS`
-- `SANDBOX_ENABLE_URL_SUBMISSION`
-- `RABBITMQ_SANDBOX_QUEUE`（預設 `malscan.jobs.sandbox`）
-
-### 支援的 provider
-
-- `mock`
-  - 用於開發、測試、或 provider unavailable fallback
-- `capev2`
-  - 支援 file submission
-  - 支援 URL submission（需 `SANDBOX_ENABLE_URL_SUBMISSION=true`）
-  - 支援 task polling
-  - 支援 normalized report fetch
-  - 支援 screenshots / pcap / dropped files / memory metadata 的 best-effort refs
-
-### `results.sandbox` 合約
-
-為了保持向後相容，原本欄位仍保留：
-
-- `behaviors`
-- `network_connections`
-- `is_mock`
-
-同時新增 additive 欄位：
-
-- `executed`
-- `provider`
-- `task_id`
-- `verdict_hint`
-- `processes`
-- `files`
-- `registry`
-- `mutexes`
-- `dns`
-- `http`
-- `tcp_udp`
-- `dropped_files`
-- `screenshots`
-- `pcap`
-- `memory_dump`
-- `iocs`
-- `errors`
-- `raw_report_ref`
-
-### 失敗處理與 fallback
-
-- CAPEv2 HTTP 呼叫會使用 bounded retries
-- detonation polling 受 `SANDBOX_TIMEOUT_SECONDS` 限制
-- provider 連續失敗會觸發 in-process circuit breaker
-- provider unavailable、queue publish 失敗、或 CAPE request/report 失敗時，系統會 fallback 到 `mock`，並把原因寫入 `results.sandbox.errors`
-- 若 sandbox-worker 在 provider fallback 之前就因下載、資料庫更新、或其他基礎設施錯誤失敗，job 仍可能重試或最終進入 `failed`；這類情況不保證一定會 mock-finalize
-
-### Docker Compose
-
-- **免費／僅靜態掃描（預設）**：執行 `docker compose up -d`。一般 `worker` 會處理靜態/遞迴分析；`SANDBOX_ENABLED` 預設為 `false`，且不會啟動 `sandbox-worker`。
-- **選用動態沙箱**：在專案根目錄的 `.env` 設定下列值，並以自己的 CAPEv2 動態分析基礎設施提供可連線的 endpoint 和 API token（Compose 不會建立或代管這些基礎設施）：
-
-  ```dotenv
-  SANDBOX_ENABLED=true
-  SANDBOX_PROVIDER=capev2
-  SANDBOX_BASE_URL=<your CAPEv2 endpoint>
-  SANDBOX_API_TOKEN=<your CAPEv2 API token>
-  ```
-
-  請將 endpoint 和 token placeholder 換成你自行提供的值，再執行 `docker compose --profile sandbox up -d`。這會額外啟動 `sandbox-worker`，由它專責消費 `malscan.jobs.sandbox`；沒有 sandbox profile 時不會啟動這個 service。
-
-一般 `worker` 與 `sandbox-worker` 都會啟動自己的 metrics server；部署/監控時應分別抓取兩個 service，而不是假設只有單一 worker target。啟動後可透過相同 API 查 job/report；使用動態沙箱時，`done` 會延後到 sandbox backfill 完成。
-
----
-
-## API 端點
-
-| 方法 | 路徑 | 處理服務 | 說明 |
-|------|------|----------|------|
-| POST | `/api/v1/files` | Go Ingest Service | 上傳檔案進行分析 |
-| GET | `/api/v1/jobs/{job_id}` | FastAPI | 查詢分析狀態 |
-| POST | `/api/v1/jobs/{job_id}/password` | FastAPI | 提交壓縮檔密碼（最多 3 次） |
-| GET | `/api/v1/reports/{job_id}` | FastAPI | 取得最終 tree-aware 分析報告（含 `risk`、`risk_level`、artifact tree） |
-
----
-
-## 技術棧
-
-- **前端:** React 18 + TypeScript + Vite
-- **Ingest:** Go 1.25 + chi + pgx + minio-go + amqp091-go（檔案接收層）
-- **後端:** FastAPI + SQLAlchemy + asyncpg
-- **Worker:** Python + clamscan CLI + yara CLI + pyzipper (AES ZIP) + py7zr + rarfile
-- **反向代理:** Nginx（路由分流至 Ingest / Backend）
-- **佇列:** RabbitMQ
-- **儲存:** MinIO + Supabase PostgreSQL
-- **容器:** k3s + GHCR
-- **CI/CD:** GitHub Actions
-
----
-
-## License
-
-MIT
+接下來先完成雲端驗收、病毒庫維護與成本觀察，再依序完善靜態證據／規則品質、常見格式的分析深度與密碼／附件處理。可量測的效能改善接續進行，真實 CAPE 驗收則待可用的基礎設施；啟動狀態顯示可先與驗收並行。各階段的交付條件與排序見[專案進度規劃](docs/roadmap.md)。

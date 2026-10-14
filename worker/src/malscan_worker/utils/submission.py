@@ -2,23 +2,38 @@
 
 import asyncio
 import json
-from typing import Optional
+from typing import Any, Optional, cast
 from uuid import UUID
 
 import aio_pika
 import structlog
-from malscan.config import get_settings
 from malscan.models.file import File
 from malscan.models.job import Job, JobStatus
-from malscan.storage import get_minio_client
-from malscan.storage import upload_file_path as upload_to_minio
+from malscan_worker.config import get_settings
 from malscan_worker.db import _engine
+from minio import Minio
 from minio.error import S3Error
 from sqlalchemy import select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 log = structlog.get_logger()
 settings = get_settings()
+
+
+def get_minio_client() -> Minio:
+    """Only instantiate the self-hosted backend storage adapter when used."""
+    from malscan.storage import get_minio_client as factory
+
+    return cast(Minio, factory())
+
+
+async def upload_to_minio(file_path: str, key: str, content_type: str) -> str:
+    from malscan.storage import upload_file_path
+
+    result = await upload_file_path(file_path, key, content_type)
+    if not isinstance(result, str):
+        raise RuntimeError("Storage upload returned an invalid object key")
+    return result
 
 
 class InternalJobSubmitter:
@@ -52,7 +67,10 @@ class InternalJobSubmitter:
                 settings.rabbitmq_url,
                 client_properties={"connection_name": "malscan_worker_submitter"},
             )
-            self._channel = await self._connection.channel()
+            self._channel = await self._connection.channel(
+                publisher_confirms=True,
+                on_return_raises=True,
+            )
             # Default exchange for direct queue routing
             self._exchange = self._channel.default_exchange
             log.info("internal_job_submitter_mq_connected")
@@ -65,6 +83,19 @@ class InternalJobSubmitter:
             self._channel = None
             self._exchange = None
             log.info("internal_job_submitter_mq_closed")
+
+    async def publish_payload(self, payload: dict[str, Any]) -> None:
+        """Publish a durable identity with broker confirmation or raise."""
+        await self._ensure_connection()
+        if self._exchange is None:
+            raise RuntimeError("RabbitMQ publisher is unavailable")
+        await self._exchange.publish(
+            aio_pika.Message(
+                body=json.dumps(payload).encode(), delivery_mode=aio_pika.DeliveryMode.PERSISTENT
+            ),
+            routing_key=settings.rabbitmq_queue,
+            mandatory=True,
+        )
 
     async def _storage_object_exists(self, key: str) -> bool:
         """Check whether an object key exists in MinIO uploads bucket."""
@@ -126,93 +157,79 @@ class InternalJobSubmitter:
             )
             return None
 
-        # Use an independent DB session so we never expire the pipeline's
-        # shared session objects.
+        # The artifact link and child job are committed together. An artifact
+        # lock prevents concurrent parent retries from creating multiple jobs;
+        # the hash lock also serializes deduplicated File insertion.
+        publish_needed = True
         async with AsyncSession(_engine) as db:
-            # 1. Deduplication using DB Query
-            stmt = select(File).where(File.sha256 == sha256_hash)
-            result = await db.execute(stmt)
-            existing_file = result.scalar_one_or_none()
-
-            if existing_file:
-                file_record = existing_file
-                log.info(
-                    "sub_file_exists_de_duped",
-                    file_id=str(file_record.id),
-                    sha256=sha256_hash,
-                )
-
-                # Dedup rows may outlive MinIO lifecycle; ensure blob still exists.
-                if not await self._storage_object_exists(sha256_hash):
-                    log.warning(
-                        "dedup_file_missing_in_storage_reupload",
-                        file_id=str(file_record.id),
-                        sha256=sha256_hash,
-                    )
-                    await upload_to_minio(file_path, sha256_hash, content_type)
-            else:
-                # 2. Upload to MinIO (only if it's a new unique file)
-                try:
-                    await upload_to_minio(file_path, sha256_hash, content_type)
-                except Exception as e:
-                    log.error(
-                        "minio_sub_upload_failed",
-                        sha256=sha256_hash,
-                        error=str(e),
-                    )
-                    raise
-
-                # Insert new file into DB
-                file_record = File(
-                    sha256=sha256_hash,
-                    size=file_size,
-                    filename=filename,
-                    content_type=content_type,
-                )
-                db.add(file_record)
-                await db.flush()
-                log.info(
-                    "sub_file_created",
-                    file_id=str(file_record.id),
-                    sha256=sha256_hash,
-                )
-
-            # 3. Create Job record in DB (State: QUEUED)
-            new_depth = parent_job_depth + 1
-            sub_job = Job(
-                file_id=file_record.id,
-                status=JobStatus.QUEUED.value,
-                stages_total=settings.stages_total,
-                parent_job_id=UUID(parent_job_id),
-                depth=new_depth,
-            )
-            db.add(sub_job)
-
-            # Flush to get the ID, then capture before commit expires objects
-            await db.flush()
-            sub_job_id = str(sub_job.id)
-            file_id_str = str(file_record.id)
-
-            await db.commit()
-
+            sub_job = None
             if artifact_id is not None:
-                try:
+                await db.execute(
+                    text("SELECT pg_advisory_xact_lock(hashtextextended(:identity, 0))").bindparams(
+                        identity=f"malscan-child:{artifact_id}"
+                    )
+                )
+                linked = (
+                    await db.execute(
+                        text("SELECT job_id FROM artifacts WHERE id = :artifact_id").bindparams(
+                            artifact_id=UUID(artifact_id)
+                        )
+                    )
+                ).scalar_one_or_none()
+                if isinstance(linked, (UUID, str)):
+                    sub_job = (
+                        await db.execute(select(Job).where(Job.id == UUID(str(linked))))
+                    ).scalar_one_or_none()
+                    if sub_job is not None:
+                        publish_needed = sub_job.status == JobStatus.QUEUED.value
+
+            if sub_job is None:
+                await db.execute(
+                    text("SELECT pg_advisory_xact_lock(hashtextextended(:identity, 0))").bindparams(
+                        identity=f"malscan-file:{sha256_hash}"
+                    )
+                )
+                existing_file = (
+                    await db.execute(select(File).where(File.sha256 == sha256_hash))
+                ).scalar_one_or_none()
+                if existing_file:
+                    file_record = existing_file
+                    # Dedup rows may outlive object storage lifecycle.
+                    if not await self._storage_object_exists(sha256_hash):
+                        await upload_to_minio(file_path, sha256_hash, content_type)
+                else:
+                    await upload_to_minio(file_path, sha256_hash, content_type)
+                    file_record = File(
+                        sha256=sha256_hash,
+                        size=file_size,
+                        filename=filename,
+                        content_type=content_type,
+                    )
+                    db.add(file_record)
+                    await db.flush()
+                sub_job = Job(
+                    file_id=file_record.id,
+                    status=JobStatus.QUEUED.value,
+                    stages_total=settings.stages_total,
+                    parent_job_id=UUID(parent_job_id),
+                    depth=parent_job_depth + 1,
+                )
+                db.add(sub_job)
+                await db.flush()
+                if artifact_id is not None:
+                    # A failed link aborts this transaction. Publishing a child
+                    # without a durable identity would make retries duplicate it.
                     await db.execute(
                         text("UPDATE artifacts SET job_id = :job_id WHERE id = :artifact_id"),
-                        {
-                            "job_id": UUID(sub_job_id),
-                            "artifact_id": UUID(artifact_id),
-                        },
+                        {"job_id": sub_job.id, "artifact_id": UUID(artifact_id)},
                         execution_options={"artifact_job_link": True},
                     )
-                    await db.commit()
-                except Exception as e:
-                    log.warning(
-                        "artifact_job_link_update_failed",
-                        artifact_id=artifact_id,
-                        job_id=sub_job_id,
-                        error=str(e),
-                    )
+            sub_job_id = str(sub_job.id)
+            file_id_str = str(sub_job.file_id)
+            await db.commit()
+
+        if not publish_needed:
+            return sub_job_id
 
         log.info(
             "sub_job_created",
@@ -222,7 +239,6 @@ class InternalJobSubmitter:
         )
 
         # 4. Publish to MQ (outside of DB session)
-        await self._ensure_connection()
         message_body = {
             "job_id": sub_job_id,
             "file_id": file_id_str,
@@ -236,15 +252,7 @@ class InternalJobSubmitter:
         }
 
         try:
-            message = aio_pika.Message(
-                body=json.dumps(message_body).encode(),
-                delivery_mode=aio_pika.DeliveryMode.PERSISTENT,
-            )
-            if self._exchange:
-                await self._exchange.publish(
-                    message,
-                    routing_key=settings.rabbitmq_queue,
-                )
+            await self.publish_payload(message_body)
             log.info("sub_job_published_to_mq", job_id=sub_job_id)
         except Exception as e:
             # MQ failed — update job status via explicit UPDATE
@@ -258,11 +266,11 @@ class InternalJobSubmitter:
                     update(Job)
                     .where(Job.id == UUID(sub_job_id))
                     .values(
-                        status=JobStatus.FAILED.value,
-                        error_message=f"Failed to publish to MQ: {e!s}",
+                        status=JobStatus.QUEUED.value,
+                        error_message="Child dispatch failed; retry is required",
                     )
                 )
                 await db.commit()
-            return None
+            raise RuntimeError("Child dispatch failed; retry is required") from e
 
         return sub_job_id

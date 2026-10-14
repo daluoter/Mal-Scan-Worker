@@ -89,6 +89,27 @@ async def _ensure_schema_compatibility(conn: AsyncConnection) -> None:
         await conn.execute(text("ALTER TABLE jobs ADD COLUMN artifact_id UUID"))
         log.warning("schema_repair_applied", change="jobs.artifact_id column added")
 
+    has_analysis_attempt_id = (
+        await conn.execute(
+            text(
+                """
+                SELECT 1
+                FROM information_schema.columns
+                WHERE table_schema = 'public'
+                  AND table_name = 'jobs'
+                  AND column_name = 'analysis_attempt_id'
+                """
+            )
+        )
+    ).scalar_one_or_none()
+    if not has_analysis_attempt_id:
+        await conn.execute(
+            text("ALTER TABLE public.jobs ADD COLUMN analysis_attempt_id UUID")
+        )
+        log.warning(
+            "schema_repair_applied", change="jobs.analysis_attempt_id column added"
+        )
+
     has_artifact_fk = (
         await conn.execute(
             text(
@@ -116,7 +137,9 @@ async def _ensure_schema_compatibility(conn: AsyncConnection) -> None:
         )
         log.warning("schema_repair_applied", change="jobs.artifact_id FK added")
 
-    await conn.execute(text("CREATE INDEX IF NOT EXISTS ix_jobs_artifact_id ON jobs (artifact_id)"))
+    await conn.execute(
+        text("CREATE INDEX IF NOT EXISTS ix_jobs_artifact_id ON jobs (artifact_id)")
+    )
 
     needs_password_attempts_default = (
         await conn.execute(
@@ -137,7 +160,9 @@ async def _ensure_schema_compatibility(conn: AsyncConnection) -> None:
         await conn.execute(
             text("ALTER TABLE public.jobs ALTER COLUMN password_attempts SET DEFAULT 0")
         )
-        log.warning("schema_repair_applied", change="jobs.password_attempts default set to 0")
+        log.warning(
+            "schema_repair_applied", change="jobs.password_attempts default set to 0"
+        )
 
     for column_name in ("risk_level", "policy_version"):
         has_column = (
@@ -156,8 +181,12 @@ async def _ensure_schema_compatibility(conn: AsyncConnection) -> None:
         ).scalar_one_or_none()
 
         if not has_column:
-            await conn.execute(text(f"ALTER TABLE artifacts ADD COLUMN {column_name} VARCHAR(20)"))
-            log.warning("schema_repair_applied", change=f"artifacts.{column_name} column added")
+            await conn.execute(
+                text(f"ALTER TABLE artifacts ADD COLUMN {column_name} VARCHAR(20)")
+            )
+            log.warning(
+                "schema_repair_applied", change=f"artifacts.{column_name} column added"
+            )
 
 
 @app.on_event("startup")

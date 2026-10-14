@@ -112,7 +112,12 @@ async def test_archive_extract_file_not_found(stage_context: StageContext):
 
 @pytest.mark.asyncio
 async def test_archive_extract_max_depth(stage_context: StageContext):
-    """Test that extraction is skipped when max depth is reached."""
+    """A real archive at the depth limit must report incomplete coverage."""
+    archive_path = stage_context.file_path.parent / "depth-limit.zip"
+    with zipfile.ZipFile(archive_path, "w") as archive:
+        archive.writestr("inner.txt", b"Must not be extracted")
+    stage_context.file_path = archive_path
+    stage_context.original_filename = "depth-limit.zip"
     mock_job = MagicMock()
     mock_job.depth = 5  # Exceeds default max_job_depth of 3
     stage_context.job = mock_job
@@ -120,8 +125,11 @@ async def test_archive_extract_max_depth(stage_context: StageContext):
     stage = ArchiveExtractStage()
     result = await stage.execute(stage_context)
 
-    assert result.status == "skipped"
+    assert result.status == "partial"
+    assert result.findings["archive_type"] == "zip"
+    assert result.findings["resource_limited"] is True
     assert "Max depth" in result.findings["reason"]
+    assert result.artifacts == []
 
 
 @pytest.mark.asyncio

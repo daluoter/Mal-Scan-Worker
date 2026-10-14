@@ -44,6 +44,7 @@ class JobStatusResponse(BaseModel):
     total_sub: int = 0
     completed_sub: int = 0
     malicious_sub: int = 0
+    report_available: bool = False
 
 
 class FileMetadata(BaseModel):
@@ -149,6 +150,13 @@ class SandboxResult(BaseModel):
     iocs: dict[str, Any] = Field(default_factory=dict)
     errors: list[str] = Field(default_factory=list)
     raw_report_ref: str | None = None
+    status: str | None = None
+    reason: str | None = None
+    synthetic: bool = False
+    error_code: str | None = None
+    recovery_required: bool = False
+    reconcile_required: bool = False
+    task_ids: list[str] = Field(default_factory=list)
 
 
 class RiskEvidence(BaseModel):
@@ -260,6 +268,55 @@ class ChildJobSummary(BaseModel):
     sha256: str
     status: str
     verdict: str | None = None
+    password_attempts: int = 0
+    password_attempts_remaining: int = 3
+
+
+class StageCoverage(BaseModel):
+    """Recorded execution coverage, independent from detection verdict."""
+
+    stage: str
+    status: str
+    reason: str | None = None
+    duration_ms: int | None = None
+    tool_version: str | None = None
+    rules_version: str | None = None
+
+
+class StaticAnalysisState(BaseModel):
+    status: str = "unknown"
+    stage_coverage: list[StageCoverage] = Field(default_factory=list)
+
+
+class DynamicAnalysisState(BaseModel):
+    status: str = "unknown"
+    provider: str | None = None
+    reason: str | None = None
+
+
+class AnalysisState(BaseModel):
+    schema_version: str = "mswr-analysis-v1"
+    static: StaticAnalysisState = Field(default_factory=StaticAnalysisState)
+    dynamic: DynamicAnalysisState = Field(default_factory=DynamicAnalysisState)
+
+
+class ExecutionBudgetLimits(BaseModel):
+    max_files: int = Field(ge=1)
+    max_bytes: int = Field(ge=1)
+    timeout_seconds: float = Field(gt=0)
+
+
+class ExecutionBudget(BaseModel):
+    """Expansion accounting and attempt deadline, not billing or resource peaks."""
+
+    limits: ExecutionBudgetLimits
+    used_files: int = Field(ge=0)
+    used_bytes: int = Field(ge=0)
+    deadline_at: datetime
+    time_scope: Literal["analysis_attempt"]
+    accounting_scope: Literal["root_artifact_tree"]
+    accounting_source: Literal["durable_root_budget"] | None = None
+    deadline_active: bool = False
 
 
 class ArtifactTreeNode(BaseModel):
@@ -283,6 +340,8 @@ class ArtifactTreeNode(BaseModel):
     display_path: str | None = None
     archive_layer: int | None = None
     analysis_status: str | None = None
+    job_status: str | None = None
+    analysis: AnalysisState = Field(default_factory=AnalysisState)
     primary_analyzer: str | None = None
     finding_ids: list[str] = Field(default_factory=list)
     uncertainty_ids: list[str] = Field(default_factory=list)
@@ -306,7 +365,13 @@ class ReportResponse(BaseModel):
     created_at: datetime
     child_jobs: list[ChildJobSummary] = Field(default_factory=list)
     artifact_tree: ArtifactTreeNode | None = None
-    report_schema_version: str = "mswr-report-v2"
+    report_schema_version: str = "mswr-report-v3"
+    job_status: str | None = None
+    report_complete: bool = False
+    pending_descendants: int = 0
+    analysis: AnalysisState = Field(default_factory=AnalysisState)
+    analysis_attempt_id: str | None = None
+    execution_budget: ExecutionBudget | None = None
     explainability: ExplainabilityBlock = Field(default_factory=ExplainabilityBlock)
 
 

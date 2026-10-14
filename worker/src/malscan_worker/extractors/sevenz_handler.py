@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import io
 import os
 from pathlib import Path
-from typing import TYPE_CHECKING
+from types import TracebackType
+from typing import TYPE_CHECKING, Any
 
 import structlog
 
@@ -16,14 +18,23 @@ else:
     except ImportError:  # pragma: no cover - optional dependency fallback
         py7zr = None
 
-from malscan_worker.exceptions import ArchivePasswordRequiredError, ArchiveWrongPasswordError
+from malscan_worker.budget import BudgetExceeded
+from malscan_worker.exceptions import (
+    ArchivePasswordRequiredError,
+    ArchiveWrongPasswordError,
+)
 from malscan_worker.extractors.base import (
     ExtractedFile,
     ExtractionLimits,
     ExtractionResult,
     FormatHandler,
 )
-from malscan_worker.extractors.safety import check_expansion_ratio, safe_extract_path
+from malscan_worker.extractors.safety import (
+    check_expansion_ratio,
+    check_stream_size,
+    reserve_output,
+    safe_extract_path,
+)
 
 logger = structlog.get_logger(__name__)
 
@@ -51,13 +62,36 @@ class SevenZipHandler(FormatHandler):
         limits: ExtractionLimits,
         password: str | None = None,
     ) -> ExtractionResult:
+        try:
+            return self._extract(file_path, extract_dir, limits, password)
+        except (ArchivePasswordRequiredError, ArchiveWrongPasswordError):
+            raise
+        except Exception as exc:
+            # Encrypted headers fail while opening, before member iteration.
+            if _is_password_required_error(exc):
+                raise ArchivePasswordRequiredError("7z") from exc
+            if password and "wrong password" in str(exc).lower():
+                raise ArchiveWrongPasswordError("7z") from exc
+            raise
+
+    def _extract(
+        self,
+        file_path: Path,
+        extract_dir: Path,
+        limits: ExtractionLimits,
+        password: str | None = None,
+    ) -> ExtractionResult:
         if py7zr is None:
             raise RuntimeError("py7zr not available")
 
         files: list[ExtractedFile] = []
         warnings: list[str] = []
         with py7zr.SevenZipFile(file_path, mode="r", password=password) as archive:
-            members = [item for item in archive.list() if getattr(item, "filename", None)]
+            members = [
+                item
+                for item in archive.list()
+                if getattr(item, "filename", None) and not getattr(item, "is_directory", False)
+            ]
             password_protected = bool(archive.needs_password())
 
             reason = _preflight_reason(
@@ -69,14 +103,21 @@ class SevenZipHandler(FormatHandler):
             if reason is not None:
                 return ExtractionResult(
                     files=[],
-                    malicious=True,
+                    malicious="Expansion ratio" in reason,
                     reason=reason,
+                    resource_limited="Expansion ratio" not in reason,
+                    limit_reason="extraction_limit" if "Expansion ratio" not in reason else None,
                     archive_type="7z",
                     password_protected=password_protected,
                 )
 
+            if limits.reserve_output is not None:
+                return _extract_bounded_members(
+                    archive, file_path, extract_dir, limits, password, password_protected
+                )
+
             total_extracted_bytes = 0
-            for member in members:
+            for member_index, member in enumerate(members):
                 member_name = str(member.filename)
 
                 if len(files) >= limits.max_files:
@@ -97,9 +138,22 @@ class SevenZipHandler(FormatHandler):
                     warnings.append("Max total extracted bytes reached")
                     break
 
-                os.makedirs(os.path.dirname(target), exist_ok=True)
+                origin = f"{member_index}:{member_name}"
                 try:
+                    reserve_output(limits, origin, member_size)
+                    os.makedirs(os.path.dirname(target), exist_ok=True)
                     archive.extract(path=extract_dir, targets=[member_name])
+                except BudgetExceeded as exc:
+                    if os.path.exists(target):
+                        os.remove(target)
+                    return ExtractionResult(
+                        files=files,
+                        warnings=[*warnings, exc.reason],
+                        archive_type="7z",
+                        password_protected=password_protected,
+                        resource_limited=True,
+                        limit_reason=exc.reason,
+                    )
                 except Exception as exc:
                     if _is_password_required_error(exc):
                         raise ArchivePasswordRequiredError("7z") from exc
@@ -135,6 +189,7 @@ class SevenZipHandler(FormatHandler):
                         original_name=os.path.basename(member_name),
                         size=written,
                         origin_path=member_name,
+                        occurrence_index=member_index,
                     )
                 )
 
@@ -202,3 +257,139 @@ def _stream_limit_reason(
         return "Zip bomb: expansion ratio exceeded during extraction"
 
     return None
+
+
+def _extract_bounded_members(
+    archive: Any,
+    file_path: Path,
+    extract_dir: Path,
+    limits: ExtractionLimits,
+    password: str | None,
+    password_protected: bool,
+) -> ExtractionResult:
+    """Pinned py7zr 0.22 writer bridge, including duplicate-name provenance.
+
+    This version predates public WriterFactory. Its worker accepts MemIO targets;
+    each target writes bounded bytes directly to a separate on-disk file. No
+    read-all buffers or unbounded filesystem extraction are used. Unsupported
+    writer versions fail explicitly. The outer process boundary kills native
+    decoding on deadline and protects other worker/parser instances.
+    """
+    if not str(getattr(py7zr, "__version__", "")).startswith("0.22."):
+        return ExtractionResult(
+            files=[],
+            archive_type="7z",
+            resource_limited=True,
+            limit_reason="bounded_7z_writer_unavailable",
+            warnings=["bounded_7z_writer_unavailable"],
+        )
+    from py7zr.helpers import MemIO
+
+    files: list[ExtractedFile] = []
+    warnings: list[str] = []
+    total_written = 0
+    archive_size = file_path.stat().st_size
+
+    class BoundedDiskIO(MemIO):
+        def __init__(self, target: Path, member_name: str, origin: str, declared: int):
+            self.target = target
+            self.member_name = member_name
+            self.origin = origin
+            self.occurrence_index = int(origin.split(":", 1)[0])
+            self.declared = declared
+            self.written = 0
+            self._buf = io.BytesIO()
+
+        @property
+        def parent(self) -> Path:
+            return self.target.parent
+
+        def open(self, mode: str | None = None) -> BoundedDiskIO:
+            reserve_output(limits, self.origin, self.declared)
+            self.target.parent.mkdir(parents=True, exist_ok=True)
+            self._buf = open(self.target, "w+b")
+            return self
+
+        def write(self, data: bytes) -> int:
+            nonlocal total_written
+            next_written = self.written + len(data)
+            check_stream_size(
+                limits,
+                written=next_written,
+                total=total_written - self.written,
+                archive_size=archive_size,
+            )
+            reserve_output(limits, self.origin, next_written)
+            result = self._buf.write(data)
+            self.written += result
+            total_written += result
+            return result
+
+        def __exit__(
+            self,
+            exc_type: type[BaseException] | None,
+            exc_val: BaseException | None,
+            exc_tb: TracebackType | None,
+        ) -> None:
+            self._buf.close()
+            if exc_type is not None:
+                self.target.unlink(missing_ok=True)
+            else:
+                files.append(
+                    ExtractedFile(
+                        path=str(self.target),
+                        original_name=Path(self.member_name).name,
+                        size=self.written,
+                        origin_path=self.member_name,
+                        occurrence_index=self.occurrence_index,
+                    )
+                )
+
+    worker = getattr(archive, "worker", None)
+    if worker is None or not callable(getattr(worker, "register_filelike", None)):
+        raise BudgetExceeded("bounded_7z_writer_unavailable")
+    for index, member in enumerate(archive.files):
+        name = str(member.filename)
+        if member.is_directory or member.is_symlink or member.is_junction or member.is_socket:
+            worker.register_filelike(member.id, None)
+            if not member.is_directory:
+                warnings.append(f"Special archive entry skipped: {name}")
+            continue
+        target = safe_extract_path(str(extract_dir / str(index)), name)
+        if target is None:
+            worker.register_filelike(member.id, None)
+            warnings.append(f"Path traversal skipped: {name}")
+            continue
+        worker.register_filelike(
+            member.id,
+            BoundedDiskIO(
+                Path(target),
+                name,
+                f"{index}:{name}",
+                int(member.uncompressed or 0),
+            ),
+        )
+    try:
+        # Serial processing gives one ordered stream of output reservations.
+        worker.extract(archive.fp, extract_dir, parallel=False, skip_notarget=True)
+    except BudgetExceeded as exc:
+        return ExtractionResult(
+            files=files,
+            archive_type="7z",
+            password_protected=password_protected,
+            warnings=[*warnings, exc.reason],
+            resource_limited=True,
+            limit_reason=exc.reason,
+        )
+    except Exception as exc:
+        if _is_password_required_error(exc):
+            raise ArchivePasswordRequiredError("7z") from exc
+        if _is_wrong_password_error(exc, password_protected, password):
+            raise ArchiveWrongPasswordError("7z") from exc
+        raise
+    return ExtractionResult(
+        files=files,
+        archive_type="7z",
+        warnings=warnings,
+        password_protected=password_protected,
+    )

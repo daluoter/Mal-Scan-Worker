@@ -1,5 +1,5 @@
 const verdictMap: Record<string, string> = {
-    clean: '安全',
+    clean: '未發現威脅',
     low: '低風險',
     medium: '中風險',
     high: '高風險',
@@ -31,6 +31,27 @@ const statusMap: Record<string, string> = {
     degraded: '降級',
     pending: '等待中',
     unknown: '未知',
+    complete: '完成',
+    completed: '完成',
+    partial: '部分完成',
+    running: '執行中',
+    scanning: '分析中',
+    queued: '排隊中',
+    deferred: '等待動態分析',
+    disabled: '未啟用',
+    not_requested: '未要求',
+    skipped: '略過',
+    unsupported: '不支援',
+    not_applicable: '不適用',
+    unavailable: '無法使用',
+    failed: '失敗',
+    error: '失敗',
+    timeout: '逾時',
+    password_required: '等待解壓密碼',
+    synthetic: '合成測試資料',
+    mock: '合成測試資料',
+    no_rules: '未配置規則',
+    budget_exceeded: '超出分析預算',
 }
 
 const analyzerMap: Record<string, string> = {
@@ -81,6 +102,13 @@ const diagnosticCodeMap: Record<string, string> = {
     unsupported_format: '格式不受支援',
     extraction_failed: '解壓失敗',
     descendant_rollup_without_local_confirmation: '僅由子層風險抬升',
+    no_rules: '未配置規則，未執行規則掃描',
+    rules_unavailable: '規則無法使用',
+    no_yara_rules: '未配置 YARA 規則',
+    yara_rules_missing: '未配置 YARA 規則',
+    provider_unavailable: '動態分析 Provider 無法使用',
+    sandbox_disabled: '未啟用動態分析',
+    synthetic_provider: '使用合成測試 Provider',
 }
 
 const uncertaintyKindMap: Record<string, string> = {
@@ -213,6 +241,10 @@ export function localizeReportText(value: string | null | undefined): string {
 
     if (labelMap[trimmed]) {
         return labelMap[trimmed]
+    }
+
+    if (diagnosticCodeMap[trimmed]) {
+        return diagnosticCodeMap[trimmed]
     }
 
     if (verdictMap[trimmed]) {

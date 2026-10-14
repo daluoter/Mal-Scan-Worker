@@ -25,6 +25,12 @@ async def test_create_artifact_includes_created_at_for_raw_insert(monkeypatch):
         async def execute(self, stmt, params):
             captured["params"] = params
 
+            class Result:
+                def scalar_one_or_none(self):
+                    return params.get("id")
+
+            return Result()
+
         async def commit(self):
             return None
 
@@ -67,6 +73,12 @@ async def test_update_artifact_risk_includes_risk_level_and_policy_version(monke
         async def execute(self, stmt, params):
             captured["params"] = params
 
+            class Result:
+                def scalar_one_or_none(self):
+                    return params.get("id")
+
+            return Result()
+
         async def commit(self):
             return None
 
@@ -103,6 +115,12 @@ async def test_update_artifact_verdict_shim_preserves_verdict_and_score(monkeypa
 
         async def execute(self, stmt, params):
             captured["params"] = params
+
+            class Result:
+                def scalar_one_or_none(self):
+                    return params.get("id")
+
+            return Result()
 
         async def commit(self):
             return None

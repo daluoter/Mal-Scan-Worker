@@ -5,6 +5,7 @@ import type {
     Report,
     UploadResponse,
 } from './types'
+import { CloudTransport } from './cloudTransport'
 
 export type {
     ApiError,
@@ -26,10 +27,22 @@ const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'http://localhost:800
 
 class ApiClient {
     public baseUrl: string
+    private cloud?: CloudTransport
 
     constructor(baseUrl: string = API_BASE_URL) {
         this.baseUrl = baseUrl
+        if (import.meta.env.VITE_DEPLOYMENT_MODE === 'cloud-demo' || import.meta.env.VITE_API_DEPLOYMENT === 'cloud-demo') {
+            // Access storage lazily: browsers may deny it until an upload is attempted.
+            this.cloud = new CloudTransport(baseUrl, {
+                getItem: (key) => window.sessionStorage.getItem(key),
+                setItem: (key, value) => window.sessionStorage.setItem(key, value),
+                removeItem: (key) => window.sessionStorage.removeItem(key),
+            })
+        }
     }
+
+    supportsJobStream(): boolean { return !this.cloud }
+    isCloudDemo(): boolean { return Boolean(this.cloud) }
 
     getJobStreamUrl(jobId: string): string {
         return `${this.baseUrl}/api/v1/jobs/${jobId}/stream`
@@ -37,7 +50,7 @@ class ApiClient {
 
     async checkHealth(): Promise<boolean> {
         try {
-            const response = await fetch(`${this.baseUrl}/health`)
+            const response = await fetch(`${this.baseUrl}${this.cloud ? '/api/v1/capabilities' : '/health'}`)
             return response.ok
         } catch {
             return false
@@ -45,6 +58,7 @@ class ApiClient {
     }
 
     async uploadFile(file: File): Promise<UploadResponse> {
+        if (this.cloud) return this.cloud.upload(file)
         const formData = new FormData()
         formData.append('file', file)
 
@@ -70,6 +84,7 @@ class ApiClient {
     }
 
     async getJobStatus(jobId: string): Promise<JobStatus> {
+        if (this.cloud) return this.cloud.getJobStatus(jobId)
         const response = await fetch(`${this.baseUrl}/api/v1/jobs/${jobId}`)
 
         if (!response.ok) {
@@ -84,13 +99,16 @@ class ApiClient {
             } catch {
                 errorMessage = response.statusText
             }
-            throw new Error(errorMessage)
+            const error = new Error(String(errorMessage)) as Error & { status?: number }
+            error.status = response.status
+            throw error
         }
 
         return response.json()
     }
 
     async getReport(jobId: string): Promise<Report> {
+        if (this.cloud) return this.cloud.getReport(jobId)
         const response = await fetch(`${this.baseUrl}/api/v1/reports/${jobId}`)
 
         if (!response.ok) {
@@ -114,6 +132,11 @@ class ApiClient {
     }
 
     async submitArchivePassword(jobId: string, payload: PasswordSubmitRequest): Promise<PasswordSubmitResponse> {
+        if (this.cloud) {
+            const response = await this.cloud.submitPassword(jobId, payload.password)
+            return { job_id: response.job_id, status: response.status, message: '已提交指定檔案密碼',
+                attempts_used: response.password_attempts, attempts_remaining: response.password_attempts_remaining }
+        }
         const response = await fetch(`${this.baseUrl}/api/v1/jobs/${jobId}/password`, {
             method: 'POST',
             headers: {

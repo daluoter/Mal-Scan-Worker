@@ -285,8 +285,10 @@ def test_get_report_success(client: TestClient, mock_db_session: AsyncMock):
     assert data["parent_job_id"] == str(parent_job_id)
 
 
-def test_get_report_waits_for_pending_descendants(client: TestClient, mock_db_session: AsyncMock):
-    """Report should not be returned until descendant jobs complete."""
+def test_get_report_returns_partial_for_pending_descendants(
+    client: TestClient, mock_db_session: AsyncMock
+):
+    """Stored root results remain readable while descendants continue."""
     job_id = uuid.uuid4()
 
     mock_job = MagicMock()
@@ -330,12 +332,16 @@ def test_get_report_waits_for_pending_descendants(client: TestClient, mock_db_se
     mock_pending_result = MagicMock()
     mock_pending_result.scalar.return_value = 2
 
-    mock_db_session.execute.side_effect = [mock_result, mock_pending_result]
+    mock_tree_result = MagicMock()
+    mock_tree_result.scalars.return_value.all.return_value = []
+    mock_db_session.execute.side_effect = [mock_result, mock_pending_result, mock_tree_result]
 
     response = client.get(f"/api/v1/reports/{job_id}")
 
-    assert response.status_code == 409
-    assert "Report not ready" in response.json()["detail"]
+    assert response.status_code == 200
+    assert response.json()["report_complete"] is False
+    assert response.json()["pending_descendants"] == 2
+    assert response.json()["score"] == 0
 
 
 def test_get_report_returns_risk_level_and_risk_block(
@@ -577,7 +583,7 @@ def test_get_report_adds_report_schema_version_and_empty_explainability(
 
     assert response.status_code == 200
     data = response.json()
-    assert data["report_schema_version"] == "mswr-report-v2"
+    assert data["report_schema_version"] == "mswr-report-v3"
     assert data["explainability"]["summary"]["top_findings"] == []
     assert data["explainability"]["failure_diagnostics"]["status"] in {
         "none",
@@ -1569,6 +1575,7 @@ def test_get_report_not_completed(client: TestClient, mock_db_session: AsyncMock
     mock_job = MagicMock()
     mock_job.id = job_id
     mock_job.status = JobStatus.SCANNING.value
+    mock_job.result = None
 
     # Configure mock db session
     mock_result = MagicMock()
@@ -1577,4 +1584,4 @@ def test_get_report_not_completed(client: TestClient, mock_db_session: AsyncMock
 
     response = client.get(f"/api/v1/reports/{job_id}")
 
-    assert response.status_code == 400
+    assert response.status_code == 404

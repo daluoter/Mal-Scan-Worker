@@ -58,7 +58,7 @@ services:
       - "3310:3310"
     environment:
       # Disable freshclam for offline environment compatibility
-      - CLAMAV_NO_FRESHCLAMD=true
+      - CLAMAV_NO_FRESHCLAMD=${CLAMAV_NO_FRESHCLAMD:-false}
     volumes:
       - clamav_data:/var/lib/clamav
     healthcheck:
@@ -102,7 +102,7 @@ services:
       CLAMAV_HOST: clamav
       CLAMAV_PORT: 3310
       SANDBOX_ENABLED: ${SANDBOX_ENABLED:-false}
-      SANDBOX_PROVIDER: ${SANDBOX_PROVIDER:-mock}
+      SANDBOX_PROVIDER: ${SANDBOX_PROVIDER:-capev2}
       SANDBOX_BASE_URL: ${SANDBOX_BASE_URL:-}
       SANDBOX_API_TOKEN: ${SANDBOX_API_TOKEN:-}
       SANDBOX_TIMEOUT_SECONDS: ${SANDBOX_TIMEOUT_SECONDS:-900}
@@ -134,7 +134,7 @@ services:
       CLAMAV_HOST: clamav
       CLAMAV_PORT: 3310
       SANDBOX_ENABLED: ${SANDBOX_ENABLED:-false}
-      SANDBOX_PROVIDER: ${SANDBOX_PROVIDER:-mock}
+      SANDBOX_PROVIDER: ${SANDBOX_PROVIDER:-capev2}
       SANDBOX_BASE_URL: ${SANDBOX_BASE_URL:-}
       SANDBOX_API_TOKEN: ${SANDBOX_API_TOKEN:-}
       SANDBOX_TIMEOUT_SECONDS: ${SANDBOX_TIMEOUT_SECONDS:-900}
@@ -145,6 +145,25 @@ services:
       - minio
       - rabbitmq
       - clamav
+
+  # Explicit read-only check; this does not create CAPE hosts or analysis VMs.
+  sandbox-preflight:
+    profiles: [sandbox-check]
+    build:
+      context: .
+      dockerfile: worker/Dockerfile
+    command: ["python", "-m", "malscan_worker.sandbox.preflight"]
+    environment:
+      SANDBOX_PROVIDER: ${SANDBOX_PROVIDER:-capev2}
+      SANDBOX_BASE_URL: ${SANDBOX_BASE_URL:-}
+      SANDBOX_API_TOKEN: ${SANDBOX_API_TOKEN:-}
+      SANDBOX_PREFLIGHT_TIMEOUT_SECONDS: ${SANDBOX_PREFLIGHT_TIMEOUT_SECONDS:-10}
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
 
   # Go Ingest Service — replaces POST /api/v1/files
   ingest:

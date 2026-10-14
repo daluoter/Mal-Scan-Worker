@@ -8,13 +8,16 @@ import pytest
 
 
 @pytest.mark.asyncio
-async def test_init_sandbox_publisher_reuses_queue_when_arguments_drift(monkeypatch) -> None:
+async def test_init_sandbox_publisher_reuses_queue_when_arguments_drift(
+    monkeypatch,
+) -> None:
     from malscan_worker.sandbox import publisher
 
     class DummyPreconditionFailedError(Exception):
         pass
 
     calls: list[dict[str, object]] = []
+    channel_options: list[dict[str, object]] = []
 
     class DummyChannel:
         def __init__(self) -> None:
@@ -37,20 +40,21 @@ async def test_init_sandbox_publisher_reuses_queue_when_arguments_drift(monkeypa
                 }
             )
             if not passive:
+                self.is_closed = True
                 raise DummyPreconditionFailedError("queue already exists")
+            assert not self.is_closed
             return object()
 
         async def close(self) -> None:
             self.is_closed = True
 
-    channel = DummyChannel()
-
     class DummyConnection:
         def __init__(self) -> None:
             self.is_closed = False
 
-        async def channel(self) -> DummyChannel:
-            return channel
+        async def channel(self, **kwargs) -> DummyChannel:
+            channel_options.append(kwargs)
+            return DummyChannel()
 
         async def close(self) -> None:
             self.is_closed = True
@@ -101,4 +105,8 @@ async def test_init_sandbox_publisher_reuses_queue_when_arguments_drift(monkeypa
             "arguments": None,
             "passive": True,
         },
+    ]
+    assert channel_options == [
+        {"publisher_confirms": True, "on_return_raises": True},
+        {"publisher_confirms": True, "on_return_raises": True},
     ]

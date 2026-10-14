@@ -4,6 +4,7 @@ export interface UploadResponse {
     sha256: string
     status: string
     created_at: string
+    dispatch_uncertain?: boolean
 }
 
 export interface JobProgress {
@@ -22,6 +23,10 @@ export interface JobStatus {
     error_message: string | null
     password_attempts: number
     password_attempts_remaining: number
+    report_available?: boolean
+    password_required_artifacts?: string[]
+    dispatch_uncertain?: boolean
+    retention_expires_at?: string
 }
 
 export interface FileMetadata {
@@ -154,6 +159,8 @@ export interface ArtifactTreeNode {
     display_path?: string | null
     archive_layer?: number | null
     analysis_status?: string | null
+    job_status?: JobStatus['status'] | null
+    analysis?: AnalysisState
     primary_analyzer?: string | null
     finding_ids: string[]
     uncertainty_ids: string[]
@@ -302,6 +309,15 @@ export interface Report {
     score: number
     risk_level: string
     report_schema_version?: string
+    analysis?: AnalysisState
+    job_status?: JobStatus['status']
+    report_complete?: boolean
+    pending_descendants?: number
+    password_required_artifacts?: string[]
+    execution_active?: boolean | null
+    requires_reconciliation?: boolean
+    error_message?: string | null
+    artifacts?: Array<{ artifact_id: string; status: string; report: Report | null }>
     risk?: RiskSummary
     results: {
         av_result: AvResult
@@ -309,6 +325,9 @@ export interface Report {
         iocs: Iocs
         sandbox: {
             executed: boolean
+            status?: string
+            reason?: string | null
+            synthetic?: boolean
             provider?: string | null
             task_id?: string | null
             behaviors: Array<{ type: string; path?: string | null; key?: string | null; detail?: string | null }>
@@ -353,10 +372,27 @@ export interface Report {
         sha256: string
         status: string
         verdict: string | null
+        password_attempts?: number
+        password_attempts_remaining?: number
     }>
     created_at: string
     artifact_tree?: ArtifactTreeNode | null
     explainability?: ExplainabilityBlock
+}
+
+export interface StageCoverage {
+    stage: string
+    status: string
+    reason?: string | null
+    duration_ms?: number | null
+    tool_version?: string | null
+    rules_version?: string | null
+}
+
+export interface AnalysisState {
+    schema_version: string
+    static: { status: string; stage_coverage: StageCoverage[] }
+    dynamic: { status: string; provider?: string | null; reason?: string | null }
 }
 
 export interface ApiError {

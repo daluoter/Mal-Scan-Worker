@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Awaitable, Callable
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -31,10 +32,9 @@ def build_deferred_sandbox_result(
     result = build_empty_sandbox_result(
         provider=provider_name,
         executed=False,
-        is_mock=provider_name == "mock",
-        errors=[reason],
+        status="deferred",
     )
-    result["status"] = "deferred"
+    result["reason"] = reason
     return result
 
 
@@ -66,18 +66,24 @@ async def execute_sandbox_analysis(
     filename: str,
     submission_url: str | None = None,
     settings: Settings | None = None,
+    previous_result: dict[str, Any] | None = None,
+    on_checkpoint: Callable[[dict[str, Any]], Awaitable[None]] | None = None,
 ) -> dict[str, Any]:
-    """Execute sandbox analysis using the configured provider with fallback."""
+    """Execute the selected provider without fabricating fallback observations."""
     cfg = settings or get_settings()
     provider_name = resolve_sandbox_provider_name(cfg)
     registry = get_default_sandbox_provider_registry()
-    return await registry.analyze_with_fallback(
+    if not cfg.sandbox_enabled:
+        return build_empty_sandbox_result(provider=provider_name, status="disabled")
+    return await registry.analyze(
         provider_name=provider_name,
         file_path=file_path,
         sha256=sha256,
         filename=filename,
         submission_url=submission_url,
         provider_kwargs=_provider_kwargs(cfg),
+        previous_result=previous_result,
+        on_checkpoint=on_checkpoint,
     )
 
 
@@ -103,8 +109,7 @@ class SandboxStage(Stage):
                 findings=build_empty_sandbox_result(
                     provider=resolve_sandbox_provider_name(settings),
                     executed=False,
-                    is_mock=resolve_sandbox_provider_name(settings) == "mock",
-                    errors=["Sandbox disabled"],
+                    status="disabled",
                 ),
                 artifacts=[],
                 error=None,
@@ -134,11 +139,11 @@ class SandboxStage(Stage):
         ended_at = datetime.now(timezone.utc)
         return StageResult(
             stage_name=self.name,
-            status="ok",
+            status="failed" if findings.get("status") in {"failed", "unavailable"} else "ok",
             started_at=started_at,
             ended_at=ended_at,
             duration_ms=_duration_ms(started_at, ended_at),
             findings=findings,
             artifacts=[],
-            error=None,
+            error=findings.get("error_code"),
         )

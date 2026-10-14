@@ -1,0 +1,24 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "malscan-v2-demo-control",
+  "main": "src/worker.mjs",
+  "compatibility_date": "2026-07-30",
+  "durable_objects": {"bindings": [{"name": "CONTROL", "class_name": "DemoControl"}]},
+  "migrations": [{"tag": "v1", "new_sqlite_classes": ["DemoControl"]}],
+  "r2_buckets": [
+    {"binding": "UPLOADS", "bucket_name": "malscan-v2-upload-poc"},
+    {"binding": "RESULTS", "bucket_name": "malscan-v2-analysis-results"}
+  ],
+  "vars": {
+    "ALLOWED_ORIGIN": "https://REPLACE-demo-ui.example",
+    "PUBLIC_UPLOADS": "false",
+    "DAILY_JOB_LIMIT": "10",
+    "DAILY_EXECUTION_LIMIT": "20",
+    "MONTHLY_EXECUTION_LIMIT": "40",
+    "RETENTION_SECONDS": "86400",
+    "GCP_PROJECT": "malscan-v2-poc",
+    "GCP_REGION": "us-central1",
+    "GCP_JOB": "malscan-v2-static-demo",
+    "GCP_DISPATCH_URL": "https://REPLACE-dispatcher.example"
+  }
+}

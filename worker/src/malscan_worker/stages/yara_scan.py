@@ -1,6 +1,7 @@
 """YARA scanning stage using memory-resident yara-python."""
 
 import asyncio
+import hashlib
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -17,6 +18,8 @@ log = structlog.get_logger()
 # Global variable to hold compiled YARA rules
 _compiled_rules = None
 _rules_loaded = False
+_rules_load_error: str | None = None
+_rules_version: str | None = None
 
 
 def _load_yara_rules() -> yara.Rules | None:
@@ -24,7 +27,7 @@ def _load_yara_rules() -> yara.Rules | None:
 
     This runs synchronously and should be called once during startup.
     """
-    global _compiled_rules, _rules_loaded
+    global _compiled_rules, _rules_loaded, _rules_load_error, _rules_version
 
     if _rules_loaded:
         return _compiled_rules
@@ -46,6 +49,12 @@ def _load_yara_rules() -> yara.Rules | None:
     filepaths = {f.stem: str(f) for f in rule_files}
 
     try:
+        rule_digest = hashlib.sha256()
+        for rule_file in sorted(rule_files):
+            rule_digest.update(rule_file.name.encode())
+            rule_digest.update(b"\0")
+            rule_digest.update(rule_file.read_bytes())
+        _rules_version = rule_digest.hexdigest()
         log.info("compiling_yara_rules", count=len(filepaths))
         _compiled_rules = yara.compile(filepaths=filepaths)
         log.info("yara_rules_compiled_successfully")
@@ -53,6 +62,7 @@ def _load_yara_rules() -> yara.Rules | None:
         log.error("yara_rules_compile_failed", error=str(e))
         # Keep None to fail gracefully
         _compiled_rules = None
+        _rules_load_error = "YARA rule compilation failed"
 
     _rules_loaded = True
     return _compiled_rules
@@ -84,18 +94,28 @@ class YaraStage(Stage):
                 duration_ms = int((ended_at - started_at).total_seconds() * 1000)
                 return StageResult(
                     stage_name=self.name,
-                    status="ok",
+                    status="failed" if _rules_load_error else "skipped",
                     started_at=started_at,
                     ended_at=ended_at,
                     duration_ms=duration_ms,
-                    findings={"matches": []},
+                    findings={
+                        "matches": [],
+                        "reason": _rules_load_error or "No YARA rules configured",
+                    },
                     artifacts=[],
-                    error=None,
+                    error=_rules_load_error,
+                    tool_version=getattr(yara, "__version__", None),
+                    rules_version=_rules_version,
                 )
 
             # Run yara scan (offload to thread pool to avoid blocking async loop)
             loop = asyncio.get_event_loop()
-            yara_matches = await loop.run_in_executor(None, lambda: rules.match(str(ctx.file_path)))
+            # Cancelling an asyncio executor future cannot stop native YARA.
+            # Bound the native operation as well as the outer stage coroutine.
+            timeout_seconds = max(1, int(settings.stage_timeout_seconds))
+            yara_matches = await loop.run_in_executor(
+                None, lambda: rules.match(str(ctx.file_path), timeout=timeout_seconds)
+            )
 
             matches: list[dict[str, Any]] = []
 
@@ -139,6 +159,8 @@ class YaraStage(Stage):
                 findings={"matches": matches},
                 artifacts=[],
                 error=None,
+                tool_version=getattr(yara, "__version__", None),
+                rules_version=_rules_version,
             )
 
         except Exception as e:
@@ -154,4 +176,6 @@ class YaraStage(Stage):
                 findings={},
                 artifacts=[],
                 error=str(e),
+                tool_version=getattr(yara, "__version__", None),
+                rules_version=_rules_version,
             )

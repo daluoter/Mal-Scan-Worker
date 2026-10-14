@@ -1,15 +1,20 @@
 """Helpers for building worker report payloads."""
 
+from copy import deepcopy
 from datetime import datetime, timezone
 from typing import Any
 
+from malscan.analysis_contract import REPORT_SCHEMA_VERSION, build_analysis
 from malscan.scoring.policy import POLICY_VERSION
 
 
-def build_password_attempts_exhausted_report(job_data: dict[str, Any]) -> dict[str, Any]:
+def build_password_attempts_exhausted_report(
+    job_data: dict[str, Any],
+    existing_report: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     """Build final report payload when archive password attempts are exhausted."""
-    return {
-        "report_schema_version": "mswr-report-v2",
+    report = {
+        "report_schema_version": REPORT_SCHEMA_VERSION,
         "job_id": job_data["job_id"],
         "file": {
             "file_id": job_data["file_id"],
@@ -59,12 +64,13 @@ def build_password_attempts_exhausted_report(job_data: dict[str, Any]) -> dict[s
                 },
             },
             "sandbox": {
+                "status": "not_requested",
                 "executed": False,
                 "behaviors": [],
                 "network_connections": [],
-                "provider": "mock",
+                "provider": None,
                 "task_id": None,
-                "is_mock": True,
+                "is_mock": False,
                 "verdict_hint": None,
                 "processes": [],
                 "files": [],
@@ -135,3 +141,70 @@ def build_password_attempts_exhausted_report(job_data: dict[str, Any]) -> dict[s
         },
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
+    if isinstance(existing_report, dict):
+        # Exhausting the password budget blocks descendants; it must not erase
+        # detections and evidence obtained from the outer file.
+        merged = deepcopy(existing_report)
+        merged["report_schema_version"] = REPORT_SCHEMA_VERSION
+        merged.setdefault("results", {})["archive_extract"] = {
+            **merged.get("results", {}).get("archive_extract", {}),
+            **report["results"]["archive_extract"],
+        }
+        explainability = merged.setdefault("explainability", {})
+        explainability["failure_diagnostics"] = report["explainability"]["failure_diagnostics"]
+        summary = explainability.setdefault("summary", {})
+        summary["headline"] = report["explainability"]["summary"]["headline"]
+        summary["final_verdict_explainer"] = report["explainability"]["summary"][
+            "final_verdict_explainer"
+        ]
+        report = merged
+    now = datetime.now(timezone.utc).isoformat()
+    blocked_stage = {
+        "stage_name": "archive-extract",
+        "status": "blocked",
+        "duration_ms": 0,
+        "started_at": now,
+        "ended_at": now,
+        "findings": report["results"]["archive_extract"],
+        "artifacts": [],
+        "error": "Archive password attempts exhausted",
+    }
+    stages = [
+        stage for stage in report.get("stages", []) if stage.get("stage_name") != "archive-extract"
+    ]
+    stages.append(blocked_stage)
+    report["stages"] = stages
+    for stage in stages:
+        if stage.get("status") == "pending":
+            stage["status"] = "blocked"
+            stage["findings"] = {"reason": "Not executed after archive password attempts exhausted"}
+    sandbox = report["results"].get("sandbox")
+    if not isinstance(sandbox, dict) or not sandbox.get("status"):
+        report["results"]["sandbox"] = {
+            "status": "not_requested",
+            "executed": False,
+            "reason": "Archive password attempts exhausted",
+        }
+    timings = report.setdefault("timings", {"total_ms": 0, "stages": []})
+    timings["stages"] = [
+        stage for stage in timings.get("stages", []) if stage.get("name") != "archive-extract"
+    ] + [
+        {
+            "name": "archive-extract",
+            "status": "blocked",
+            "duration_ms": 0,
+            "reason": "Archive password attempts exhausted",
+            "started_at": now,
+            "ended_at": now,
+        }
+    ]
+    # Pending stages after a permanent password block were not executed.
+    for stage in timings["stages"]:
+        if stage.get("status") == "pending":
+            stage["status"] = "blocked"
+            stage["reason"] = "Not executed after archive password attempts exhausted"
+    report["analysis"] = build_analysis(
+        stages=timings["stages"],
+        sandbox=report["results"].get("sandbox"),
+    )
+    return report

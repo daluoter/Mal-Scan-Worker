@@ -21,11 +21,17 @@ async def init_sandbox_publisher() -> None:
     global _connection, _channel
 
     settings = get_settings()
-    if _connection is not None and not _connection.is_closed:
+    if (
+        _connection is not None
+        and not _connection.is_closed
+        and _channel is not None
+        and not _channel.is_closed
+    ):
         return
 
-    _connection = await aio_pika.connect_robust(settings.rabbitmq_url)
-    _channel = await _connection.channel()
+    if _connection is None or _connection.is_closed:
+        _connection = await aio_pika.connect_robust(settings.rabbitmq_url)
+    _channel = await _connection.channel(publisher_confirms=True, on_return_raises=True)
     try:
         await _channel.declare_queue(
             settings.rabbitmq_sandbox_queue,
@@ -41,6 +47,9 @@ async def init_sandbox_publisher() -> None:
             queue=settings.rabbitmq_sandbox_queue,
             reason="queue_already_exists_with_different_arguments",
         )
+        # RabbitMQ closes a channel after a precondition failure. Use a fresh
+        # confirmed channel for a passive lookup of the already-created queue.
+        _channel = await _connection.channel(publisher_confirms=True, on_return_raises=True)
         await _channel.declare_queue(
             settings.rabbitmq_sandbox_queue,
             durable=True,
@@ -74,7 +83,9 @@ async def publish_sandbox_job(job_data: dict[str, Any]) -> None:
         delivery_mode=aio_pika.DeliveryMode.PERSISTENT,
         content_type="application/json",
     )
-    await _channel.default_exchange.publish(message, routing_key=settings.rabbitmq_sandbox_queue)
+    await _channel.default_exchange.publish(
+        message, routing_key=settings.rabbitmq_sandbox_queue, mandatory=True
+    )
     log.info(
         "sandbox_job_published",
         job_id=job_data.get("job_id"),

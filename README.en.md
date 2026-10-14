@@ -2,603 +2,163 @@ English | [繁體中文](README.md)
 
 # MalScanWorker
 
-Malware Attachment Analysis Pipeline
+A file analysis platform built around static analysis: upload files, trace archives and embedded children, and read reports with evidence, artifact lineage, coverage and explicit reasons for unfinished work. Self-hosted installations can add CAPE dynamic analysis. The cloud demo runs the same static core with separate usage limits.
 
-## Architecture
+**[Open the cloud demo](https://malscan-v2-demo.pages.dev)** · [Supported formats](docs/analysis-support.md) · [v2 architecture](docs/v2-architecture.md) · [Roadmap](docs/roadmap.md)
 
+## Current milestone
+
+**Milestone recorded on 2026-10-15 (Asia/Taipei): the first full v2 cloud workflow passed acceptance.** The actual run took place on 2026-10-14 at 23:08–23:12 (Asia/Taipei). A user uploaded a 13-byte `hello.txt` through the production frontend, traversed the Cloudflare control plane, a dispatcher without Google private keys, a Cloud Run Job and private R2, and downloaded the complete static JSON report: `job_status=done`, `report_complete=true`, static analysis complete and dynamic analysis disabled.
+
+The execution took approximately **3 minutes 58 seconds** from creation to completion. Resource readiness to the reported start took approximately **2 minutes 45 seconds**; analysis recorded in the report took **29.3 seconds**. This is one observed baseline, not a latency guarantee. The current “queued” UI also covers execution environment preparation.
+
+The earlier **20,000,000-byte upload / R2 download / scanning PoC** passed separately. The new application's upper-size, nested-password, interrupted-recovery, replay, retention and actual-cost cloud acceptance cases remain open. See the [milestone record](docs/milestones/2026-10-15-cloud-demo.md) and [local validation](docs/v2-validation.md).
+
+## What it analyzes
+
+| Capability | Current results |
+| --- | --- |
+| General static analysis | File type and hashes, ClamAV, YARA, IOCs, deobfuscation candidates and heuristic evidence |
+| Format analysis | Windows PE, Office OLE/OOXML/RTF, PDF, LNK and supported scripts; depth varies by format |
+| Recursive artifacts | ZIP, 7z, RAR, TAR, gzip, bzip2 and supported embedded document objects, with parent-to-child lineage |
+| Passwords and resume | Password submission for supported archives, different passwords across nested archives, completed-stage checkpoints and cumulative extraction budgets |
+| Explainable reports | Stage states, tool/rule versions, direct and descendant risk evidence, partial results and unfinished-work reasons |
+| Optional dynamic analysis | A self-hosted CAPEv2 integration adds available process, file, registry and network evidence |
+
+Reports distinguish no detections from tool errors, missing rules, password waits, budget limits and unsupported formats. `complete` means the declared scope for that analysis finished; no detections do not guarantee a file is safe.
+
+Encrypted Office/PDF decryption, ISO extraction and dedicated deep analysis for ELF, Mach-O, email and APK are not implemented. RAR capabilities depend on an available external extractor. PDF attachment descriptions do not mean those attachments were extracted and scanned. Consult the [support matrix](docs/analysis-support.md) and each report's coverage.
+
+## Choose a deployment mode
+
+| Mode | Intended use | Infrastructure |
+| --- | --- | --- |
+| Cloud demo | Try static analysis within a limited allowance | Use the existing [demo](https://malscan-v2-demo.pages.dev), or deploy your own following the guides |
+| Self-hosted static service | Accept uploads and continuously process work on your server | Docker Compose: API, Go Ingest, worker, PostgreSQL, RabbitMQ, MinIO, ClamAV and Nginx; start the frontend separately |
+| One-shot static CLI | Local analysis, batch integration, container jobs and checkpoint recovery | Linux, Python and analyzer dependencies; local or S3/R2 storage, without PostgreSQL/RabbitMQ |
+| Self-hosted static + dynamic | Add real behavior evidence to static results | The static service plus a working CAPE host, guests/snapshots and an isolated network |
+
+### Cloud demo architecture
+
+```mermaid
+flowchart TD
+    Browser[Browser / Cloudflare Pages] --> Control[Cloudflare Worker API]
+    Control --> State[SQLite Durable Object: jobs / quotas / dispatch identity]
+    Control --> Source[Private R2: source files]
+    Control --> Dispatch[Cloud Run dispatcher: HMAC / single-use claim]
+    Dispatch -->|Short-lived credentials from its execution identity| Job[Cloud Run Job: shared static core]
+    Job --> Source
+    Job --> Results[Private R2: reports / status / checkpoints]
+    Control --> Results
 ```
-User → GitHub Pages (React) → Nginx Reverse Proxy
-                                    │
-                         ┌──────────┴──────────┐
-                         │                      │
-                   POST /api/v1/files    GET /api/v1/**
-                         │                      │
-                         ▼                      ▼
-                Go Ingest Service         FastAPI (Backend)
-              (chi + pgx + minio-go        (SQLAlchemy + asyncpg)
-               + amqp091-go)                    │
-                    │                           │
-          ┌─────────┼─────────┐                 │
-          ▼         ▼         ▼                 │
-       MinIO   PostgreSQL  RabbitMQ             │
-      (files)   (metadata)    │                 │
-                              ▼                 │
-                         Worker(s) ◄────────────┘
-                      clamscan / yara CLI
-                              │
-                              ▼
-                     Supabase PostgreSQL
-                         (reports)
-```
 
-**Data Flow:**
-1. Users upload files through the frontend → Nginx routes requests based on path
-2. **Go Ingest Service** handles file uploads: stores files in MinIO, writes job metadata to PostgreSQL, and publishes tasks to RabbitMQ
-3. **Worker(s)** consume tasks from RabbitMQ, run ClamAV / YARA / format-analysis / deobfuscation and related stages, compute direct/local artifact risk, and write reports back to the database
-4. **FastAPI Backend** provides job status queries and report retrieval APIs, and applies descendant tree-aware risk rollup when `/reports/{job_id}` is read
+The Worker retains job identity, single-use upload authorization and quotas. The dispatcher validates the signature, atomically claims dispatch, then uses short-lived credentials from its own service account to run the fixed Job. **Cloudflare stores no Google service account private key.** Source and result buckets are private; the browser uses a job capability to access its own status and report.
 
-## Quick Start
+The demo is static-only, with these current settings:
 
-### Prerequisites
+| Item | Current setting |
+| --- | --- |
+| Original file size | 1–20,000,000 bytes |
+| Cumulative extraction across the tree | 20 files / 100,000,000 bytes / depth 3 |
+| Analysis window / Cloud Run task timeout | 840 seconds / 900 seconds |
+| New-job allowance | 10 per day |
+| Execution allowance | 20 per day, 40 per month; includes password resumes and dispatches with uncertain outcomes |
+| Retention | Configured to 24 hours; actual expiry cleanup remains a cloud acceptance case |
 
-- VirtualBox + Ubuntu Server VM (for k3s)
-- A [Supabase](https://supabase.com/) project (free tier works fine)
-- GitHub account (for GHCR and GitHub Pages)
+Free-tier usage is a cost target, **not a zero-bill guarantee**. Cloud Run, builds/images, Secret Manager, storage and logging require cost observation. The product's self-hosted capabilities are separate from demo quotas.
 
-> ⚠️ **VirtualBox Network Configuration**
->
-> VirtualBox defaults to NAT mode, which prevents external access to the VM (including `http://VM_IP:30080`).
->
-> **Solution:** Switch the VirtualBox network adapter to **Bridged Adapter**
->
-> Steps: VM Settings → Network → Adapter 1 → Attached to: select "Bridged Adapter"
+Use the [production Pages origin](https://malscan-v2-demo.pages.dev) and retain the upload tab. Its capability is stored in that tab's `sessionStorage`: refreshing preserves it, while closing the tab normally loses access. If a response is lost, check the existing job before uploading again.
 
----
+To deploy your own cloud environment, read the [Cloud Run guide](deployment/cloud-run/README.md), [keyless dispatcher guide](deployment/dispatcher/README.md), [Cloudflare guide](deployment/cloudflare/README.md) and [frontend build guide](frontend/README.md). The current demo frontend uses Cloudflare Pages. The existing GitHub Pages workflow is a separate option and requires the explicit `ENABLE_GITHUB_PAGES_DEPLOY=true` setting to publish.
 
-## Full Deployment Steps
+### Self-hosted static service: local quick start
 
-### 1. Fork/Clone the Project
+Install Git, Docker Compose v2 and Node.js/npm for the frontend. These steps use Compose's local development defaults; Supabase, Kubernetes and sandbox VMs are not prerequisites.
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/MalScanWorker.git
+git clone https://github.com/daluoter/MalScanWorker.git
 cd MalScanWorker
+docker compose up -d --build
+docker compose ps
 ```
 
-### 2. Configure GitHub Repository
+The API creates tables for a new installation. If a root `.env` already exists, check `DATABASE_URL`: Compose containers should connect to `postgres:5432`, not their own `localhost`. `.env.example` documents configuration fields; its host addresses and placeholder passwords are not ready-to-use values for this Compose quick start.
 
-#### 2.1 Enable GitHub Pages
-1. Go to repo **Settings** → **Pages**
-2. Set **Source** to **GitHub Actions**
-
-#### 2.2 Set Repository Variables
-Go to **Settings** → **Secrets and variables** → **Actions** → **Variables**
-
-Add the following variable:
-| Variable Name | Example Value |
-|---------------|---------------|
-| `API_BASE_URL` | `http://YOUR_VM_IP:30080` |
-
-### 3. Set Up k3s Environment (Inside VM)
+Start the frontend in another terminal:
 
 ```bash
-# Install k3s
-curl -sfL https://get.k3s.io | sh -
-
-# Verify installation
-sudo kubectl get nodes
+cd MalScanWorker/frontend
+npm ci
+VITE_BASE_PATH=/ VITE_API_BASE_URL=http://localhost:8000 npm run dev
 ```
 
-### 4. Build Docker Images
+Open `http://localhost:5173`; Nginx exposes the API at `http://localhost:8000`. Initial ClamAV database preparation can take time. Dynamic analysis is disabled by default. Compose credentials and exposed ports are development defaults; configure access controls and production credentials before exposing the service.
 
-The project includes GitHub Actions workflows that automatically build and push to GHCR.
-Just make sure CI/CD passes — images will be created at:
-- `ghcr.io/YOUR_USERNAME/malscan-api:latest`
-- `ghcr.io/YOUR_USERNAME/malscan-worker:latest`
-- `ghcr.io/YOUR_USERNAME/malscan-ingest:latest`
+Before upgrading an existing database, back it up and stop old workers. Set `DATABASE_URL` for that database, run `poetry run alembic upgrade head` from `backend`, then start updated services. Migrations live in [backend/alembic](backend/alembic); adding model fields does not fully upgrade existing tables.
 
-#### Manual Build (Optional)
-```bash
-# Backend API
-cd backend
-docker build -t ghcr.io/YOUR_USERNAME/malscan-api:latest .
-docker push ghcr.io/YOUR_USERNAME/malscan-api:latest
+### One-shot static CLI and password resume
 
-# Worker (build from project root)
-cd ..
-docker build -f worker/Dockerfile -t ghcr.io/YOUR_USERNAME/malscan-worker:latest .
-docker push ghcr.io/YOUR_USERNAME/malscan-worker:latest
+Use Linux, Python 3.11+, Poetry and native dependencies such as libmagic and ClamAV; RAR also requires an extractor. The example assumes a local `clamscan` installation with a valid database. Missing tools or rules leave explicit incomplete coverage.
 
-# Ingest (Go)
-cd ingest
-docker build -t ghcr.io/YOUR_USERNAME/malscan-ingest:latest .
-docker push ghcr.io/YOUR_USERNAME/malscan-ingest:latest
-```
-
-### 5. Deploy to k3s
-
-#### 5.1 Create Namespace
-```bash
-sudo kubectl apply -f k8s/namespace.yaml
-```
-
-#### 5.2 Create Secrets
-```bash
-sudo kubectl create secret generic malscan-secrets \
-  --namespace=malscan \
-  --from-literal=DATABASE_URL="postgresql://postgres:YOUR_PASSWORD@YOUR_SUPABASE_HOST:5432/postgres" \
-  --from-literal=MINIO_ACCESS_KEY="minioadmin" \
-  --from-literal=MINIO_SECRET_KEY="YOUR_MINIO_SECRET" \
-  --from-literal=RABBITMQ_URL="amqp://guest:guest@rabbitmq:5672/"
-```
-
-#### 5.3 Create Data Directories (On k3s Node)
-```bash
-# MinIO and RabbitMQ require persistent storage
-sudo mkdir -p /data/malscan/minio
-sudo mkdir -p /data/malscan/rabbitmq
-sudo chmod 777 /data/malscan/minio /data/malscan/rabbitmq
-```
-
-#### 5.4 Update k8s Manifests (Replace OWNER)
-Edit the following files and replace `OWNER` with your GitHub username:
-- `k8s/api/deployment.yaml`
-- `k8s/worker/deployment.yaml`
-- `k8s/ingest/deployment.yaml`
-
-```bash
-# Batch replace using sed
-sed -i 's/OWNER/YOUR_USERNAME/g' k8s/api/deployment.yaml
-sed -i 's/OWNER/YOUR_USERNAME/g' k8s/worker/deployment.yaml
-sed -i 's/OWNER/YOUR_USERNAME/g' k8s/ingest/deployment.yaml
-```
-
-#### 5.5 Deploy All Resources
-```bash
-# 1. Create namespace and configmap
-sudo kubectl apply -f k8s/namespace.yaml
-sudo kubectl apply -f k8s/configmap.yaml
-
-# 2. Create PersistentVolumes (must be created before namespace resources)
-sudo kubectl apply -f k8s/minio/pv.yaml
-sudo kubectl apply -f k8s/rabbitmq/pv.yaml
-
-# 3. Deploy infrastructure services
-sudo kubectl apply -f k8s/minio/pvc.yaml
-sudo kubectl apply -f k8s/minio/deployment.yaml
-sudo kubectl apply -f k8s/rabbitmq/pvc.yaml
-sudo kubectl apply -f k8s/rabbitmq/deployment.yaml
-
-# 4. Deploy application services
-sudo kubectl apply -f k8s/yara-rules/
-sudo kubectl apply -f k8s/ingest/
-sudo kubectl apply -f k8s/api/
-sudo kubectl apply -f k8s/worker/
-sudo kubectl apply -f k8s/nginx/
-```
-
-#### 5.6 Verify Deployment
-```bash
-sudo kubectl get pods -n malscan
-sudo kubectl get svc -n malscan
-```
-
-### 6. Access Services
-
-| Service | URL |
-|---------|-----|
-| Frontend | https://YOUR_USERNAME.github.io/MalScanWorker/ |
-| API | http://VM_IP:30080 |
-| MinIO Console | http://VM_IP:NodePort (check `kubectl get svc`) |
-| RabbitMQ Management | http://VM_IP:NodePort |
-
-### 7. Connect Frontend and Backend with Cloudflare Tunnel
-
-> ⚠️ **Why is this needed?**
->
-> GitHub Pages is served over HTTPS, and browser security policies (Mixed Content) block requests from HTTPS pages to HTTP APIs.
-> Cloudflare Tunnel provides a free HTTPS endpoint for your VM API.
-
-#### 7.1 Install cloudflared (Inside VM)
-
-```bash
-# Debian/Ubuntu
-curl -L --output cloudflared.deb https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64.deb
-sudo dpkg -i cloudflared.deb
-
-# Or via snap
-sudo snap install cloudflared
-```
-
-#### 7.2 Start a Quick Tunnel
-
-```bash
-# Replace 30080 with your API NodePort
-sudo cloudflared tunnel --url http://localhost:30080
-```
-
-On success, you'll see a public URL like:
-```
-Your quick Tunnel has been created! Visit it at:
-https://random-words-here.trycloudflare.com
-```
-
-> 💡 **Note:** Quick Tunnel URLs change on every restart. For a permanent URL, see [Named Tunnels](https://developers.cloudflare.com/cloudflare-one/connections/connect-apps/).
-
-#### 7.3 Update GitHub Repository Variables
-
-1. Go to repo **Settings** → **Secrets and variables** → **Actions** → **Variables**
-2. Edit the `API_BASE_URL` variable and set it to the Cloudflare Tunnel HTTPS URL:
-   ```
-   https://random-words-here.trycloudflare.com
-   ```
-   > ⚠️ **Note:** Do **not** add a trailing slash `/` to the URL
-
-#### 7.4 Redeploy the Frontend
-
-Trigger a GitHub Pages redeployment (either method):
-- Push any commit to the `main` branch
-- Go to **Actions** → **Frontend Deploy** → **Run workflow**
-
-#### 7.5 Verify Connectivity
-
-1. Open https://YOUR_USERNAME.github.io/MalScanWorker/
-2. Upload a test file
-3. You should see a successful upload and be taken to the analysis progress page
-
-> 🔍 **Debugging Tip:** If something goes wrong, open browser DevTools (F12) → Network tab and inspect the API request URLs and responses.
-
----
-
-## Local Development
-
-During development, you need two parts:
-1. **Infrastructure:** PostgreSQL, MinIO, RabbitMQ, ClamAV
-2. **Application:** Frontend, Ingest Service, Backend API, Worker
-
-> ⚠️ **Avoid the "Ghost Consumer" Problem**
->
-> If you plan to run the Worker locally with `poetry run` for development/debugging, **never** start all services with `docker compose up -d`!
-> The `docker-compose.yml` includes a `worker` service — if both run simultaneously, RabbitMQ will have two consumers, and some tasks may be grabbed by the outdated Docker worker, leading to incorrect analysis results.
->
-> **The right approach:** Only start infrastructure containers, then manually start the application services locally.
-
-### 1. Start Infrastructure (PostgreSQL, MinIO, RabbitMQ, ClamAV)
-
-From the project root, start only the required infrastructure — **do not** start the API, Ingest, or Worker:
-
-```bash
-docker compose up -d postgres minio rabbitmq clamav
-```
-
-### 2. Set Environment Variables (`.env`)
-
-The backend and worker need to connect to the locally running infrastructure. Create the corresponding `.env` files:
-
-#### Backend (`backend/.env`)
-```bash
-cd backend
-cat <<EOF > .env
-DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/malscan
-MINIO_ENDPOINT=localhost:9000
-MINIO_ACCESS_KEY=minioadmin
-MINIO_SECRET_KEY=minioadmin
-RABBITMQ_URL=amqp://guest:guest@localhost:5672/
-EOF
-```
-
-#### Worker (`worker/.env`)
-```bash
-cd ../worker
-cat <<EOF > .env
-DATABASE_URL=postgresql+asyncpg://postgres:postgres@localhost:5432/malscan
-MINIO_ENDPOINT=localhost:9000
-MINIO_ACCESS_KEY=minioadmin
-MINIO_SECRET_KEY=minioadmin
-RABBITMQ_URL=amqp://guest:guest@localhost:5672/
-CLAMAV_HOST=localhost
-CLAMAV_PORT=3310
-SANDBOX_MOCK=true
-EOF
-```
-
-#### Ingest (`ingest/.env`)
-```bash
-cd ../ingest
-cat <<EOF > .env
-LISTEN_ADDR=:8080
-DATABASE_URL=postgres://postgres:postgres@localhost:5432/malscan?sslmode=disable
-MINIO_ENDPOINT=localhost:9000
-MINIO_ACCESS_KEY=minioadmin
-MINIO_SECRET_KEY=minioadmin
-MINIO_USE_SSL=false
-MINIO_BUCKET=uploads
-RABBITMQ_URL=amqp://guest:guest@localhost:5672/
-EOF
-```
-
-> 💡 Database tables are automatically created when the backend and worker start — no manual migrations needed.
-
-### 3. Start the Frontend
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-### 4. Start the Ingest Service (Go)
-```bash
-cd ingest
-go run ./cmd/ingest
-```
-
-Ingest defaults to **6 uploads per minute** with a burst of **2**. Configure it with `UPLOAD_RATE_LIMIT_ENABLED`, `UPLOAD_RATE_LIMIT_RPM`, and `UPLOAD_RATE_LIMIT_BURST`. The in-memory limit applies per ingest process; multiple replicas each have their own bucket, so use distributed or edge limiting if a shared cluster-wide limit is required.
-
-Optional server-side Bearer authentication is disabled by default (`UPLOAD_AUTH_ENABLED=false`). When enabled, it protects only the Go Ingest `POST /api/v1/files` route. Set these environment variables on the ingest server, replacing the example value with a securely supplied key (never commit the real key):
-```bash
-UPLOAD_AUTH_ENABLED=true
-UPLOAD_API_KEY=REPLACE_WITH_GENERATED_64_HEX_CHARACTERS
-```
-Generate a key with `openssl rand -hex 32`. A trusted client sends it in the standard Bearer header:
-```bash
-export UPLOAD_API_KEY='<securely supplied server key>'
-curl -X POST http://localhost:8080/api/v1/files \\
-  -H "Authorization: Bearer ${UPLOAD_API_KEY}" \\
-  -F 'file=@sample.bin'
-```
-**Important: Never put this key in a `VITE_*` variable, frontend source, a browser, or GitHub Pages; frontend build output is public and cannot keep secrets. There is intentionally no frontend integration—never give the server key to a browser.**
-
-### 5. Start the Backend
-```bash
-cd backend
-poetry install
-poetry run uvicorn malscan.main:app --reload
-```
-
-### 6. Start the Worker
 ```bash
 cd worker
 poetry install
-poetry run python -m malscan_worker.main
+export CLAMAV_MODE=cli
+export YARA_RULES_PATH="$PWD/rules"
+
+poetry run python -m malscan_worker.runtime --file /path/sample.zip --output-dir /path/analysis
+# Resume with the same source, output directory and retained checkpoint
+poetry run python -m malscan_worker.runtime --file /path/sample.zip --output-dir /path/analysis --resume
+# Enter the root archive password at a hidden prompt
+poetry run python -m malscan_worker.runtime --file /path/sample.zip --output-dir /path/analysis --resume --ask-password
 ```
 
-### 📦 Test the Full Containerized Environment (Docker Compose)
+For a nested artifact with a different password, use `--password-artifact ARTIFACT_ID`. Keep passwords out of command-line values. A successful process exit means results were saved; inspect `batch_analysis` and `report.json` for their actual outcome.
 
-If you've finished development and want to test the entire system in a **fully containerized** setup:
+CLI defaults are 100 extracted files, 500,000,000 expanded bytes, depth 3 and a 3,600-second attempt window. Configure `--max-files`, `--max-expanded-bytes`, `--max-depth` and `--attempt-timeout` as needed. Resume preserves cumulative tree-wide usage instead of granting another extraction budget. See the [Cloud Run guide](deployment/cloud-run/README.md) for S3/R2 adapters and private signed checkpoints.
 
-1. **Make sure to stop** all locally running `poetry run` and `go run` processes (API, Ingest, and Worker) to avoid connection or consumer conflicts.
-2. Run the following command to force-rebuild any modified Worker, API, and Ingest images, ensuring containers use the latest code:
+### Self-hosted dynamic analysis: one command after configuration
+
+First provide a CAPE host reachable from containers, API access, analysis guests/snapshots and an isolated network. Configure the root `.env`:
+
+```dotenv
+SANDBOX_ENABLED=true
+SANDBOX_PROVIDER=capev2
+SANDBOX_BASE_URL=https://cape.example.internal
+SANDBOX_API_TOKEN=REPLACE_WITH_YOUR_CAPE_TOKEN
+```
 
 ```bash
-# From the project root
-docker compose up -d --build
+scripts/enable-sandbox.sh
 ```
 
----
+The script first performs a read-only `/apiv2/machines/list/` check for API access and an unlocked guest, then starts the static and sandbox workers. **It does not install CAPE, create VMs, or validate guest boot/snapshot restoration.** Local HTTP fixtures validate integration and recovery; live CAPE detonation remains an external acceptance task.
 
-## Password-Protected and Recursive Archive Analysis
+Static results remain readable while dynamic evidence arrives. Provider failures retain `failed`/`unavailable` states instead of switching to mock. An uncertain submission requires reconciliation rather than blind resubmission. Mock is an explicit development choice; synthetic results never count as real behavior. Recovery and multi-task limits are documented in the [v2 architecture](docs/v2-architecture.md).
 
-When an uploaded archive requires a password, the system enters a password flow first; after successful unlock, recursive extraction and descendant analysis begin.
+## Reports, rules and antivirus databases
 
-### Supported Formats
-- **Archive:** ZIP, 7z, RAR, TAR, GZIP, BZ2
-- **ISO:** currently a stub (planned, not actively extracted yet)
+Reports use `report_schema_version=mswr-report-v3` and `analysis.schema_version=mswr-analysis-v1`, with separate `static`/`dynamic` states. Artifact trees, stage coverage, risk evidence and available tool versions explain what actually ran. JSON downloads and readable partial results are supported.
 
-### Supported Encryption Methods
-- **ZIP:** ZipCrypto / AES-256 (WZ_AES)
-- **7z:** AES-256
-- **RAR:** AES-128 / AES-256
+| Information in the milestone report | Meaning |
+| --- | --- |
+| YARA `4.5.4` | The `yara-python` tool version, not the ruleset version |
+| YARA rules SHA256 | Identifies the loaded rules; the bundled [5 files / 15 rules](worker/rules) are a baseline ruleset |
+| ClamAV `1.4.3` | The antivirus engine version in that cloud image |
+| Database `28153`, `2026-10-14 06:24:15` | That database's serial and creation timestamp, not a lasting claim of upstream freshness |
 
-### Workflow
-1. Upload a password-protected archive → system auto-detects and sets `password_required`
-2. Submit password on the job status page → system retries extraction and resumes analysis
-3. After successful unlock, the worker creates artifact lineage records and dispatches recursive sub-jobs
-4. If dedup finds an existing DB file row but MinIO object has expired, the worker auto re-uploads to avoid sub-job `NoSuchKey`
-5. Up to **3** password attempts are allowed
-   - Correct password: extraction succeeds and inner files are analyzed
-   - 3 wrong attempts: final report is generated with explicit extraction-failed notice
+The cloud image refreshes ClamAV signatures **at build time**, not during each scan. A seven-day freshness guard reports an antivirus-stage failure when the database is too old. **Automatic daily rebuilding/refresh is not implemented yet.** Compose uses a separate ClamAV service with its updater enabled by default. Expanding YARA also requires license/source tracking, versioning, false-positive evaluation and performance checks, beyond rule counts.
 
-### Report and Navigation Behavior
-- Parent report is shown only after the full descendant job tree reaches terminal states
-  - If descendants are still running, `GET /api/v1/reports/{job_id}` returns `409`
-  - Frontend displays a waiting state and polls until report is ready
-  - The final `score`, `risk_level`, and `risk` block reflect the full artifact-tree rollup, not just the root file's local scan
-- Successful extraction: report includes archive extraction info (file count, sub-jobs, total extracted size)
-- Failed extraction: report shows a red extraction-failed banner
-- If the password is wrong 3 times, the final report keeps `verdict = "unknown"` and returns a conservative zeroed `risk` block instead of mislabeling the file as `clean`
-- Child Job/Report pages include a "back to parent analysis" entry
+## Development, validation and next steps
 
----
+| Location | Purpose |
+| --- | --- |
+| [frontend](frontend) | React/TypeScript UI with self-host and cloud-demo transports |
+| [backend](backend), [ingest](ingest) | Self-hosted FastAPI query/report API and Go streaming uploads |
+| [worker](worker) | Shared static stages, recursive extraction, portable runtime and CAPE adapter |
+| [deployment](deployment) | Cloudflare, Cloud Run Jobs and keyless dispatcher deployment |
+| [k8s](k8s), [GitHub Actions](.github/workflows) | Existing Kubernetes examples and CI/image/frontend workflows, maintained separately from the deployed cloud demo |
 
-## Format-Specific Analyzer Architecture (Phase 1)
+Local validation covers backend/worker/frontend tests, real PostgreSQL budgets and attempts, real ZIP/7z different-password recovery, full-container/S3 checkpoints and Worker-to-Python-dispatcher HTTP integration. Consult the [validation record](docs/v2-validation.md) for counts, commands and evidence boundaries. These tests do not replace live-provider or billing acceptance.
 
-The worker now includes a dedicated `format-analysis` stage to add deep, format-specific visibility beyond generic static scanning (ClamAV/YARA/regex IOC).
-
-### What `AnalyzerRegistry` is
-
-`AnalyzerRegistry` is a first-match dispatch registry for pluggable analyzers:
-
-- Uses MIME (from `file-type`) plus magic bytes
-- Selects the first analyzer that can handle the file
-- Provides deterministic ordering and incremental extensibility
-
-Current default order:
-
-1. `PEAnalyzer`
-2. `OfficeAnalyzerAdapter`
-3. `PDFAnalyzer`
-4. `LNKAnalyzer`
-5. `ScriptAnalyzer`
-
-### Formats supported in this phase
-
-- PE (EXE/DLL)
-- Office (RTF/OLE/OOXML)
-- PDF
-- LNK
-- Script (PowerShell / JavaScript / VBScript / Batch / HTA)
-
-### How `DocumentAnalysisStage` is integrated
-
-The existing `DocumentAnalysisStage` was intentionally not rewritten yet.
-Instead, it is integrated through an adapter/shim (`OfficeAnalyzerAdapter`):
-
-- Reuses current Office parsing and exploit detection internals
-- Maps legacy findings into unified `AnalyzerResult`
-- Lets Office participate in shared format-analysis scoring/reporting
-
-### Behavior/config changes in this phase
-
-- Pipeline order now includes `format-analysis` between parallel static stages and later sequential stages.
-- Reports now include `results.format_analysis`.
-- `results.document_analysis` remains for backward compatibility.
-- Format analysis can submit extracted artifacts as sub-jobs.
-- Recursive submission in this stage now enforces max-depth guardrails.
-
-### Structured Heuristic Outputs
-
-- `AnalyzerResult` and `results.format_analysis` now preserve a `heuristics` array.
-- Each heuristic exposes `key`, `category`, `scope`, `role`, `severity`, `confidence`, `summary`, `evidence`, and `tags`.
-- The current coverage includes explainable static heuristics for PE, PDF, Office, LNK, and Script inputs.
-- `archive-extract` also emits `archive_summary` and `heuristics`, including executable concentration, password-protection, path-traversal, and deep-nesting archive signals.
-
-### Intentionally not included yet
-
-- Full internal decomposition/rewrite of `DocumentAnalysisStage` as a native Office analyzer
-- PDF JavaScript emulation/deobfuscation
-- Full LNK extra-data ecosystem parsing
-- Script AST/symbolic execution-level analysis
-- Cross-format chain correlation (e.g., LNK -> script -> downloader)
-
-### Limitations and follow-up work
-
-- Some parser dependencies are optional and fall back gracefully when unavailable.
-- Indicator logic is heuristic-oriented and designed for explainability; precision tuning continues.
-- Deeper format semantics, cross-format correlation, and threat-intel enrichment are planned follow-ups.
-
----
-
-## Multi-Signal Risk Scoring and Report Fields
-
-The system now uses evidence-driven multi-signal risk scoring instead of the earlier thin `verdict/score` logic.
-
-### Risk Calculation Flow
-
-- The worker computes only direct/local risk for the current artifact when a job finishes
-- The backend recomputes canonical tree-aware risk on `GET /api/v1/reports/{job_id}` after all descendants are complete
-- This prevents parent reports from going stale when risky child artifacts finish later
-
-### Main Signal Sources
-
-- ClamAV signatures
-- YARA metadata-based classification
-- raw IOC extraction
-- structured `format-analysis` indicators
-- structured heuristics from `format-analysis` and `archive-extract`
-- deobfuscation evidence
-- sandbox behaviors
-- descendant inheritance from the artifact tree
-
-### Heuristic Evidence Normalization
-
-- The backend normalizes `heuristics` from `format-analysis` and `archive-extract` into scoring evidence before falling back to legacy indicators or `risk_score` support.
-- Heuristic evidence is capped by family so a single format or signal type cannot dominate the final score by repetition alone.
-- Current cap families include `entropy`, `packer`, `api`, `structure`, `resource`, `script`, `lolbin`, and `archive`.
-
-### Compatibility Fields
-
-- Top-level `verdict` is retained as the legacy compatibility field
-- Top-level `score` remains a legacy-compatible alias of final `risk_score`
-- Compatibility mapping:
-  - `clean -> clean`
-  - `low / medium / high -> suspicious`
-  - `malicious -> malicious`
-
-### New Risk Fields
-
-- Top-level `risk_level`: `clean | low | medium | high | malicious`
-- Top-level `risk` block includes:
-  - `policy_version`
-  - `risk_score`
-  - `risk_level`
-  - `legacy_verdict`
-  - `malicious_gate_open`
-  - `high_gate_open`
-  - `independent_source_count`
-  - `breakdown`
-  - `evidence`
-  - `top_evidence`
-  - `descendant_summary`
-
-### Artifact Tree Risk Fields
-
-- `artifact_tree` nodes now expose:
-  - `verdict`
-  - `score`
-  - `risk_level`
-  - `policy_version`
-- The root `artifact_tree` node is kept consistent with the final top-level rolled-up report risk so clients do not see conflicting root-artifact severity in the same payload
-
----
-
-## Explainability v2 and Traditional Chinese UI
-
-The report payload now exposes an additive `mswr-report-v2` explainability contract while preserving backward compatibility for `GET /api/v1/reports/{job_id}`.
-
-### Explainability v2 highlights
-
-- Preserves top-level `verdict`, `score`, and `risk_level`
-- Preserves `risk.policy_version`, `risk.breakdown`, `risk.evidence`, `risk.top_evidence`, and `risk.descendant_summary`
-- Preserves `results.*`
-- Preserves `artifact_tree`
-- Adds `report_schema_version`
-- Adds `risk.score_trace`
-- Adds `explainability.summary`, `explainability.findings`, `explainability.iocs`, `explainability.decoded_strings`, `explainability.timeline`, and `explainability.failure_diagnostics`
-
-### Root artifact and tree-aware reporting
-
-- Every report now has a canonical root artifact
-- If legacy data is missing a root artifact, the backend synthesizes one at read time
-- The root report risk reflects the entire descendant artifact tree instead of only the outer file's local scan
-
-### Report copy and UI language
-
-- The main user-facing copy on the report page, job status page, and upload page is now Traditional Chinese
-- Backend and worker generated explainability text, including summaries, timeline events, and failure diagnostics, is also emitted in Traditional Chinese
-- This keeps API content and frontend rendering aligned instead of relying only on a frontend translation layer
-
-### Password exhaustion behavior
-
-- If an archive password is entered incorrectly 3 times, the worker emits a conservative final report with `verdict = "unknown"` and `risk_score = 0`
-- `results.archive_extract.reason` and `explainability.failure_diagnostics` explicitly describe that analysis was blocked by password exhaustion
-- These reports clearly state that only the outer file was covered, so incomplete analysis is not mistaken for a clean sample
-
----
-
-## API Endpoints
-
-| Method | Path | Service | Description |
-|--------|------|---------|-------------|
-| POST | `/api/v1/files` | Go Ingest Service | Upload a file for analysis |
-| GET | `/api/v1/jobs/{job_id}` | FastAPI | Query analysis status |
-| POST | `/api/v1/jobs/{job_id}/password` | FastAPI | Submit archive password (max 3 attempts) |
-| GET | `/api/v1/reports/{job_id}` | FastAPI | Retrieve the final tree-aware analysis report, including `risk`, `risk_level`, and the artifact tree |
-
----
-
-## Tech Stack
-
-- **Frontend:** React 18 + TypeScript + Vite
-- **Ingest:** Go 1.25 + chi + pgx + minio-go + amqp091-go (file ingestion layer)
-- **Backend:** FastAPI + SQLAlchemy + asyncpg
-- **Worker:** Python + clamscan CLI + yara CLI + pyzipper (AES ZIP) + py7zr + rarfile
-- **Reverse Proxy:** Nginx (routes requests to Ingest / Backend)
-- **Queue:** RabbitMQ
-- **Storage:** MinIO + Supabase PostgreSQL
-- **Container Orchestration:** k3s + GHCR
-- **CI/CD:** GitHub Actions
-
----
-
-## License
-
-MIT
+First complete cloud acceptance, database maintenance and cost observation. Then improve static evidence/rule quality, followed by deeper analysis of common formats and password/attachment handling. Measured performance work follows those static foundations; live CAPE acceptance depends on available infrastructure. Startup-status clarity can proceed alongside cloud acceptance. The [project roadmap](docs/roadmap.md) defines the order and acceptance criteria.

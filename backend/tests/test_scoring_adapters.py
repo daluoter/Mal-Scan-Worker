@@ -1,5 +1,6 @@
 """Tests for adapting direct stage outputs into evidence records."""
 
+import pytest
 from malscan.scoring.adapters import build_direct_evidence
 
 
@@ -441,6 +442,61 @@ def test_sandbox_scoring_reads_additive_network_shape_too() -> None:
         "provider": "capev2",
         "task_id": "42",
     }
+
+
+@pytest.mark.parametrize(
+    "metadata",
+    [
+        {"provider": "mock"},
+        {"is_mock": True},
+        {"synthetic": True},
+        {"executed": False},
+        *[
+            {"status": status}
+            for status in (
+                "synthetic",
+                "mock",
+                "disabled",
+                "not_requested",
+                "deferred",
+                "queued",
+                "unavailable",
+                "failed",
+                "timeout",
+                "unsupported",
+            )
+        ],
+    ],
+)
+def test_sandbox_mock_or_incomplete_results_cannot_be_malicious_evidence(metadata):
+    records = build_direct_evidence(
+        artifact_id="artifact-1",
+        stage_findings={
+            "sandbox": {
+                "behaviors": [{"type": "process_injection"}],
+                **metadata,
+            }
+        },
+    )
+    assert records == []
+
+
+def test_completed_real_sandbox_still_contributes_dynamic_evidence():
+    records = build_direct_evidence(
+        artifact_id="artifact-1",
+        stage_findings={
+            "sandbox": {
+                "status": "completed",
+                "executed": True,
+                "is_mock": False,
+                "provider": "capev2",
+                "task_id": "42",
+                "behaviors": [{"type": "process_injection"}],
+            }
+        },
+    )
+    assert len(records) == 1
+    assert records[0].cap_group == "dynamic"
 
 
 def test_build_direct_evidence_preserves_artifact_and_analyzer_provenance() -> None:

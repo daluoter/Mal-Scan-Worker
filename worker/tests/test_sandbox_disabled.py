@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from typing import Any
 from unittest.mock import AsyncMock
@@ -78,7 +79,8 @@ def test_sandbox_is_disabled_by_default(monkeypatch: pytest.MonkeyPatch) -> None
     settings = _settings()
 
     assert settings.sandbox_enabled is False
-    assert settings.sandbox_provider == "mock"
+    assert settings.sandbox_provider == "capev2"
+    assert settings.sandbox_mock is False
 
 
 def test_explicit_false_sandbox_enabled_env_is_parsed(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -106,9 +108,9 @@ async def test_sandbox_stage_is_skipped_when_disabled(mocker, stage_context: Sta
     assert result.stage_name == "sandbox"
     assert result.status == "skipped"
     assert result.findings["executed"] is False
-    assert result.findings["provider"] == "mock"
-    assert result.findings["is_mock"] is True
-    assert "status" not in result.findings
+    assert result.findings["provider"] == "capev2"
+    assert result.findings["is_mock"] is False
+    assert result.findings["status"] == "disabled"
     for key in (
         "behaviors",
         "network_connections",
@@ -123,7 +125,7 @@ async def test_sandbox_stage_is_skipped_when_disabled(mocker, stage_context: Sta
         "screenshots",
     ):
         assert result.findings[key] == []
-    assert result.findings["errors"] == ["Sandbox disabled"]
+    assert result.findings["errors"] == []
 
 
 @pytest.mark.asyncio
@@ -159,6 +161,16 @@ async def test_disabled_sandbox_job_finalizes_without_sandbox_queue_or_findings(
     test_file = tmp_path / "sample.bin"
     test_file.write_bytes(b"static test sample")
 
+    @asynccontextmanager
+    async def unlocked(_job_id):
+        yield True
+
+    mocker.patch("malscan_worker.consumer.job_execution_lock", unlocked)
+    mocker.patch("malscan_worker.consumer.job_analysis_attempt", unlocked)
+    mocker.patch(
+        "malscan_worker.consumer.get_job_for_context", new_callable=AsyncMock, return_value=None
+    )
+
     mocker.patch(
         "malscan_worker.stages.sandbox.get_settings",
         return_value=_settings(sandbox_enabled=False),
@@ -185,9 +197,6 @@ async def test_disabled_sandbox_job_finalizes_without_sandbox_queue_or_findings(
     )
     consumer_update_status = mocker.patch(
         "malscan_worker.consumer.update_job_status", new_callable=AsyncMock
-    )
-    update_result = mocker.patch(
-        "malscan_worker.pipeline.update_job_result", new_callable=AsyncMock
     )
     update_result_strict = mocker.patch(
         "malscan_worker.pipeline.update_job_result_strict", new_callable=AsyncMock
@@ -230,15 +239,14 @@ async def test_disabled_sandbox_job_finalizes_without_sandbox_queue_or_findings(
     pipeline_update_status.assert_awaited_once_with(
         job_id, "done", current_stage=None, stages_done=5
     )
-    update_result.assert_awaited_once()
-    update_result_strict.assert_not_awaited()
+    assert update_result_strict.await_count == 6
     publish_sandbox_job.assert_not_awaited()
 
-    report = update_result.await_args.args[1]
+    report = update_result_strict.await_args.args[1]
     sandbox = report["results"]["sandbox"]
     assert report["job_id"] == job_id
     assert sandbox["executed"] is False
-    assert sandbox["provider"] == "mock"
+    assert sandbox["provider"] == "capev2"
     for key in (
         "behaviors",
         "network_connections",
@@ -257,7 +265,7 @@ async def test_disabled_sandbox_job_finalizes_without_sandbox_queue_or_findings(
     assert sandbox["pcap"] == {"available": False, "url": None}
     assert sandbox["memory_dump"] == {"available": False, "url": None}
     assert sandbox["verdict_hint"] is None
-    assert "status" not in sandbox
+    assert sandbox["status"] == "disabled"
     sandbox_timing = next(
         stage for stage in report["timings"]["stages"] if stage["name"] == "sandbox"
     )

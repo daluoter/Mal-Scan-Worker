@@ -1,0 +1,14 @@
+{
+  "name": "malscan-demo-control",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {"node": ">=22"},
+  "scripts": {
+    "test": "node --test test/*.test.mjs"
+  },
+  "devDependencies": {
+    "miniflare": "4.20260730.0",
+    "wrangler": "4.150.0"
+  }
+}

@@ -238,7 +238,7 @@ async def test_analyzer_exception_returns_failed(
 
 
 @pytest.mark.asyncio
-async def test_submit_subjob_exception_recorded_and_stage_ok(
+async def test_submit_subjob_exception_preserves_partial_findings(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     artifact_path = tmp_path / "child.bin"
@@ -281,13 +281,13 @@ async def test_submit_subjob_exception_recorded_and_stage_ok(
     stage = FormatAnalysisStage()
     result = await stage.execute(_ctx(tmp_path, with_job=True))
 
-    assert result.status == "ok"
+    assert result.status == "partial"
     assert result.findings["sub_jobs_created"] == 0
     assert any("sub-job submit failed" in e for e in result.findings["errors"])
 
 
 @pytest.mark.asyncio
-async def test_create_artifact_exception_in_submit_path_recorded_and_stage_ok(
+async def test_create_artifact_exception_preserves_partial_findings(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     artifact_path = tmp_path / "child.bin"
@@ -333,7 +333,7 @@ async def test_create_artifact_exception_in_submit_path_recorded_and_stage_ok(
     stage = FormatAnalysisStage()
     result = await stage.execute(ctx)
 
-    assert result.status == "ok"
+    assert result.status == "partial"
     assert any("artifact create boom" in e for e in result.findings["errors"])
 
 
@@ -393,7 +393,8 @@ async def test_cycle_detected_artifact_skipped_no_subjob(
     assert result.status == "ok"
     assert result.findings["sub_jobs_created"] == 0
     assert fake_submitter.calls == 0
-    assert created == []
+    assert len(created) == 1
+    assert created[0]["extraction_note"] == "ancestor_cycle"
 
 
 @pytest.mark.asyncio
@@ -647,7 +648,7 @@ async def test_max_depth_guard_skips_artifact_creation_and_subjob_submission(
     stage = FormatAnalysisStage()
     result = await stage.execute(ctx)
 
-    assert result.status == "ok"
+    assert result.status == "partial"
     assert result.findings["sub_jobs_created"] == 0
     assert create_artifact_calls == 0
     assert get_instance_calls == 0

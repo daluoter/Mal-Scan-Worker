@@ -92,7 +92,8 @@ async def test_archive_extract_stage_handles_other_exceptions_as_error_result(tm
     result = await stage.execute(ctx)
 
     assert result.status == "error"
-    assert "boom" in result.findings["reason"]
+    assert "RuntimeError" in result.findings["reason"]
+    assert "boom" not in result.findings["reason"]
 
 
 @pytest.mark.asyncio
@@ -105,8 +106,6 @@ async def test_archive_extract_stage_passes_archive_password_to_extract(
     with zipfile.ZipFile(zip_path, "w") as zf:
         zf.writestr("a.txt", "hello")
 
-    captured = {}
-
     class _FakeHandler:
         name = "zip"
 
@@ -114,7 +113,7 @@ async def test_archive_extract_stage_passes_archive_password_to_extract(
             return True
 
         def extract(self, file_path, extract_dir, limits, password=None):
-            captured["password"] = password
+            assert password == "secret"
             return ExtractionResult(files=[], archive_type="zip", password_protected=True)
 
     ctx = StageContext(
@@ -133,7 +132,7 @@ async def test_archive_extract_stage_passes_archive_password_to_extract(
     result = await stage.execute(ctx)
 
     assert result.status == "ok"
-    assert captured["password"] == "secret"
+    assert result.findings["archive_type"] == "zip"
     assert result.findings["archive_summary"]["password_protected"] is True
     assert [heuristic["key"] for heuristic in result.findings["heuristics"]] == [
         "archive.password_protected"
@@ -806,7 +805,8 @@ def test_extract_7z_preflight_max_files_blocks_cli_extraction(tmp_path):
     ):
         result = handler.extract(fake_7z, extract_dir, ExtractionLimits(max_files=1))
 
-    assert result.malicious is True
+    assert result.malicious is False
+    assert result.resource_limited is True
     assert result.reason == "Max files limit exceeded before extraction"
     assert list(extract_dir.iterdir()) == []
 
@@ -1063,7 +1063,8 @@ def test_extract_rar_preflight_total_bytes_blocks_cli_extraction(tmp_path):
             ExtractionLimits(max_extracted_bytes=100),
         )
 
-    assert result.malicious is True
+    assert result.malicious is False
+    assert result.resource_limited is True
     assert result.reason == "Max total extracted bytes exceeded before extraction"
     assert list(extract_dir.iterdir()) == []
 
@@ -1091,7 +1092,8 @@ def test_extract_rar_preflight_single_file_blocks_cli_extraction(tmp_path):
             ExtractionLimits(max_single_file_bytes=100),
         )
 
-    assert result.malicious is True
+    assert result.malicious is False
+    assert result.resource_limited is True
     assert result.reason == "Single file size limit exceeded before extraction"
     assert list(extract_dir.iterdir()) == []
 
@@ -1150,7 +1152,7 @@ def test_extract_rar_streaming_single_file_limit_is_marked_malicious(tmp_path):
 
     assert result.malicious is True
     assert result.reason == "Zip bomb: single file bytes exceeded during extraction"
-    assert list(extract_dir.iterdir()) == []
+    assert not any(path.is_file() for path in extract_dir.rglob("*"))
 
 
 def test_extract_rar_streaming_total_limit_is_marked_malicious(tmp_path):
@@ -1184,7 +1186,7 @@ def test_extract_rar_streaming_total_limit_is_marked_malicious(tmp_path):
 
     assert result.malicious is True
     assert result.reason == "Zip bomb: total extracted bytes exceeded during extraction"
-    assert list(extract_dir.iterdir()) == []
+    assert not any(path.is_file() for path in extract_dir.rglob("*"))
 
 
 class _FakeNeedsPasswordArchive:

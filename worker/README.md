@@ -1,137 +1,145 @@
 # MalScan Worker
 
-Malware analysis worker with staged static and recursive analysis.
+The v2 worker uses one static analysis core for self-hosted queue workers,
+one-shot local analysis, and Cloud Run Jobs. It records evidence, artifact
+ancestry, stage coverage, resource limits and partial results in
+`mswr-report-v3`. A completed execution does not imply that every format or stage
+was supported. See the [support matrix](../docs/analysis-support.md) and
+[architecture](../docs/v2-architecture.md).
 
-## Pipeline Overview
+## Runtime entry points
 
-Current pipeline flow:
+| Entry point | Purpose |
+| --- | --- |
+| `python -m malscan_worker.main` | Self-hosted static worker consuming `malscan.jobs`; uses PostgreSQL, RabbitMQ and MinIO |
+| `python -m malscan_worker.sandbox_main` | Separate self-hosted dynamic worker consuming `malscan.jobs.sandbox` |
+| `python -m malscan_worker.runtime` | Portable static root batch using explicit local or S3-compatible stores; no broker or database required |
+| `python -m malscan_worker.runtime.cloud_entrypoint` | Cloud Job adapter reading a validated manifest and private signed control; used by the full-worker image |
 
-1. **Parallel static stages**
-   - `file-type` - file type detection using `python-magic`
-   - `clamav` - ClamAV scanning
-   - `yara` - YARA rule matching
-   - `ioc-extract` - regex IOC extraction
-   - `deobfuscation` - decode and normalize obfuscated strings to recover hidden IOCs
-2. **Format-specific stage**
-   - `format-analysis` - dispatch to a format analyzer via `AnalyzerRegistry`
-3. **Sequential stages**
-   - `archive-extract` - recursive extraction + sub-job creation
-   - `document-analysis` - document parsing and artifact extraction
-   - `sandbox` - deferred sandbox dispatch / provider-backed dynamic analysis
+The portable runner recursively analyzes a root and its descendants in the same
+bounded batch. It does not create a Cloud Run Job per extracted file. The cloud
+demo is static-only; dynamic analysis is explicitly `disabled` in its report.
+Do not execute the cloud entry point without the control plane's per-execution
+references. Deployment instructions are in the [Cloud Run guide](../deployment/cloud-run/README.md).
 
-## Stages
+## Static pipeline
 
-1. **file-type** - File type detection using python-magic
-2. **clamav** - ClamAV scanning using clamscan CLI
-3. **yara** - YARA rule matching using yara CLI
-4. **ioc-extract** - IOC extraction using regex patterns
-5. **deobfuscation** - Decoding and normalization of obfuscated content to recover IOCs
-6. **format-analysis** - AnalyzerRegistry dispatch and unified format risk scoring
-7. **archive-extract** - Archive extraction and recursive artifact scheduling
-8. **document-analysis** - Document parsing and artifact extraction
-9. **sandbox** - Sandbox dispatch stage with provider-backed dynamic analysis
+1. Parallel `file-type`, `clamav`, `yara`, `ioc-extract` and `deobfuscation` stages.
+2. `format-analysis` selects a format analyzer through `AnalyzerRegistry`.
+3. `archive-extract` and `document-analysis` extract descendants and retain their
+   source relationships. Self-hosted analysis may then defer to `sandbox`.
 
-## Sandbox Architecture
+`file-type` uses python-magic/libmagic. ClamAV invokes `clamscan`; YARA uses the
+memory-resident **yara-python library**, not a YARA CLI subprocess. A stage records
+its tool and rules version when available and reports skipped, failed or partial
+coverage with a reason. Missing rules or parser dependencies are not recorded as
+successful scans. `analysis.static` and `analysis.dynamic` have independent states.
 
-The worker now uses two roles:
+Root budgets accumulate extracted file count and bytes across the whole tree and
+across password recovery. Depth and execution deadlines are bounded separately.
+Extraction runs inside a killable process group; attempt fencing prevents stale
+results from overwriting a newer execution. Same-name archive entries retain
+ordinal identities instead of overwriting one another. See the architecture for
+the PostgreSQL and portable accounting adapters.
 
-1. `python -m malscan_worker.main`
-   - consumes `malscan.jobs`
-   - finishes static/recursive analysis
-   - stores a partial report if sandbox work is deferred
-   - publishes a follow-up message to `malscan.jobs.sandbox`
+A password-required artifact can be resumed while already completed stages remain
+in its checkpoint. The report remains readable while waiting. Passwords are not
+included in reports or checkpoints. Cloud controls carry them in private signed
+R2 objects that the runner deletes after verified read, not environment overrides.
 
-2. `python -m malscan_worker.sandbox_main`
-   - consumes `malscan.jobs.sandbox`
-   - runs the configured sandbox provider
-   - writes normalized `results.sandbox`
-   - recomputes direct risk and marks the job `done`
+## Tool and detection content versions
 
-## Sandbox Providers
+The initial live cloud report used ClamAV engine `1.4.3`, database `28153` with a
+2026-10-14 database timestamp, and yara-python `4.5.4`. These are recorded versions
+from that image, not a promise of the latest upstream release.
 
-Supported provider names:
+The bundled YARA baseline contains five files and fifteen rules. Its reported
+SHA256 fingerprints the rule filenames and bytes; it is separate from the YARA
+library version. This is a small project rule set, not a comprehensive community
+feed. Rule acquisition, provenance, licensing, update tests and false-positive
+measurement remain planned work.
 
-1. `mock`
-2. `capev2`
+The `cloud-job` Docker target updates and verifies signed ClamAV databases during
+build. Build/runtime checks reject a daily CVD older than seven days. There is no
+automatic daily refresh schedule yet: deploy a newly built immutable image before
+the retained database expires. A stale database produces failed AV coverage.
 
-Relevant environment variables:
+## Format analyzers
 
-- `SANDBOX_PROVIDER`
-- `SANDBOX_BASE_URL`
-- `SANDBOX_API_TOKEN`
-- `SANDBOX_TIMEOUT_SECONDS`
-- `SANDBOX_POLL_INTERVAL_SECONDS`
-- `SANDBOX_ENABLE_URL_SUBMISSION`
+`AnalyzerRegistry` selects the first analyzer whose `can_handle(...)` accepts the
+file MIME/magic. The current priority order is PE, Office adapter, PDF, LNK and
+script. Office reuses document parsing through `OfficeAnalyzerAdapter`; results
+appear under `results.format_analysis`, with legacy `results.document_analysis`
+retained where applicable. Extracted artifacts enter the same recursive pipeline.
+
+Supported depth varies by format. The matrix covers ZIP/7z/RAR/TAR/gzip/bzip2,
+Office, PDF, PE, LNK and scripts together with their tool requirements and limits.
+Encrypted Office/PDF decryption, ISO extraction, ELF/Mach-O/email/APK dedicated
+deep analysis, PDF JavaScript emulation, full LNK extra-data semantics and
+cross-format attack-chain correlation are not complete.
+
+## Optional dynamic analysis
+
+The default is `SANDBOX_ENABLED=false` and `SANDBOX_PROVIDER=capev2`. Static
+analysis can publish a partial report before a dynamic task completes. A separate
+sandbox worker retrieves provider results, stores normalized process, file,
+registry, network and available artifact references, and updates the same report.
+
+Configure a real CAPE host, analysis guest/snapshot and isolated network, then use
+[`scripts/enable-sandbox.sh`](../scripts/enable-sandbox.sh). Its read-only preflight
+checks CAPE API access and an available registered guest before enabling workers;
+it does not provision CAPE, boot the guest or prove a real detonation. Live CAPE
+end-to-end acceptance remains outstanding.
+
+Important settings include:
+
+- `SANDBOX_ENABLED`, `SANDBOX_PROVIDER`
+- `SANDBOX_BASE_URL`, `SANDBOX_API_TOKEN`
+- `SANDBOX_TIMEOUT_SECONDS`, `SANDBOX_POLL_INTERVAL_SECONDS`
+- `SANDBOX_ENABLE_URL_SUBMISSION` (explicit self-hosted opt-in)
 - `RABBITMQ_SANDBOX_QUEUE`
 
-If the configured provider is unavailable, the worker falls back to `mock` and records the reason in `results.sandbox.errors`.
+Unavailable providers, timeouts, circuit failures and report errors remain
+`failed` or `unavailable`. **There is no automatic fallback to mock.** The `mock`
+provider is an explicit development choice: its results are synthetic,
+`executed=false`, and do not contribute real dynamic risk evidence.
 
-## Format-Specific Analyzer Layer (Phase 1)
+Submission state and known CAPE task IDs are persisted. Redelivery polls a known
+task instead of resubmitting. An unknown submission result without a task ID, or
+a response containing multiple task IDs, requires reconciliation rather than an
+automatic new detonation. Multi-task aggregation and dropped-file static
+reanalysis remain future work.
 
-### What `AnalyzerRegistry` is
+## Development and verification
 
-`AnalyzerRegistry` is a first-match dispatch registry for pluggable analyzers.
-
-- It reads file MIME + first bytes (magic)
-- It selects the first analyzer whose `can_handle(...)` returns `True`
-- It enforces deterministic analyzer priority order
-
-Current default order:
-
-1. `PEAnalyzer`
-2. `OfficeAnalyzerAdapter`
-3. `PDFAnalyzer`
-4. `LNKAnalyzer`
-5. `ScriptAnalyzer`
-
-### Supported formats in this phase
-
-- **PE** (`.exe`, `.dll`-like binaries)
-- **Office documents** (`RTF`, OLE, OOXML) via adapter/shim
-- **PDF**
-- **LNK** (Windows shortcut)
-- **Scripts** (PowerShell, JavaScript, VBScript, Batch, HTA)
-
-### Office integration approach (adapter/shim)
-
-`DocumentAnalysisStage` was not rewritten. Instead, it is wrapped by
-`OfficeAnalyzerAdapter`, which:
-
-- reuses existing Office parsing/exploit detection logic
-- converts `DocumentAnalysisStage` findings into unified `AnalyzerResult`
-- maps legacy Office indicator semantics into shared severity-based scoring
-
-This allows incremental migration without breaking existing Office internals.
-
-### Behavior and scoring changes
-
-- A new `format-analysis` stage runs after parallel static stages.
-- Pipeline scoring now includes `format-analysis` indicator severity and analyzer risk score.
-- Reports now include `results.format_analysis`.
-- `results.document_analysis` remains in output for backward compatibility.
-- Deobfuscation output is merged into IOC/report results via `results.deobfuscation`.
-- Format analyzers can submit extracted artifacts as sub-jobs through stage-level handling.
-- Artifact submission now enforces recursive depth limits (same guard style as other recursive stages).
-
-### What is intentionally not included yet
-
-- Full `DocumentAnalysisStage` decomposition into native Office analyzer internals
-- Advanced PDF JavaScript emulation/deobfuscation
-- Full LNK extra-data ecosystem parsing
-- AST/symbolic execution level script analysis
-- Cross-format correlation (e.g., LNK -> script -> downloader chain attribution)
-
-### Known limitations / follow-up work
-
-- Some parser libraries are optional and degrade gracefully when unavailable.
-- Heuristic indicators prioritize coverage and explainability over perfect precision.
-- Existing third-party deprecation warnings (Pydantic/oletools stack) remain and are unrelated to this feature.
-- Future work should add deeper format semantics, correlation, and threat intel enrichment.
-
-## Development
+Install the OS tools and services documented in the repository setup before
+running a queue worker. From this directory:
 
 ```bash
 poetry install
-poetry run python -m malscan_worker.main
-poetry run python -m malscan_worker.sandbox_main
+poetry run pytest --asyncio-mode=auto
+poetry run ruff check src tests
+poetry run mypy src
 ```
+
+A standalone local analysis uses the same stages:
+
+```bash
+poetry run python -m malscan_worker.runtime \
+  --file /absolute/path/sample.zip --output-dir ./analysis
+# Resume a waiting root archive; the password is prompted with hidden input.
+poetry run python -m malscan_worker.runtime \
+  --file /absolute/path/sample.zip --output-dir ./analysis --resume --ask-password
+```
+
+S3 checkpoints require an executor HMAC key supplied through a file; keep the
+store, manifest and identity unchanged when resuming. Read `--help` for explicit
+source/result store configuration and artifact-specific password prompts.
+
+Use PostgreSQL opt-in tests only with their documented disposable fixtures;
+`MALSCAN_TEST_POSTGRES_URL` must never point to retained application data. Native
+7z/ClamAV and full-container checks exercise external tools beyond unit tests.
+The [validation record](../docs/v2-validation.md) distinguishes the latest local
+rerun, earlier PostgreSQL/container evidence and first live cloud report. A
+single benign cloud report does not replace large-file, password recovery,
+retention, cost or live sandbox acceptance.

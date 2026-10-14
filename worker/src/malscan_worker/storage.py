@@ -35,8 +35,11 @@ def get_minio_client() -> Minio:
     """Get or create the MinIO client instance (Singleton)."""
     global _minio_client
     if _minio_client is None:
+        endpoint = settings.minio_endpoint
+        if not endpoint or not settings.minio_access_key or not settings.minio_secret_key:
+            raise ValueError("MinIO endpoint and credentials are required for self-hosted storage")
         _minio_client = Minio(
-            settings.minio_endpoint,
+            endpoint,
             access_key=settings.minio_access_key,
             secret_key=settings.minio_secret_key,
             secure=settings.minio_secure,

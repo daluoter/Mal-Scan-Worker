@@ -3,11 +3,13 @@
 import asyncio
 import signal
 import sys
+from contextlib import suppress
 
 import structlog
 
 from malscan_worker.config import get_settings
 from malscan_worker.consumer import start_consumer
+from malscan_worker.dispatch_recovery import recovery_loop
 from malscan_worker.metrics import start_metrics_server
 from malscan_worker.sandbox.publisher import close_sandbox_publisher, init_sandbox_publisher
 from malscan_worker.utils.submission import InternalJobSubmitter
@@ -36,6 +38,7 @@ def handle_shutdown(signum: int, frame: object) -> None:
 
 async def main() -> None:
     """Main entry point."""
+    settings.require_service_configuration()
     log.info(
         "worker_starting",
         rabbitmq_queue=settings.rabbitmq_queue,
@@ -45,6 +48,7 @@ async def main() -> None:
     # Start metrics server
     metrics_runner = await start_metrics_server(port=settings.metrics_port)
     log.info("metrics_server_started", port=settings.metrics_port)
+    recovery_task: asyncio.Task[None] | None = None
 
     try:
         # Pre-initialize the InternalJobSubmitter MQ connection at startup.
@@ -56,6 +60,7 @@ async def main() -> None:
         log.info("internal_job_submitter_initialized")
         await init_sandbox_publisher()
         log.info("sandbox_publisher_initialized")
+        recovery_task = asyncio.create_task(recovery_loop(shutdown_event))
 
         # Start RabbitMQ consumer
         await start_consumer(shutdown_event)
@@ -64,6 +69,10 @@ async def main() -> None:
         raise
     finally:
         # Cleanup
+        if recovery_task is not None:
+            recovery_task.cancel()
+            with suppress(asyncio.CancelledError):
+                await recovery_task
         submitter_instance = InternalJobSubmitter._instance
         if submitter_instance:
             await submitter_instance.close()

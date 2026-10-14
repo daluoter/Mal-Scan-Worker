@@ -2,6 +2,7 @@
 """Base types for pluggable format handlers."""
 
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -14,6 +15,7 @@ class ExtractedFile:
     original_name: str  # filename within archive
     size: int  # bytes
     origin_path: str  # full path within archive hierarchy
+    occurrence_index: int | None = None  # archive entry ordinal, including repeated names
 
 
 @dataclass
@@ -25,6 +27,10 @@ class ExtractionLimits:
     max_single_file_bytes: int = 100_000_000  # 100MB
     max_expansion_ratio: float = 100.0
     timeout_seconds: int = 120
+    # Absolute high-water marks for one stable output identity.
+    reserve_output: Callable[[str, int, int], None] | None = field(
+        default=None, repr=False, compare=False
+    )
 
 
 @dataclass
@@ -37,6 +43,8 @@ class ExtractionResult:
     warnings: list[str] = field(default_factory=list)
     archive_type: str | None = None
     password_protected: bool = False
+    resource_limited: bool = False
+    limit_reason: str | None = None
 
 
 class FormatHandler(ABC):

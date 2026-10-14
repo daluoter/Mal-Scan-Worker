@@ -5,9 +5,12 @@ import os
 import re
 import tempfile
 from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any
 
-from malscan.config import get_settings
-
+from malscan_worker.budget import BudgetExceeded, reservation_key
+from malscan_worker.config import get_settings
+from malscan_worker.db import create_artifact
 from malscan_worker.stages.base import Stage, StageContext, StageResult
 from malscan_worker.utils.submission import InternalJobSubmitter
 
@@ -215,72 +218,62 @@ class IocExtractStage(Stage):
             sha1_hash = hashlib.sha1(content).hexdigest()
             sha256_hash = hashlib.sha256(content).hexdigest()
 
-            # Submission of Extracted URLs as Sub Jobs
+            findings: dict[str, Any] = {
+                "urls": urls,
+                "domains": domains,
+                "ips": ips,
+                "hashes": {"md5": md5_hash, "sha1": sha1_hash, "sha256": sha256_hash},
+                "ioc_items": ioc_items,
+                "sub_jobs_created": 0,
+            }
+            artifact_ids: list[str] = []
+            submission_errors: list[str] = []
             settings = get_settings()
-            max_depth = getattr(settings, "max_job_depth", 3)
-
-            extracted_urls = urls[:50]  # Limit to 50 URLs for sub-jobs
-            sub_jobs_created = 0
-
-            if ctx.job and ctx.job.depth < max_depth:
-                submitter = await InternalJobSubmitter.get_instance()
-
-                for url in extracted_urls:
-                    # Create .url file content
-                    url_content = f"[InternetShortcut]\nURL={url}\n".encode()
-                    url_sha256 = hashlib.sha256(url_content).hexdigest()
-                    url_size = len(url_content)
-
-                    # Sanitize URL for filename (very basic)
-                    safe_name = "url_" + hashlib.md5(url.encode()).hexdigest()[:8] + ".url"
-
-                    # Write temporarily to pass to submitter
-                    fd, temp_path = tempfile.mkstemp(suffix=".url")
-                    try:
-                        with os.fdopen(fd, "wb") as f:
-                            f.write(url_content)
-
-                        # Submit as subjob
-                        await submitter.submit_subjob(
-                            file_path=temp_path,
-                            filename=safe_name,
-                            content_type="application/internet-shortcut",
-                            sha256_hash=url_sha256,
-                            file_size=url_size,
-                            parent_job_id=str(ctx.job.id),
-                            parent_job_depth=ctx.job.depth,
-                            root_artifact_id=ctx.root_artifact_id,
-                            root_job_id=ctx.root_job_id or ctx.job_id,
-                            ancestor_hashes=ctx.ancestor_hashes | {ctx.sha256},
+            enabled = bool(settings.sandbox_enable_url_submission)
+            findings["url_artifact_submission"] = {
+                "enabled": enabled,
+                "status": "disabled" if not enabled else "complete",
+                "reason": None if enabled else "sandbox_enable_url_submission_disabled",
+                "skipped_cycles": 0,
+                "max_artifacts": 50,
+                "omitted_urls": max(0, len(urls) - 50) if enabled else 0,
+            }
+            if enabled and urls:
+                if ctx.root_budget is None:
+                    submission_errors.append("root_budget_unavailable")
+                elif not ctx.analysis_services and not ctx.job:
+                    submission_errors.append("artifact_submission_unavailable")
+                else:
+                    depth = ctx.job.depth if ctx.job else ctx.depth
+                    max_depth = getattr(ctx.analysis_services, "max_depth", settings.max_job_depth)
+                    if depth >= max_depth:
+                        submission_errors.append("max_depth")
+                    else:
+                        artifact_ids, created, skipped, submission_errors = await self._submit_urls(
+                            ctx,
+                            sorted(urls)[:50],
+                            depth,
                         )
-                        sub_jobs_created += 1
-
-                    finally:
-                        if os.path.exists(temp_path):
-                            os.remove(temp_path)
+                        findings["sub_jobs_created"] = created
+                        findings["url_artifact_submission"]["skipped_cycles"] = skipped
+            if enabled and len(urls) > 50:
+                submission_errors.append("url_artifact_count_limit")
+            if submission_errors:
+                findings["url_artifact_submission"]["status"] = "partial"
+                findings["url_artifact_submission"]["errors"] = submission_errors
+                findings["reason"] = submission_errors[0]
 
             ended_at = datetime.now(timezone.utc)
             duration_ms = int((ended_at - started_at).total_seconds() * 1000)
 
             return StageResult(
                 stage_name=self.name,
-                status="ok",
+                status="partial" if submission_errors else "ok",
                 started_at=started_at,
                 ended_at=ended_at,
                 duration_ms=duration_ms,
-                findings={
-                    "urls": urls,
-                    "domains": domains,
-                    "ips": ips,
-                    "hashes": {
-                        "md5": md5_hash,
-                        "sha1": sha1_hash,
-                        "sha256": sha256_hash,
-                    },
-                    "ioc_items": ioc_items,
-                    "sub_jobs_created": sub_jobs_created,
-                },
-                artifacts=[],
+                findings=findings,
+                artifacts=artifact_ids,
                 error=None,
             )
 
@@ -298,3 +291,119 @@ class IocExtractStage(Stage):
                 artifacts=[],
                 error=str(e),
             )
+
+    async def _submit_urls(
+        self,
+        ctx: StageContext,
+        urls: list[str],
+        depth: int,
+    ) -> tuple[list[str], int, int, list[str]]:
+        """Optional synthetic shortcuts; observations never require this extension.
+
+        This writes text only. It never fetches or executes an extracted URL.
+        Budget is reserved before creating/writing a temporary file. Stable URL
+        identity and artifact ordinal make retries idempotent. A shortcut's IOC
+        cannot recursively generate an identical shortcut or an ancestor.
+        """
+        artifact_ids: list[str] = []
+        created = 0
+        skipped_cycles = 0
+        errors: list[str] = []
+        submitter: InternalJobSubmitter | None = None
+        assert ctx.root_budget is not None
+        root_job_id = ctx.root_job_id or ctx.job_id
+        ancestors = ctx.ancestor_hashes | {ctx.sha256}
+        for url in urls:
+            payload = f"[InternetShortcut]\nURL={url}\n".encode()
+            sha256_hash = hashlib.sha256(payload).hexdigest()
+            if sha256_hash in ancestors:
+                skipped_cycles += 1
+                continue
+            identity = hashlib.sha256(url.encode()).hexdigest()
+            origin = f"ioc-url:{identity}"
+            filename = f"url_{identity[:16]}.url"
+            temporary_path: str | None = None
+            try:
+                await ctx.root_budget.reserve(
+                    reservation_key(ctx.job_id, "ioc-extract", origin),
+                    1,
+                    len(payload),
+                )
+                descriptor, temporary_path = tempfile.mkstemp(suffix=".url")
+                with os.fdopen(descriptor, "wb") as handle:
+                    handle.write(payload)
+                if ctx.analysis_services:
+                    child = await ctx.analysis_services.submit_child(
+                        file_path=temporary_path,
+                        filename=filename,
+                        content_type="application/internet-shortcut",
+                        sha256_hash=sha256_hash,
+                        file_size=len(payload),
+                        parent_job_id=ctx.job_id,
+                        parent_job_depth=depth,
+                        root_artifact_id=ctx.root_artifact_id,
+                        root_job_id=root_job_id,
+                        ancestor_hashes=ancestors,
+                        origin_path=origin,
+                        extraction_source="ioc-extract",
+                        archive_type=None,
+                        occurrence_index=0,
+                    )
+                    if child:
+                        artifact_ids.append(str(child))
+                        created += 1
+                    continue
+                if not ctx.root_artifact_id:
+                    root = await create_artifact(
+                        parent_id=None,
+                        root_id=None,
+                        depth=0,
+                        sha256=ctx.sha256,
+                        size=Path(ctx.file_path).stat().st_size if ctx.file_path else 0,
+                        original_filename=ctx.original_filename,
+                        extraction_source="upload",
+                        root_job_id=root_job_id,
+                        job_id=ctx.job_id,
+                    )
+                    ctx.root_artifact_id = root["id"]
+                    ctx.artifact_id = root["id"]
+                record = await create_artifact(
+                    parent_id=ctx.artifact_id or ctx.root_artifact_id,
+                    root_id=ctx.root_artifact_id,
+                    depth=depth + 1,
+                    sha256=sha256_hash,
+                    size=len(payload),
+                    original_filename=filename,
+                    origin_path=origin,
+                    extraction_source="ioc-extract",
+                    root_job_id=root_job_id,
+                    occurrence_index=0,
+                )
+                artifact_ids.append(record["id"])
+                if submitter is None:
+                    submitter = await InternalJobSubmitter.get_instance()
+                child = await submitter.submit_subjob(
+                    file_path=temporary_path,
+                    filename=filename,
+                    content_type="application/internet-shortcut",
+                    sha256_hash=sha256_hash,
+                    file_size=len(payload),
+                    parent_job_id=ctx.job_id,
+                    parent_job_depth=depth,
+                    artifact_id=record["id"],
+                    root_artifact_id=ctx.root_artifact_id,
+                    root_job_id=root_job_id,
+                    ancestor_hashes=ancestors,
+                )
+                if child:
+                    created += 1
+            except BudgetExceeded as exc:
+                errors.append(exc.reason)
+                break
+            except Exception as exc:
+                errors.append(f"url_artifact_submission_failed:{type(exc).__name__}")
+                break
+            finally:
+                if temporary_path is not None:
+                    Path(temporary_path).unlink(missing_ok=True)
+        return artifact_ids, created, skipped_cycles, errors

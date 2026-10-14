@@ -6,6 +6,10 @@ import EvidenceTimelinePanel from '../components/report/EvidenceTimelinePanel'
 import FailureDiagnosticsPanel from '../components/report/FailureDiagnosticsPanel'
 import ScoreTracePanel from '../components/report/ScoreTracePanel'
 import TopFindingsSummary from '../components/report/TopFindingsSummary'
+import AnalysisCoveragePanel from '../components/report/AnalysisCoveragePanel'
+import DynamicAnalysisPanel from '../components/report/DynamicAnalysisPanel'
+import PasswordTargetsPanel from '../components/report/PasswordTargetsPanel'
+import { shouldRefreshReport, stageCompleted, stageCoverage } from '../components/report/reportState'
 import { localizeReportText, localizeStage, localizeVerdict } from '../components/report/reportText'
 
 export default function ReportPage() {
@@ -14,6 +18,9 @@ export default function ReportPage() {
     const [error, setError] = useState<string | null>(null)
     const [isWaitingDescendants, setIsWaitingDescendants] = useState(false)
     const [copiedHash, setCopiedHash] = useState(false)
+    const [refreshKey, setRefreshKey] = useState(0)
+
+    useEffect(() => { setReport(null) }, [jobId])
 
     useEffect(() => {
         if (!jobId) return
@@ -30,23 +37,38 @@ export default function ReportPage() {
                 setReport(data)
                 setError(null)
                 setIsWaitingDescendants(false)
+                if (shouldRefreshReport(data)) retryTimer = setTimeout(fetchReport, 3000)
             } catch (err) {
                 if (cancelled) return
 
                 const maybeStatus = (err as Error & { status?: number }).status
-                if (maybeStatus === 409) {
+                if (maybeStatus === 404 || maybeStatus === 409) {
+                    try {
+                        const status = await apiClient.getJobStatus(jobId)
+                        if (cancelled) return
+                        if (status.status === 'failed' && !status.dispatch_uncertain) {
+                            setError(status.error_message || '工作失敗，尚未建立可閱讀的報告。')
+                            return
+                        }
+                    } catch (statusError) {
+                        if (!cancelled) setError(statusError instanceof Error ? statusError.message : '無法取得工作狀態')
+                        if ((statusError as Error & { status?: number }).status !== 404) retryTimer = setTimeout(fetchReport, 5000)
+                        return
+                    }
+                }
+                if (maybeStatus === 409 || maybeStatus === 404) {
                     setIsWaitingDescendants(true)
                     setError(null)
-                    retryTimer = setTimeout(fetchReport, 2000)
+                    retryTimer = setTimeout(fetchReport, 3000)
                     return
                 }
 
                 setIsWaitingDescendants(false)
                 setError(err instanceof Error ? err.message : '無法取得報告')
+                retryTimer = setTimeout(fetchReport, 5000)
             }
         }
 
-        setReport(null) // Reset state for new jobId
         setError(null)
         setIsWaitingDescendants(false)
         fetchReport()
@@ -57,7 +79,7 @@ export default function ReportPage() {
                 clearTimeout(retryTimer)
             }
         }
-    }, [jobId])
+    }, [jobId, refreshKey])
 
     const copyToClipboard = async (text: string) => {
         try {
@@ -70,7 +92,7 @@ export default function ReportPage() {
         }
     }
 
-    if (error) {
+    if (error && !report) {
         return (
             <div className="container">
                 <h1 className="text-3xl font-bold mb-6 text-alert-red">❌ 錯誤</h1>
@@ -90,11 +112,11 @@ export default function ReportPage() {
                 <div className="glass-card p-8 text-center">
                     <div className="text-4xl mb-4 animate-pulse">📋</div>
                     <p className="text-xl font-mono text-neon-cyan terminal-cursor">
-                        {isWaitingDescendants ? '等待子層分析完成' : '載入分析報告中'}
+                        {isWaitingDescendants ? '等待第一份分析成果' : '載入分析報告中'}
                     </p>
                     {isWaitingDescendants && (
                         <p className="mt-3 text-sm text-slate-400 font-mono">
-                            子檔案仍在分析中，報告會在全部完成後自動顯示
+                            成果建立後即可閱讀，後續子檔與動態結果會自動更新。
                         </p>
                     )}
                 </div>
@@ -103,7 +125,7 @@ export default function ReportPage() {
     }
 
     const verdictLabels: Record<string, string> = {
-        clean: '安全',
+        clean: '未發現威脅',
         suspicious: '可疑',
         malicious: '惡意',
         unknown: '未知',
@@ -135,6 +157,19 @@ export default function ReportPage() {
         'document-analysis': '文件分析',
     }
 
+    const avCompleted = stageCompleted(report, 'clamav')
+    const iocCompleted = stageCompleted(report, 'ioc-extract')
+    const yaraCompleted = stageCompleted(report, 'yara')
+    const archiveCompleted = stageCompleted(report, 'archive-extract')
+    const downloadReport = () => {
+        const url = URL.createObjectURL(new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' }))
+        const anchor = document.createElement('a')
+        anchor.href = url
+        anchor.download = `malscan-report-${report.job_id.replace(/[^a-zA-Z0-9-]/g, '_')}.json`
+        anchor.click()
+        setTimeout(() => URL.revokeObjectURL(url), 1000)
+    }
+
     return (
         <div className="container">
             {/* Header */}
@@ -149,6 +184,17 @@ export default function ReportPage() {
                 ) : null}
             </div>
 
+            {error && <p className="mb-4 rounded-lg border border-caution-yellow/30 p-3 text-sm text-caution-yellow">報告更新暫時失敗：{error}。保留上次取得的成果，稍後自動重試。</p>}
+            {report.requires_reconciliation && <p className="mb-4 rounded-lg border border-caution-yellow/30 p-3 text-sm text-caution-yellow">雲端執行狀態尚待核對。以下保留已確認的部分成果，系統會繼續查詢，請避免重新上傳。</p>}
+            {report.error_message && <p className="mb-4 text-sm text-caution-yellow">工作狀態說明：{localizeReportText(report.error_message)}</p>}
+            <div className="mb-4 flex flex-wrap gap-4 text-sm">
+                <button onClick={downloadReport} className="text-neon-cyan hover:text-neon-purple">下載目前完整 JSON 報告</button>
+                <Link to={`/jobs/${jobId}`} className="text-slate-300 hover:text-neon-cyan">查看工作狀態</Link>
+                {shouldRefreshReport(report) && <span className="text-caution-yellow">成果持續更新中</span>}
+            </div>
+            <AnalysisCoveragePanel analysis={report.analysis} complete={report.report_complete} pendingDescendants={report.pending_descendants} />
+            <PasswordTargetsPanel report={report} onSubmitted={() => setRefreshKey((previous) => previous + 1)} />
+
             {report.parent_job_id && (
                 <Link
                     to={`/jobs/${report.parent_job_id}`}
@@ -160,10 +206,10 @@ export default function ReportPage() {
             )}
 
             {/* Verdict Card - Prominent Neon Border */}
-            <div className={`verdict-card ${verdictClasses[report.verdict]} mb-6 animate-glow-pulse`}>
+            <div className={`verdict-card ${report.verdict === 'clean' && report.report_complete !== true ? 'glass-card' : verdictClasses[report.verdict]} mb-6 animate-glow-pulse`}>
                 <div className="flex items-center justify-between">
                     <div>
-                        <p className="text-sm font-mono text-slate-400 mb-1">判定結果</p>
+                        <p className="text-sm font-mono text-slate-400 mb-1">{report.report_complete === false ? '目前成果判定（分析尚未完成）' : '已取得成果的判定'}</p>
                         <p className="text-3xl font-bold">
                             {verdictIcons[report.verdict]} {verdictLabels[report.verdict] || report.verdict}
                         </p>
@@ -207,8 +253,8 @@ export default function ReportPage() {
                         </div>
                         <div>
                             <p className="text-slate-400 mb-1">解壓狀態</p>
-                            <p className={report.results.archive_extract.malicious ? 'text-alert-red text-lg font-bold' : 'text-matrix-green text-lg font-bold'}>
-                                {report.results.archive_extract.malicious ? '⚠️ 警示' : '✓ 正常'}
+                            <p className={report.results.archive_extract.malicious ? 'text-alert-red text-lg font-bold' : archiveCompleted ? 'text-matrix-green text-lg font-bold' : 'text-caution-yellow text-lg font-bold'}>
+                                {report.results.archive_extract.malicious ? '⚠️ 警示' : archiveCompleted ? '已完成解壓階段' : '尚未完成'}
                             </p>
                         </div>
                     </div>
@@ -227,7 +273,7 @@ export default function ReportPage() {
                         <span>❌ 解壓縮失敗</span>
                     </h2>
                     <p className="text-sm text-slate-200 font-mono">
-                        密碼重試已用盡，封存檔案無法解壓縮。此報告僅包含外層檔案分析結果。
+                        封存檔案未能完整解壓，未提取的內層內容尚未分析。請查看階段說明與分析限制。
                     </p>
                 </div>
             )}
@@ -305,18 +351,19 @@ export default function ReportPage() {
                 <h2 className="text-lg font-bold mb-4 text-neon-cyan">🛡️ 防毒掃描</h2>
                     <div className="flex justify-between items-center font-mono text-sm">
                         <span className="text-slate-400">{report.results.av_result.engine}</span>
-                        <span className={report.results.av_result.infected ? 'text-alert-red' : 'text-matrix-green'}>
+                        <span className={report.results.av_result.infected ? 'text-alert-red' : avCompleted ? 'text-matrix-green' : 'text-caution-yellow'}>
                             {report.results.av_result.infected
                                 ? `☠️ ${report.results.av_result.threat_name}`
-                                : '✓ 無威脅'}
+                                : avCompleted ? '✓ 已掃描，未發現威脅' : `尚未完成有效掃描：${localizeReportText(stageCoverage(report, 'clamav')?.reason) || '請查看分析範圍與限制'}`}
                         </span>
                     </div>
                 </div>
 
             {/* YARA Hits */}
-            {report.results.yara_hits.length > 0 && (
+            {(
                 <div className="glass-card p-6 mb-4">
                     <h2 className="text-lg font-bold mb-4 text-neon-cyan">🎯 YARA 規則匹配</h2>
+                    {report.results.yara_hits.length === 0 && <p className={`text-sm ${yaraCompleted ? 'text-slate-300' : 'text-caution-yellow'}`}>{yaraCompleted ? '已比對，未命中規則。' : `尚未完成有效規則比對：${localizeReportText(stageCoverage(report, 'yara')?.reason) || '請查看分析範圍與限制'}`}</p>}
                     <div className="space-y-3">
                         {report.results.yara_hits.map((hit, index) => (
                             <div key={index} className="stage-item flex-col items-start">
@@ -404,7 +451,7 @@ export default function ReportPage() {
                 {report.results.iocs.urls.length === 0 &&
                     report.results.iocs.domains.length === 0 &&
                     report.results.iocs.ips.length === 0 && (
-                        <p className="text-slate-500 font-mono text-sm">未偵測到 IOC 指標</p>
+                        <p className="text-slate-500 font-mono text-sm">{iocCompleted ? '已擷取，未發現 IOC 指標' : '尚未確認 IOC 擷取已完成，請查看分析範圍與限制'}</p>
                     )}
             </div>
 
@@ -425,15 +472,7 @@ export default function ReportPage() {
                 </div>
             </div>
 
-            {/* Sandbox Mock Notice */}
-            {report.results.sandbox.executed && report.results.sandbox.is_mock && (
-                <div className="glass-card p-6 mb-4 opacity-60">
-                    <h2 className="text-lg font-bold mb-2 text-slate-400">🧪 沙箱分析 (Mock)</h2>
-                    <p className="text-sm text-slate-500 font-mono">
-                        目前顯示為模擬結果，代表實際 provider 暫時不可用或系統已主動降級。
-                    </p>
-                </div>
-            )}
+            <DynamicAnalysisPanel report={report} />
 
             {/* Back Link */}
             <Link

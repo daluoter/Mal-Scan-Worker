@@ -13,8 +13,9 @@ class _Result:
 
 
 class _Connection:
-    def __init__(self, password_attempts_needs_default):
+    def __init__(self, password_attempts_needs_default, analysis_attempt_present=True):
         self.password_attempts_needs_default = password_attempts_needs_default
+        self.analysis_attempt_present = analysis_attempt_present
         self.statements = []
 
     async def execute(self, statement, parameters=None):
@@ -23,6 +24,8 @@ class _Connection:
 
         if "column_name = 'password_attempts'" in sql:
             return _Result(1 if self.password_attempts_needs_default else None)
+        if "column_name = 'analysis_attempt_id'" in sql:
+            return _Result(1 if self.analysis_attempt_present else None)
         if "column_name = :column_name" in sql:
             return _Result(1)
         if sql.lstrip().startswith("SELECT"):
@@ -37,7 +40,8 @@ async def test_startup_sets_default_for_legacy_password_attempts_column():
     await _ensure_schema_compatibility(connection)
 
     assert any(
-        "ALTER TABLE public.jobs ALTER COLUMN password_attempts SET DEFAULT 0" in statement
+        "ALTER TABLE public.jobs ALTER COLUMN password_attempts SET DEFAULT 0"
+        in statement
         for statement in connection.statements
     )
     password_attempts_check = next(
@@ -57,6 +61,32 @@ async def test_startup_does_not_alter_password_attempts_default_when_already_set
     await _ensure_schema_compatibility(connection)
 
     assert not any(
-        "ALTER TABLE public.jobs ALTER COLUMN password_attempts SET DEFAULT 0" in statement
+        "ALTER TABLE public.jobs ALTER COLUMN password_attempts SET DEFAULT 0"
+        in statement
+        for statement in connection.statements
+    )
+
+
+@pytest.mark.asyncio
+async def test_startup_adds_nullable_attempt_identity_without_rewriting_existing_results():
+    connection = _Connection(False, analysis_attempt_present=False)
+
+    await _ensure_schema_compatibility(connection)
+
+    assert (
+        "ALTER TABLE public.jobs ADD COLUMN analysis_attempt_id UUID"
+        in connection.statements
+    )
+    assert not any("UPDATE jobs" in statement for statement in connection.statements)
+
+
+@pytest.mark.asyncio
+async def test_startup_keeps_existing_attempt_column():
+    connection = _Connection(False)
+
+    await _ensure_schema_compatibility(connection)
+
+    assert not any(
+        "ADD COLUMN analysis_attempt_id" in statement
         for statement in connection.statements
     )

@@ -12,14 +12,23 @@ try:
 except ImportError:  # pragma: no cover - optional dependency fallback
     rarfile = None
 
-from malscan_worker.exceptions import ArchivePasswordRequiredError, ArchiveWrongPasswordError
+from malscan_worker.budget import BudgetExceeded
+from malscan_worker.exceptions import (
+    ArchivePasswordRequiredError,
+    ArchiveWrongPasswordError,
+)
 from malscan_worker.extractors.base import (
     ExtractedFile,
     ExtractionLimits,
     ExtractionResult,
     FormatHandler,
 )
-from malscan_worker.extractors.safety import check_expansion_ratio, safe_extract_path
+from malscan_worker.extractors.safety import (
+    check_expansion_ratio,
+    check_stream_size,
+    reserve_output,
+    safe_extract_path,
+)
 
 logger = structlog.get_logger(__name__)
 
@@ -66,14 +75,16 @@ class RarHandler(FormatHandler):
             if reason is not None:
                 return ExtractionResult(
                     files=[],
-                    malicious=True,
+                    malicious="Expansion ratio" in reason,
                     reason=reason,
+                    resource_limited="Expansion ratio" not in reason,
+                    limit_reason="extraction_limit" if "Expansion ratio" not in reason else None,
                     archive_type="rar",
                     password_protected=password_protected,
                 )
 
             total_extracted_bytes = 0
-            for member in members:
+            for member_index, member in enumerate(members):
                 member_name = str(member.filename)
 
                 if len(files) >= limits.max_files:
@@ -86,6 +97,10 @@ class RarHandler(FormatHandler):
                     continue
 
                 member_size = int(getattr(member, "file_size", 0) or 0)
+                target = safe_extract_path(str(extract_dir / str(member_index)), member_name)
+                if target is None:
+                    continue
+
                 if member_size > limits.max_single_file_bytes:
                     warnings.append(f"File too large, skipped: {member_name} ({member_size} bytes)")
                     continue
@@ -94,8 +109,10 @@ class RarHandler(FormatHandler):
                     warnings.append("Max total extracted bytes reached")
                     break
 
-                os.makedirs(os.path.dirname(target), exist_ok=True)
+                origin = f"{member_index}:{member_name}"
                 try:
+                    reserve_output(limits, origin, member_size)
+                    os.makedirs(os.path.dirname(target), exist_ok=True)
                     with archive.open(member, pwd=password) as source, open(target, "wb") as handle:
                         written = 0
                         while True:
@@ -118,7 +135,25 @@ class RarHandler(FormatHandler):
                                     archive_type="rar",
                                     password_protected=password_protected,
                                 )
+                            check_stream_size(
+                                limits,
+                                written=written,
+                                total=total_extracted_bytes,
+                                archive_size=file_path.stat().st_size,
+                            )
+                            reserve_output(limits, origin, written)
                             handle.write(chunk)
+                except BudgetExceeded as exc:
+                    if os.path.exists(target):
+                        os.remove(target)
+                    return ExtractionResult(
+                        files=files,
+                        warnings=[*warnings, exc.reason],
+                        archive_type="rar",
+                        password_protected=password_protected,
+                        resource_limited=True,
+                        limit_reason=exc.reason,
+                    )
                 except Exception as exc:
                     if _is_password_required_error(exc):
                         raise ArchivePasswordRequiredError("rar") from exc
@@ -133,6 +168,7 @@ class RarHandler(FormatHandler):
                         original_name=os.path.basename(member_name),
                         size=written,
                         origin_path=member_name,
+                        occurrence_index=member_index,
                     )
                 )
 

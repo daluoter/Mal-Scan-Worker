@@ -28,6 +28,7 @@ def test_submit_password_success(
     mock_job.file = mock_file
     mock_job.status = JobStatus.PASSWORD_REQUIRED.value
     mock_job.password_attempts = 1
+    mock_job.parent_job_id = None
     mock_job.current_stage = "archive_extract"
     mock_job.error_message = "Password required"
 
@@ -35,7 +36,9 @@ def test_submit_password_success(
     job_result.scalar_one_or_none.return_value = mock_job
     file_result = MagicMock()
     file_result.scalar_one_or_none.return_value = mock_file
-    mock_db_session.execute.side_effect = [job_result, file_result]
+    artifact_result = MagicMock()
+    artifact_result.scalar_one_or_none.return_value = None
+    mock_db_session.execute.side_effect = [job_result, file_result, artifact_result]
     mock_db_session.commit = AsyncMock()
 
     response = client.post(
@@ -65,6 +68,8 @@ def test_submit_password_success(
     assert published["sha256"] == "abc123"
     assert published["original_filename"] == "secret.zip"
     assert published["archive_password"] == "s3cr3t"
+    assert published["root_job_id"] == str(job_id)
+    assert published["ancestor_hashes"] == []
 
     submitted_stmt = mock_db_session.execute.await_args_list[0].args[0]
     assert getattr(submitted_stmt, "_for_update_arg", None) is not None
@@ -161,6 +166,7 @@ def test_submit_password_publish_failure_returns_503_and_does_not_commit(
     mock_job.file = mock_file
     mock_job.status = JobStatus.PASSWORD_REQUIRED.value
     mock_job.password_attempts = 1
+    mock_job.parent_job_id = None
     mock_job.current_stage = "archive_extract"
     mock_job.error_message = "Password required"
 
@@ -168,7 +174,9 @@ def test_submit_password_publish_failure_returns_503_and_does_not_commit(
     job_result.scalar_one_or_none.return_value = mock_job
     file_result = MagicMock()
     file_result.scalar_one_or_none.return_value = mock_file
-    mock_db_session.execute.side_effect = [job_result, file_result]
+    artifact_result = MagicMock()
+    artifact_result.scalar_one_or_none.return_value = None
+    mock_db_session.execute.side_effect = [job_result, file_result, artifact_result]
     mock_db_session.commit = AsyncMock()
 
     mock_rabbitmq.side_effect = RuntimeError("broker down")

@@ -1,0 +1,52 @@
+# 靜態分析支援範圍與資源預算
+
+本文件描述目前程式可執行的能力與限制。格式 handler 或分析器存在，並不表示已涵蓋該格式的所有版本、加密方式或損壞情況；報告的 coverage 與未完成原因才是該次分析的證據。
+
+## 格式能力
+
+| 格式 | 目前分析／提取能力 | 密碼與依賴 | 主要限制 |
+| --- | --- | --- | --- |
+| 一般檔案 | 檔案型別／hash、ClamAV、YARA、IOC、去混淆候選 | 需要可用的 ClamAV 和 YARA 規則 | 沒有專用格式分析器，不代表其他階段沒有分析；無規則／工具失敗不能當成已掃描未命中 |
+| Windows PE | headers、imports／exports、sections、entropy、resources、TLS、debug、overlay、packer clues 與啟發式 | `pefile` | overlay／resources 結構偵測不等於將所有內容提取為遞迴子檔；沒有程式執行或保證完整反編譯 |
+| Office OLE／OOXML／RTF | 巨集、外部關聯、DDE／Equation Editor 等跡象、支援的嵌入物件提取及遞迴子檔 | `oletools` | 加密 Office 文件的解密與補交密碼尚未提供；parser fallback／失敗及大小限制使結果為 partial |
+| PDF | pages、metadata、actions／JavaScript、forms、嵌入檔描述及啟發式 | `pypdf` | 目前不保證提取 PDF 附件或解密加密 PDF；附件描述不等於附件已掃描 |
+| Windows LNK | 目標／參數等結構與啟發式 | `LnkParse3` | 不解析所有 shell extension，不執行捷徑 |
+| Scripts | 支援副檔名與語法模式的指標、去混淆、IOC、啟發式 | 相應 Python 分析器 | 不執行 scripts；解碼候選不代表已完整還原程式 |
+| ZIP | 逐檔 streaming 解壓、來源檔案樹、遞迴分析 | ZIP 傳統密碼；AES fallback 需要 `pyzipper` | 以實際 extractor 回應判斷加密方式可用性；不支援的方法或損壞內容要留下未完成原因 |
+| 7z | bounded streaming writer、逐出現位置的子檔與遞迴分析 | `py7zr` 0.22；支援庫可處理的密碼／加密 headers | bounded writer 使用版本限定的 compatibility bridge；未知版本回報 unavailable，不能偷偷改用無界解壓 |
+| RAR | 逐檔 streaming 解壓與遞迴分析 | `rarfile` 及可用的外部解壓器，例如 `unrar`／`unar`／`bsdtar` | 可處理的 RAR／加密版本依外部工具而定；缺工具或損壞檔案不能當成乾淨 |
+| TAR、gzip、bzip2 | TAR 常規檔、gzip／bzip2 單一展開檔的 streaming 提取，再進遞迴分析 | Python 標準庫；無密碼參數 | symlink／special entries 不作可執行檔提取；`.tar.gz` 等透過多層子檔分析 |
+| ISO | 格式辨識 | — | handler 尚為 stub，回報不支援，沒有 ISO 提取能力 |
+| ELF、Mach-O、郵件、APK 等 | 通用階段仍可適用 | — | 尚無宣告完整的專用深度分析／子檔提取能力 |
+
+已加入的 budget 驗收包含真實 ZIP／7z 提取、7z encrypted headers 密碼恢復、同名不同內容來源保留、巢狀 ZIP 共享累計 bytes、並發 reservation、retry high-water idempotency、PostgreSQL row-lock 累計，以及 timeout／取消後 parser 和外部 helper 停止寫入。RAR 的外部工具與所有加密變種、其他格式的全面相容性，仍需各自的實際 fixture 驗收。
+
+## URL 觀察與選用衍生物
+
+IOC 一律保留 URL／domain／IP 與可取得的 offset，不會因此下載或執行 URL。只有明確設定
+`SANDBOX_ENABLE_URL_SUBMISSION=true` 才為觀察到的 URL 建立合成 `.url` shortcut 子檔；
+這不是從 URL 取得的遠端內容。此選項共用 portable／queue artifact ports、root 預算與深度，
+每份來源最多 50 個，遺漏／配額／派送失敗留下 partial 與原始 IOC；相同合成檔進入 ancestor
+會停止循環。動態 URL detonation 還需要已啟用且可用的 sandbox provider。
+
+自架版同一提取內的重複內容目前保留獨立來源節點，但可省略重複派送；未連結完整分析證據的
+duplicate node 仍顯示 unknown，樹狀 summary 因此為 partial。這項證據共用尚待完善，不能把
+省略的節點標為已完整分析。Portable runner 則逐 occurrence 分析並保留各自報告。
+
+## root 累計與時間窗
+
+`analysis_budgets` 保存 root 工作的 max files／expanded bytes；`budget_reservations` 保存穩定的 job＋提取來源＋出現位置身份及已保留的 high-water marks。所有子工作使用同一 root 的 PostgreSQL row lock 更新額度；portable runner 使用相同契約的 in-memory adapter，並將 reservations 寫入 checkpoint。
+
+檔數與 bytes 是**整棵 artifact tree 的累計提取額度**，不是原始上傳大小，也不是每個子檔重新取得一次配額。同內容出現在不同位置仍需保留来源；同名 ZIP／7z entries 使用不同磁碟目標避免互相覆寫。重試相同 immutable output 不重複扣額，較大的 high-water mark 只扣增加部分。預先保留的宣告大小與失敗／中止提取的已用額度不自動退回，以避免並发或重試擴大可寫出的總量。
+
+deadline 是**每次 execution attempt 的共用時間窗**：該 attempt 所有 stages 共用它；portable 同一次 run 的遞迴子檔也共用它。佇列中的另一個 execution attempt 或密碼補交後的 resume 開新時間窗，保留原 root 的 files／bytes。新時間窗不延長已經在跑的舊 attempt。它不是整棵樹從第一次上傳到最後完成的絕對 wall clock 上限，等待密碼或佇列閒置不會讓下一次有效恢復一開始就過期。
+
+`ROOT_BUDGET_MAX_FILES`、`ROOT_BUDGET_MAX_BYTES`、`ROOT_BUDGET_TIMEOUT_SECONDS` 決定 root limits；單次解壓還有 `EXTRACTION_MAX_FILES`、`EXTRACTION_MAX_BYTES`、`EXTRACTION_MAX_SINGLE_BYTES`、`EXTRACTION_MAX_RATIO`、`EXTRACTION_TIMEOUT` 及深度限制。既有 root 的累計 limits 在建立時固定，之後更改設定不會放寬已存在工作的額度。
+
+## 提取邊界與未完成報告
+
+archive 與 Office／RTF 提取在 Linux 的獨立 process group 中執行。parent 在寫出前接收 reservation，原子更新 root budget；已預扣的大小涵蓋後續 streaming chunks。超出 deadline 或外層 stage 被取消時，parent 終止 parser 及同一 process group 的外部 decoder helpers。這個邊界可以停止提取，不依賴 `wait_for(to_thread(...))` 的表面 timeout。
+
+OOXML 嵌入檔先保留宣告大小，再以限制讀取；關聯 XML 有獨立 parse cap。第三方 parser 的 internal allocations、metadata 解析和其他分析器的記憶體，仍需 worker／container 的記憶體上限；提取 bytes budget 不是 parser heap 上限。Linux process boundary 是目前支援的執行環境，未提供 Windows／其他平台相同的強制終止能力。Stage／budget checkpoint 可以恢復持久化成果，但終止時尚未完成的 output 不會被誤稱已分析。
+
+配置額度不足、超時、深度截斷、parser 或子工作提交失敗，應留下 partial／limited coverage 及原因，保留已有證據。檔案損壞、格式不支援、工具不可用與等待密碼，也不能替換為 clean。來源循環或重複內容可以免去重複派送，但來源節點與原因仍需呈現在檔案樹。

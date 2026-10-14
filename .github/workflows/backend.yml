@@ -43,7 +43,7 @@ jobs:
         run: poetry run mypy src/
 
       - name: Test
-        run: poetry run pytest tests/ -v --cov
+        run: poetry run pytest tests/ -v --cov --asyncio-mode=auto
 
   build-push:
     runs-on: ubuntu-latest

@@ -1,0 +1,19 @@
+# Opt-in remote build. It uses Cloud Build/Artifact Registry and may incur cost.
+# Run from the repository root; never upload private credentials with the source.
+steps:
+  - name: gcr.io/cloud-builders/docker
+    env: ['DOCKER_BUILDKIT=1']
+    args:
+      - build
+      - --target=cloud-job
+      - --build-arg=SIGNATURE_REFRESH=$_RELEASE
+      - -f
+      - worker/Dockerfile
+      - -t
+      - us-central1-docker.pkg.dev/$PROJECT_ID/malscan-v2-poc/full-worker:$_RELEASE
+      - .
+images:
+  - us-central1-docker.pkg.dev/$PROJECT_ID/malscan-v2-poc/full-worker:$_RELEASE
+timeout: 1200s
+options:
+  logging: CLOUD_LOGGING_ONLY

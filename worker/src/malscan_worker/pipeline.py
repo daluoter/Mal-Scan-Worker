@@ -2,29 +2,34 @@
 
 import asyncio
 import shutil
+from collections.abc import Awaitable, Callable, Mapping
+from copy import deepcopy
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Protocol
 
 import structlog
+from malscan.analysis_contract import REPORT_SCHEMA_VERSION, build_analysis
 from malscan.scoring.adapters import build_direct_evidence
 from malscan.scoring.engine import score_direct_evidence
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from malscan_worker.budget import BudgetLimits, PostgresRootBudget
 from malscan_worker.config import get_settings
 from malscan_worker.db import (
+    StaleAnalysisAttempt,
     _engine,
     ensure_root_artifact,
     get_job_for_context,
     update_artifact_risk,
-    update_job_result,
     update_job_result_strict,
     update_job_stage,
     update_job_status,
 )
 from malscan_worker.exceptions import ArchivePasswordRequiredError, ArchiveWrongPasswordError
 from malscan_worker.metrics import stage_latency
-from malscan_worker.sandbox import MockSandboxProvider
+from malscan_worker.sandbox import build_empty_sandbox_result
+from malscan_worker.sandbox.providers import ProviderCheckpointError
 from malscan_worker.sandbox.publisher import publish_sandbox_job
 from malscan_worker.stages.archive_extract import ArchiveExtractStage
 from malscan_worker.stages.base import StageContext, StageResult
@@ -40,6 +45,107 @@ from malscan_worker.storage import download_file
 
 log = structlog.get_logger()
 settings = get_settings()
+
+
+def _public_value(value: Any) -> Any:
+    """Serialize findings without copying credentials into a report checkpoint."""
+    private_keys = {"archive_password", "password", "api_token", "access_token", "authorization"}
+    if isinstance(value, Mapping):
+        return {
+            str(key): _public_value(item)
+            for key, item in value.items()
+            if str(key).lower() not in private_keys
+        }
+    if isinstance(value, (list, tuple)):
+        return [_public_value(item) for item in value]
+    if isinstance(value, datetime):
+        return value.isoformat()
+    return value
+
+
+def _stage_record(result: StageResult, *, password: str | None = None) -> dict[str, Any]:
+    error = result.error
+    if error and password:
+        error = error.replace(password, "[redacted]")
+    findings = _public_value(result.findings)
+    return {
+        "stage_name": result.stage_name,
+        "status": result.status,
+        "started_at": result.started_at.isoformat(),
+        "ended_at": result.ended_at.isoformat(),
+        "duration_ms": result.duration_ms,
+        "findings": findings,
+        "artifacts": list(result.artifacts),
+        "error": error,
+        "tool_version": result.tool_version or findings.get("tool_version"),
+        "rules_version": result.rules_version or findings.get("rules_version"),
+    }
+
+
+def _stage_timing(result: StageResult) -> dict[str, Any]:
+    record = _stage_record(result)
+    timing = {
+        "name": result.stage_name,
+        **{key: record[key] for key in ("status", "duration_ms", "started_at", "ended_at")},
+    }
+    reason = result.findings.get("reason")
+    if reason:
+        timing["reason"] = reason
+    elif result.error:
+        # Public coverage explains the class of failure without exposing raw errors.
+        timing["reason"] = "Stage execution failed"
+    for key in ("tool_version", "rules_version"):
+        if record[key]:
+            timing[key] = record[key]
+    return timing
+
+
+def _restore_checkpoint(report: Any, ctx: StageContext) -> list[StageResult]:
+    """Restore only completed stages from an exact file/job checkpoint."""
+    if not isinstance(report, dict):
+        return []
+    checkpoint = report.get("pipeline_checkpoint")
+    if not isinstance(checkpoint, dict) or checkpoint.get("version") != 1:
+        return []
+    for key in ("job_id", "file_id", "sha256", "original_filename"):
+        if checkpoint.get(key) != getattr(ctx, key):
+            return []
+    # Reusing a stage that creates artifacts is safe only in its original lineage.
+    if checkpoint.get("artifact_id") != ctx.artifact_id:
+        return []
+    if checkpoint.get("root_artifact_id") != ctx.root_artifact_id:
+        return []
+    records = report.get("stages")
+    if not isinstance(records, list):
+        return []
+    restored: list[StageResult] = []
+    for item in records:
+        if not isinstance(item, dict) or item.get("stage_name") == "sandbox":
+            continue
+        if item.get("status") != "ok" and not (
+            item.get("status") == "skipped"
+            and item.get("findings", {}).get("reason")
+            in {"Not an archive", "Not a supported document", "No supported analyzer"}
+        ):
+            continue
+        try:
+            restored.append(
+                StageResult(
+                    stage_name=item["stage_name"],
+                    status=item["status"],
+                    started_at=datetime.fromisoformat(item["started_at"]),
+                    ended_at=datetime.fromisoformat(item["ended_at"]),
+                    duration_ms=int(item["duration_ms"]),
+                    findings=deepcopy(item["findings"]),
+                    artifacts=list(item["artifacts"]),
+                    error=item.get("error"),
+                    tool_version=item.get("tool_version"),
+                    rules_version=item.get("rules_version"),
+                )
+            )
+        except (KeyError, TypeError, ValueError):
+            continue
+    return restored
 
 
 class _PipelineStage(Protocol):
@@ -299,6 +405,7 @@ def _build_sandbox_job_payload(job_data: dict[str, Any], ctx: StageContext) -> d
 
 async def finalize_deferred_sandbox_job(job_data: dict[str, Any]) -> dict[str, Any]:
     """Run sandbox detonation and finalize a previously deferred job."""
+    settings.require_service_configuration()
     job_id = job_data["job_id"]
     work_dir = Path(f"/tmp/{job_id}-sandbox")
     sandbox_started = datetime.now(timezone.utc)
@@ -317,8 +424,24 @@ async def finalize_deferred_sandbox_job(job_data: dict[str, Any]) -> dict[str, A
                 artifact_id = str(job_instance.artifact_id)
 
         existing_sandbox = stored_result.get("results", {}).get("sandbox")
-        if isinstance(existing_sandbox, dict) and bool(existing_sandbox.get("executed")):
+        if isinstance(existing_sandbox, dict) and (
+            bool(existing_sandbox.get("executed"))
+            or existing_sandbox.get("status")
+            in {
+                "completed",
+                "complete",
+                "disabled",
+                "synthetic",
+                "failed",
+                "unavailable",
+                "unsupported",
+            }
+        ):
             report = dict(stored_result)
+            # A completed provider result may precede a crash before Job.done.
+            # Re-persist under this delivery's current server attempt before
+            # finalizing; a replaced attempt must stop before touching risk.
+            await update_job_result_strict(job_id, report)
             if artifact_id:
                 try:
                     await update_artifact_risk(
@@ -328,6 +451,8 @@ async def finalize_deferred_sandbox_job(job_data: dict[str, Any]) -> dict[str, A
                         risk_level=report["risk_level"],
                         policy_version=report["risk"]["policy_version"],
                     )
+                except StaleAnalysisAttempt:
+                    raise
                 except Exception:
                     log.exception(
                         "failed_to_update_artifact_risk_after_sandbox_finalize",
@@ -348,27 +473,85 @@ async def finalize_deferred_sandbox_job(job_data: dict[str, Any]) -> dict[str, A
                 "score": report["score"],
             }
 
-        file_path = await download_file(job_data.get("storage_key", ""), work_dir)
+        report = deepcopy(stored_result)
+        previous_sandbox = existing_sandbox if isinstance(existing_sandbox, dict) else None
+        # Polling a retained task and reconciling an uncertain submission require
+        # no re-upload. The source object may already have reached its retention.
+        if not previous_sandbox or (
+            not previous_sandbox.get("task_id") and previous_sandbox.get("status") != "submitting"
+        ):
+            file_path = await download_file(job_data.get("storage_key", ""), work_dir)
 
-        sandbox_result = await execute_sandbox_analysis(
-            file_path=file_path,
-            sha256=job_data.get("sha256", ""),
-            filename=job_data.get("original_filename", "unknown"),
-        )
+        async def save_sandbox_checkpoint(state: dict[str, Any]) -> None:
+            checkpoint_at = datetime.now(timezone.utc)
+            report.setdefault("results", {})["sandbox"] = deepcopy(state)
+            stage = StageResult(
+                stage_name="sandbox",
+                status="running",
+                started_at=sandbox_started,
+                ended_at=checkpoint_at,
+                duration_ms=int((checkpoint_at - sandbox_started).total_seconds() * 1000),
+                findings=state,
+                artifacts=[],
+            )
+            report["stages"] = [
+                item for item in report.get("stages", []) if item.get("stage_name") != "sandbox"
+            ] + [_stage_record(stage)]
+            _upsert_stage_timing(report, _stage_timing(stage))
+            report["analysis"] = build_analysis(
+                stages=report["timings"]["stages"],
+                sandbox=state,
+            )
+            await update_job_result_strict(job_id, report)
+
+        try:
+            sandbox_result = await execute_sandbox_analysis(
+                file_path=file_path,
+                sha256=job_data.get("sha256", ""),
+                filename=job_data.get("original_filename", "unknown"),
+                previous_result=previous_sandbox,
+                on_checkpoint=save_sandbox_checkpoint,
+            )
+        except ProviderCheckpointError as exc:
+            if isinstance(exc.__cause__, StaleAnalysisAttempt):
+                raise exc.__cause__ from None
+            raise
         sandbox_ended = datetime.now(timezone.utc)
 
-        report = dict(stored_result)
         results = report.setdefault("results", {})
         results["sandbox"] = sandbox_result
+        sandbox_status = "ok" if sandbox_result.get("executed") else "failed"
+        if sandbox_result.get("status") in {"disabled", "synthetic"}:
+            sandbox_status = "skipped"
+        report["stages"] = [
+            item for item in report.get("stages", []) if item.get("stage_name") != "sandbox"
+        ]
+        report["stages"].append(
+            _stage_record(
+                StageResult(
+                    stage_name="sandbox",
+                    status=sandbox_status,
+                    started_at=sandbox_started,
+                    ended_at=sandbox_ended,
+                    duration_ms=int((sandbox_ended - sandbox_started).total_seconds() * 1000),
+                    findings=sandbox_result,
+                    artifacts=[],
+                )
+            )
+        )
         _upsert_stage_timing(
             report,
             {
                 "name": "sandbox",
-                "status": "ok",
+                "status": sandbox_status,
                 "duration_ms": int((sandbox_ended - sandbox_started).total_seconds() * 1000),
                 "started_at": sandbox_started.isoformat(),
                 "ended_at": sandbox_ended.isoformat(),
             },
+        )
+        report["analysis"] = build_analysis(
+            stages=report["timings"]["stages"],
+            sandbox=sandbox_result,
         )
         report = _apply_direct_risk_to_report(report, artifact_id=artifact_id)
 
@@ -383,6 +566,8 @@ async def finalize_deferred_sandbox_job(job_data: dict[str, Any]) -> dict[str, A
                     risk_level=report["risk_level"],
                     policy_version=report["risk"]["policy_version"],
                 )
+            except StaleAnalysisAttempt:
+                raise
             except Exception:
                 log.exception(
                     "failed_to_update_artifact_risk_after_sandbox_finalize",
@@ -416,7 +601,11 @@ def _build_analysis_result(
     """Build complete analysis result for storage."""
 
     # Extract key findings from stage results
-    stage_findings = {r.stage_name: r.findings for r in results}
+    stage_findings = {r.stage_name: _public_value(r.findings) for r in results}
+    if not settings.sandbox_enabled and "sandbox" not in stage_findings:
+        # Disabled is known profile metadata even before a password-blocked
+        # archive reaches the final stage; no execution or stage is invented.
+        stage_findings["sandbox"] = build_empty_sandbox_result(status="disabled")
 
     # Check ClamAV result
     clamav = stage_findings.get("clamav", {})
@@ -487,6 +676,7 @@ def _build_analysis_result(
     doc_analysis: dict[str, Any] = {}
     if doc:
         doc_analysis = {
+            **doc,
             "document_type": doc.get("document_type"),
             "exploit_indicators": exploit_indicators,
             "macros": macros,
@@ -511,23 +701,14 @@ def _build_analysis_result(
     # Build timing info
     timings = {
         "total_ms": total_ms,
-        "stages": [
-            {
-                "name": r.stage_name,
-                "status": r.status,
-                "duration_ms": r.duration_ms,
-                "started_at": r.started_at.isoformat(),
-                "ended_at": r.ended_at.isoformat(),
-            }
-            for r in results
-        ],
+        "stages": [_stage_timing(result) for result in results],
     }
 
     artifact_id = getattr(ctx, "artifact_id", None)
     decision, risk = _build_risk_summary(stage_findings=stage_findings, artifact_id=artifact_id)
 
     return {
-        "report_schema_version": "mswr-report-v2",
+        "report_schema_version": REPORT_SCHEMA_VERSION,
         "job_id": job_id,
         "file": file_info,
         "verdict": decision.legacy_verdict,
@@ -536,6 +717,7 @@ def _build_analysis_result(
         "risk": risk,
         "results": {
             "av_result": {
+                **clamav,
                 "engine": "ClamAV",
                 "infected": clamav.get("infected", False),
                 "threat_name": clamav.get("threat_name"),
@@ -543,6 +725,7 @@ def _build_analysis_result(
             "yara_hits": yara_matches,
             "iocs": iocs,
             "format_analysis": {
+                **fmt,
                 "analyzer": fmt.get("analyzer"),
                 "format_type": fmt.get("format_type"),
                 "risk_score": fmt_risk_score,
@@ -560,7 +743,122 @@ def _build_analysis_result(
             },
         },
         "timings": timings,
+        "stages": [
+            _stage_record(result, password=getattr(ctx, "archive_password", None))
+            for result in results
+        ],
+        "analysis": build_analysis(stages=timings["stages"], sandbox=stage_findings.get("sandbox")),
+        "pipeline_checkpoint": {
+            "version": 1,
+            "job_id": job_id,
+            "file_id": file_id,
+            "sha256": ctx.sha256,
+            "original_filename": ctx.original_filename,
+            "artifact_id": artifact_id,
+            "root_artifact_id": getattr(ctx, "root_artifact_id", None),
+            "root_job_id": getattr(ctx, "root_job_id", None),
+        },
     }
+
+
+# Public core entry points are shared by self-hosted and portable runtimes.
+build_analysis_result = _build_analysis_result
+
+
+async def attach_execution_budget(report: dict[str, Any], ctx: StageContext) -> None:
+    """Publish limits and measured accounting without internal reservation keys."""
+    if ctx.root_budget is None:
+        return
+    snapshot = (await ctx.root_budget.snapshot()).to_dict()
+    report["execution_budget"] = {
+        key: snapshot[key]
+        for key in (
+            "limits",
+            "used_files",
+            "used_bytes",
+            "deadline_at",
+            "time_scope",
+            "accounting_scope",
+        )
+    }
+
+
+async def execute_analysis_stages(
+    ctx: StageContext,
+    *,
+    initial_results: list[StageResult] | None = None,
+    on_progress: Callable[[str, int], Awaitable[None]] | None = None,
+    on_checkpoint: Callable[[list[StageResult]], Awaitable[None]] | None = None,
+    parallel_stages: list[_PipelineStage] | None = None,
+    format_stage: _PipelineStage | None = None,
+    sequential_stages: list[_PipelineStage] | None = None,
+) -> list[StageResult]:
+    """Execute the analysis core; storage, progress and checkpointing use ports.
+
+    Only completed, validated checkpoint results should be supplied by callers.
+    Artifact-writing stages run sequentially and are checkpointed immediately.
+    Password blocking preserves completed results before propagating its exception.
+    """
+    parallel = PARALLEL_STAGES if parallel_stages is None else parallel_stages
+    sequential = SEQUENTIAL_STAGES if sequential_stages is None else sequential_stages
+    formatter = format_stage or FORMAT_ANALYSIS_STAGE
+    restored = {result.stage_name: result for result in initial_results or []}
+    results: list[StageResult] = []
+    ctx.previous_results = []
+
+    async def checkpoint() -> None:
+        if on_checkpoint:
+            await on_checkpoint(list(results))
+
+    async def check_budget() -> None:
+        if ctx.root_budget:
+            await ctx.root_budget.check_deadline()
+
+    await check_budget()
+    if on_progress:
+        await on_progress("static_analysis", 0)
+    missing = [stage for stage in parallel if stage.name not in restored]
+    executed = await asyncio.gather(*[_run_stage(stage, ctx) for stage in missing])
+    by_name = {result.stage_name: result for result in executed}
+    for stage in parallel:
+        results.append(restored.get(stage.name) or by_name[stage.name])
+    ctx.previous_results.extend(results)
+    await checkpoint()
+
+    for stage in [formatter, *sequential]:
+        await check_budget()
+        if stage is not formatter and on_progress and stage is sequential[0]:
+            await on_progress("recursive_analysis", len(results))
+        result = restored.get(stage.name)
+        if result is None:
+            try:
+                result = await _run_stage(stage, ctx)
+            except (ArchivePasswordRequiredError, ArchiveWrongPasswordError) as exc:
+                now = datetime.now(timezone.utc)
+                blocked = StageResult(
+                    stage_name=stage.name,
+                    status="password_required",
+                    started_at=now,
+                    ended_at=now,
+                    duration_ms=0,
+                    findings={
+                        "reason": "Archive password is required"
+                        if isinstance(exc, ArchivePasswordRequiredError)
+                        else "Archive password was rejected"
+                    },
+                    artifacts=[],
+                )
+                results.append(blocked)
+                ctx.previous_results.append(blocked)
+                await checkpoint()
+                exc.completed_results = list(results)
+                raise
+        results.append(result)
+        ctx.previous_results.append(result)
+        await checkpoint()
+    if not sequential and on_progress:
+        await on_progress("recursive_analysis", len(results))
+    return results
 
 
 async def _run_stage(stage: _PipelineStage, ctx: StageContext) -> StageResult:
@@ -626,6 +924,7 @@ async def _run_stage(stage: _PipelineStage, ctx: StageContext) -> StageResult:
 
 async def run_pipeline(job_data: dict[str, Any]) -> dict[str, Any]:
     """Run the analysis pipeline with high resilience."""
+    settings.require_service_configuration()
     job_id = job_data["job_id"]
     file_id = job_data["file_id"]
     storage_key = job_data.get("storage_key", "")
@@ -655,7 +954,6 @@ async def run_pipeline(job_data: dict[str, Any]) -> dict[str, Any]:
 
         results: list[StageResult] = []
         total_start = datetime.now(timezone.utc)
-        stages_done = 0
 
         # Create context inside a single DB session that spans the entire pipeline.
         async with AsyncSession(_engine) as session:
@@ -689,44 +987,65 @@ async def run_pipeline(job_data: dict[str, Any]) -> dict[str, Any]:
             )
             ctx.root_artifact_id = root_artifact["root_id"]
             ctx.artifact_id = ctx.artifact_id or root_artifact["id"]
+            ctx.depth = int(getattr(job_instance, "depth", 0) or 0)
+            if job_instance is not None:
+                ctx.root_budget = await PostgresRootBudget.initialize(
+                    _engine,
+                    ctx.root_job_id or job_id,
+                    BudgetLimits(
+                        max_files=settings.root_budget_max_files,
+                        max_bytes=settings.root_budget_max_bytes,
+                        timeout_seconds=settings.root_budget_timeout_seconds,
+                    ),
+                )
+            previous = getattr(job_instance, "result", None)
+            resumed = _restore_checkpoint(previous, ctx)
+            planned = [*PARALLEL_STAGES, FORMAT_ANALYSIS_STAGE, *SEQUENTIAL_STAGES]
+            latest_checkpoint: dict[str, Any] | None = None
 
-            # Update status to indicate parallel static analysis
-            await update_job_stage(job_id, "static_analysis", stages_done)
+            async def save_checkpoint(completed: list[StageResult]) -> None:
+                nonlocal latest_checkpoint
+                completed_names = {result.stage_name for result in completed}
+                checkpoint_results = list(completed)
+                now = datetime.now(timezone.utc)
+                for stage in planned:
+                    if stage.name not in completed_names:
+                        checkpoint_results.append(
+                            StageResult(
+                                stage_name=stage.name,
+                                status="pending",
+                                started_at=now,
+                                ended_at=now,
+                                duration_ms=0,
+                                findings={"status": "not_requested"}
+                                if stage.name == "sandbox"
+                                else {},
+                                artifacts=[],
+                            )
+                        )
+                report = _build_analysis_result(
+                    job_id,
+                    file_id,
+                    ctx,
+                    checkpoint_results,
+                    int((now - total_start).total_seconds() * 1000),
+                )
+                await attach_execution_budget(report, ctx)
+                await update_job_result_strict(job_id, report)
+                latest_checkpoint = report
 
-            # 1. Run Parallel Stages
-            # IMPORTANT: We use gathering for I/O efficiency, but NONE of these stages
-            # should use the shared 'session' concurrently.
-            log.info("starting_parallel_stages", count=len(PARALLEL_STAGES))
-            tasks = [_run_stage(stage, ctx) for stage in PARALLEL_STAGES]
-            parallel_results = await asyncio.gather(*tasks)
-
-            results.extend(parallel_results)
-            ctx.previous_results.extend(parallel_results)
-            stages_done += len(PARALLEL_STAGES)
-
-            # 2. Run format analysis stage before sequential stages.
-            format_result = await _run_stage(FORMAT_ANALYSIS_STAGE, ctx)
-            results.append(format_result)
-            ctx.previous_results.append(format_result)
-            stages_done += 1
-
-            # Check for critical failures?
-            # For now, we remain resilient and continue even if some
-            # parallel stages fail (like ClamAV).
-            # Only if the whole system crashes do we stop.
-
-            # Update status after static analysis
-            await update_job_stage(job_id, "recursive_analysis", stages_done)
-
-            # 3. Run Sequential Stages (like ArchiveExtract and Sandbox)
-            for stage in SEQUENTIAL_STAGES:
-                res = await _run_stage(stage, ctx)
-                results.append(res)
-                ctx.previous_results.append(res)
-                stages_done += 1
-
-                # We continue even if sub-jobs fail to create or sandbox fails,
-                # as we still want to save the primary report.
+            try:
+                results = await execute_analysis_stages(
+                    ctx,
+                    initial_results=resumed,
+                    on_progress=lambda stage, done: update_job_stage(job_id, stage, done),
+                    on_checkpoint=save_checkpoint,
+                )
+            except (ArchivePasswordRequiredError, ArchiveWrongPasswordError) as exc:
+                # Consumers can finalize exhausted attempts without discarding the
+                # findings that were persisted immediately before this exception.
+                exc.partial_report = latest_checkpoint
+                raise
 
         total_end = datetime.now(timezone.utc)
         total_ms = int((total_end - total_start).total_seconds() * 1000)
@@ -742,12 +1061,13 @@ async def run_pipeline(job_data: dict[str, Any]) -> dict[str, Any]:
             results=results,
             total_ms=total_ms,
         )
+        await attach_execution_budget(analysis_result, ctx)
 
         should_finalize = _should_finalize_after_static_pipeline(results)
         artifact_id = job_data.get("artifact_id") or getattr(ctx, "artifact_id", None)
 
         if should_finalize:
-            await update_job_result(job_id, analysis_result)
+            await update_job_result_strict(job_id, analysis_result)
             if artifact_id:
                 try:
                     await update_artifact_risk(
@@ -793,14 +1113,43 @@ async def run_pipeline(job_data: dict[str, Any]) -> dict[str, Any]:
                 )
                 final_status = "scanning"
             except Exception as exc:  # noqa: BLE001
-                log.warning("sandbox_publish_failed_mock_finalize", job_id=job_id, error=str(exc))
-                fallback = MockSandboxProvider().build_mock_result(
-                    file_path=file_path,
-                    sha256=ctx.sha256,
-                    filename=ctx.original_filename,
-                    reason=f"fallback to mock after sandbox queue publish failed: {exc}",
+                log.warning("sandbox_publish_failed", job_id=job_id, error_type=type(exc).__name__)
+                prior_sandbox = analysis_result.setdefault("results", {}).get("sandbox", {})
+                unavailable = {
+                    "status": "unavailable",
+                    "executed": False,
+                    "is_mock": False,
+                    "provider": prior_sandbox.get("provider"),
+                    "error_code": "sandbox_dispatch_failed",
+                    "reason": "Dynamic analysis queue is unavailable",
+                    "errors": ["sandbox_dispatch_failed"],
+                    "behaviors": [],
+                    "network_connections": [],
+                }
+                analysis_result["results"]["sandbox"] = unavailable
+                failed_at = datetime.now(timezone.utc)
+                dispatch_failure = StageResult(
+                    stage_name="sandbox",
+                    status="failed",
+                    started_at=failed_at,
+                    ended_at=failed_at,
+                    duration_ms=0,
+                    findings=unavailable,
+                    artifacts=[],
+                    error="Dynamic analysis queue is unavailable",
                 )
-                analysis_result.setdefault("results", {})["sandbox"] = fallback
+                results = [result for result in results if result.stage_name != "sandbox"]
+                results.append(dispatch_failure)
+                analysis_result["stages"] = [
+                    record
+                    for record in analysis_result["stages"]
+                    if record.get("stage_name") != "sandbox"
+                ] + [_stage_record(dispatch_failure)]
+                _upsert_stage_timing(analysis_result, _stage_timing(dispatch_failure))
+                analysis_result["analysis"] = build_analysis(
+                    stages=analysis_result["timings"]["stages"],
+                    sandbox=unavailable,
+                )
                 analysis_result = _apply_direct_risk_to_report(
                     analysis_result,
                     artifact_id=artifact_id,

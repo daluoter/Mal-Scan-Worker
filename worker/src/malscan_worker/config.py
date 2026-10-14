@@ -1,26 +1,29 @@
 """Worker configuration."""
 
 from functools import lru_cache
+from typing import Literal
 
+from pydantic import Field
 from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
     """Worker settings loaded from environment variables."""
 
-    # Database (required - no default to enforce security)
-    database_url: str
+    # Optional for the portable runner; queue workers validate these at startup.
+    # Never substitute development credentials for missing service configuration.
+    database_url: str | None = None
 
     # MinIO (required - no default to enforce security)
-    minio_endpoint: str
-    minio_access_key: str
-    minio_secret_key: str
+    minio_endpoint: str | None = None
+    minio_access_key: str | None = None
+    minio_secret_key: str | None = None
     minio_bucket_uploads: str = "uploads"
     minio_bucket_artifacts: str = "artifacts"
     minio_secure: bool = False
 
     # RabbitMQ (required - no default to enforce security)
-    rabbitmq_url: str
+    rabbitmq_url: str | None = None
     rabbitmq_queue: str = "malscan.jobs"
     rabbitmq_sandbox_queue: str = "malscan.jobs.sandbox"
 
@@ -45,6 +48,12 @@ class Settings(BaseSettings):
     extraction_max_single_bytes: int = 100_000_000  # 100MB per file
     extraction_max_ratio: float = 100.0
     extraction_timeout: int = 120  # seconds
+    max_job_depth: int = Field(default=3, ge=0)
+
+    # File/byte limits span the root tree; the deadline is per execution attempt.
+    root_budget_max_files: int = Field(default=100, gt=0)
+    root_budget_max_bytes: int = Field(default=500_000_000, gt=0)
+    root_budget_timeout_seconds: int = Field(default=3600, gt=0)
 
     # YARA
     yara_rules_path: str = "/etc/yara/rules"
@@ -52,11 +61,15 @@ class Settings(BaseSettings):
     # ClamAV
     clamav_host: str = "clamav"
     clamav_port: int = 3310
+    clamav_mode: Literal["daemon", "cli"] = "daemon"
+    clamav_cli_path: str = "clamscan"
+    clamav_database_path: str | None = None
+    clamav_max_database_age_seconds: int | None = Field(default=None, ge=1)
 
     # Sandbox
     sandbox_enabled: bool = False
-    sandbox_mock: bool = True
-    sandbox_provider: str = "mock"
+    sandbox_mock: bool = False
+    sandbox_provider: str = "capev2"
     sandbox_base_url: str = ""
     sandbox_api_token: str | None = None
     sandbox_timeout_seconds: int = 900
@@ -70,6 +83,19 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     log_format: str = "json"
 
+    def require_service_configuration(self) -> None:
+        """Fail before starting a queue worker when required services are missing."""
+        required = (
+            "database_url",
+            "minio_endpoint",
+            "minio_access_key",
+            "minio_secret_key",
+            "rabbitmq_url",
+        )
+        missing = [name.upper() for name in required if not getattr(self, name)]
+        if missing:
+            raise ValueError("Missing queue worker configuration: " + ", ".join(missing))
+
     class Config:
         env_file = ".env"
         env_file_encoding = "utf-8"
@@ -78,4 +104,4 @@ class Settings(BaseSettings):
 @lru_cache
 def get_settings() -> Settings:
     """Get cached settings instance."""
-    return Settings()  # type: ignore[call-arg]
+    return Settings()

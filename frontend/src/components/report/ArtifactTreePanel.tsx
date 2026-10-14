@@ -1,5 +1,6 @@
 import type { ArtifactTreeNode } from '../../api/types'
-import { localizeAnalyzer, localizeVerdict } from './reportText'
+import { Link } from 'react-router-dom'
+import { localizeAnalyzer, localizeStatus, localizeVerdict } from './reportText'
 
 interface ArtifactTreePanelProps {
     tree?: ArtifactTreeNode | null
@@ -19,10 +20,14 @@ function ArtifactNode({ node }: { node: ArtifactTreeNode }) {
             <div className="absolute left-0 top-3 h-px w-3 bg-white/10" />
             <div className="rounded-xl border border-white/10 bg-slate-900/60 p-4">
                 <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-bold text-white">{node.filename}</span>
+                    {node.job_id ? <Link className="font-bold text-white hover:text-neon-cyan" to={`/jobs/${node.job_id}`}>{node.filename}</Link> : <span className="font-bold text-white">{node.filename}</span>}
                     <span className={`rounded-full border px-2 py-0.5 font-mono text-[11px] ${riskClass(node.risk_level)}`}>
                         {localizeVerdict(node.risk_level || 'unknown')}
                     </span>
+                    <span className="rounded-full border border-white/10 px-2 py-0.5 text-[11px] text-slate-300">
+                        靜態：{localizeStatus(node.analysis?.static.status || node.analysis_status || 'unknown')}
+                    </span>
+                    {node.job_status === 'password_required' && <span className="text-xs text-caution-yellow">等待解壓密碼</span>}
                     {typeof node.archive_layer === 'number' && (
                         <span className="rounded-full border border-neon-cyan/20 px-2 py-0.5 font-mono text-[11px] text-neon-cyan">
                             第 {node.archive_layer} 層

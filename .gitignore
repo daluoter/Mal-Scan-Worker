@@ -71,6 +71,8 @@ temp/
 
 # Poetry
 poetry.lock
+!backend/poetry.lock
+!worker/poetry.lock
 
 # Coverage
 coverage/
@@ -81,3 +83,11 @@ everything-claude-code/
 
 # Git worktrees
 .worktrees/
+# Private local S3/container integration fixture output
+.local-cloud-smoke/
+**/.checkpoint-auth.key
+**/.wrangler/
+
+# Generated, deployment-local configuration
+cloud-static-job*.flags.json
+keyless-dispatcher-service.flags.json

@@ -1,0 +1,66 @@
+name: Serverless deployment CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'deployment/**'
+      - 'worker/**'
+      - 'backend/src/malscan/**'
+      - '.github/workflows/deployment.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'deployment/**'
+      - 'worker/**'
+      - 'backend/src/malscan/**'
+      - '.github/workflows/deployment.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deployment-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  control-and-dispatcher:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Test keyless dispatcher protocol and HTTP transport
+        working-directory: deployment/dispatcher
+        run: python3 -m unittest -v test_dispatcher.py
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: deployment/cloudflare/package-lock.json
+
+      - name: Install control plane dependencies
+        working-directory: deployment/cloudflare
+        run: npm ci
+
+      - name: Test Worker, Durable Objects, and Python dispatch integration
+        working-directory: deployment/cloudflare
+        run: npm test
+
+      - name: Record validation scope
+        run: |
+          cat >> "$GITHUB_STEP_SUMMARY" <<'EOF'
+          Tests use the real local workerd, SQLite Durable Objects and Python HTTP dispatcher.
+          Google APIs are stubbed; this workflow does not deploy cloud resources or verify billing.
+          The optional full-worker container fixture test is skipped when no
+          MALSCAN_RUNNER_FIXTURE_DIR is supplied. Run that separate container check
+          using deployment/cloudflare/README.md before releasing a new runner image.
+          EOF

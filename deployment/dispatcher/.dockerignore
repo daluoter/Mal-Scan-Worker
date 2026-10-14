@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+test_*.py
+README.md
+.git/
+.env
+.env.*
+*.key
+*.pem
+*-credentials.json
+*secret*.json
+*invoker*.json

@@ -5,6 +5,9 @@ interface PasswordFormProps {
     attemptsRemaining: number
     onSubmit: (password: string) => Promise<void>
     error?: string | null
+    filename?: string
+    artifactPath?: string | null
+    attemptsScope?: string
 }
 
 export default function PasswordForm({
@@ -12,6 +15,9 @@ export default function PasswordForm({
     attemptsRemaining,
     onSubmit,
     error,
+    filename,
+    artifactPath,
+    attemptsScope,
 }: PasswordFormProps) {
     const [password, setPassword] = useState('')
     const [isSubmitting, setIsSubmitting] = useState(false)
@@ -19,7 +25,7 @@ export default function PasswordForm({
 
     const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault()
-        if (!password.trim() || isSubmitting || isAttemptsExhausted) return
+        if (password.length === 0 || isSubmitting || isAttemptsExhausted) return
 
         setIsSubmitting(true)
         try {
@@ -35,11 +41,13 @@ export default function PasswordForm({
     return (
         <div className="p-4 rounded-lg bg-caution-yellow/10 border border-caution-yellow/40">
             <h2 className="text-lg font-semibold text-caution-yellow">需要解壓密碼</h2>
+            {filename && <p className="mt-2 break-all font-mono text-sm text-white">{artifactPath || filename}</p>}
             <p className="mt-2 text-sm text-slate-300">
                 這個壓縮檔需要密碼才能繼續分析，請輸入密碼後提交。
             </p>
 
             <div className="mt-3 font-mono text-sm text-slate-300">
+                {attemptsScope && <p className="mb-2 text-xs text-slate-400">{attemptsScope}</p>}
                 <span>已嘗試: {attemptsUsed}</span>
                 <span className="mx-2 text-slate-500">|</span>
                 <span>剩餘次數: {attemptsRemaining}</span>
@@ -58,14 +66,15 @@ export default function PasswordForm({
                     onChange={(event) => setPassword(event.target.value)}
                     placeholder="輸入壓縮檔密碼"
                     className="w-full rounded-lg border border-slate-700 bg-deep-space px-3 py-2 text-white placeholder:text-slate-500 focus:border-caution-yellow focus:outline-none"
-                    autoComplete="current-password"
+                    autoComplete="off"
+                    maxLength={256}
                     disabled={isSubmitting || isAttemptsExhausted}
                 />
 
                 <button
                     type="submit"
                     className="self-start rounded-lg bg-caution-yellow px-4 py-2 font-semibold text-black transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
-                    disabled={isSubmitting || isAttemptsExhausted || !password.trim()}
+                    disabled={isSubmitting || isAttemptsExhausted || password.length === 0}
                 >
                     {isSubmitting ? '提交中...' : '提交密碼'}
                 </button>

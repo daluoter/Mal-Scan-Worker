@@ -1,0 +1,17 @@
+# From the repository root, submit deployment/dispatcher as the source directory.
+# No source upload may contain private credentials.
+steps:
+  - name: gcr.io/cloud-builders/docker
+    env: ['DOCKER_BUILDKIT=1']
+    args:
+      - build
+      - -f
+      - Dockerfile
+      - -t
+      - us-central1-docker.pkg.dev/$PROJECT_ID/malscan-v2-poc/demo-dispatcher:$_RELEASE
+      - .
+images:
+  - us-central1-docker.pkg.dev/$PROJECT_ID/malscan-v2-poc/demo-dispatcher:$_RELEASE
+timeout: 600s
+options:
+  logging: CLOUD_LOGGING_ONLY

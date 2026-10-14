@@ -221,7 +221,8 @@ class TestDocumentAnalysisStageSkip:
         try:
             stage = DocumentAnalysisStage()
             result = await stage.execute(ctx)
-            assert result.status == "skipped"
+            assert result.status == "partial"
+            assert result.findings["resource_limited"] is True
             assert "too large" in result.findings["reason"]
         finally:
             mod.MAX_FILE_SIZE_FOR_PARSE = original
@@ -301,7 +302,8 @@ class TestOLEAnalysis:
         stage = DocumentAnalysisStage()
         result = await stage.execute(ctx)
 
-        assert result.status == "ok"
+        assert result.status == "partial"
+        assert result.findings["errors"]
         assert result.findings["document_type"] == "ole"
 
         eq_inds = [
@@ -324,7 +326,8 @@ class TestOLEAnalysis:
         stage = DocumentAnalysisStage()
         result = await stage.execute(ctx)
 
-        assert result.status == "ok"
+        assert result.status == "partial"
+        assert result.findings["errors"]
         dde_inds = [
             i for i in result.findings["exploit_indicators"] if i.get("type") == "dde_field"
         ]
@@ -401,7 +404,8 @@ class TestOOXMLAnalysis:
         stage = DocumentAnalysisStage()
         result = await stage.execute(ctx)
 
-        assert result.status == "ok"
+        assert result.status == "partial"
+        assert result.findings["errors"]
         assert len(result.findings["embedded_objects"]) >= 1
         assert result.findings["embedded_objects"][0]["is_ole"] is True
         # Should have extracted the OLE blob as artifact

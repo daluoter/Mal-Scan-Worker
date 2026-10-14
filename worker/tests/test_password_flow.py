@@ -1,11 +1,33 @@
 """Tests for worker password-control flow across pipeline and consumer."""
 
+from contextlib import asynccontextmanager
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from malscan.scoring.policy import POLICY_VERSION
 from malscan_worker.exceptions import ArchivePasswordRequiredError, ArchiveWrongPasswordError
 from malscan_worker.stages.base import StageContext
+
+
+@pytest.fixture(autouse=True)
+def mock_message_execution_lock(mocker):
+    @asynccontextmanager
+    async def unlocked(_job_id):
+        yield True
+
+    mocker.patch("malscan_worker.consumer.job_execution_lock", unlocked)
+    mocker.patch("malscan_worker.consumer.job_analysis_attempt", unlocked)
+    mocker.patch("malscan_worker.consumer.asyncio.sleep", new_callable=AsyncMock)
+    # Existing password control-flow tests cover failure of the report store;
+    # retain the original when retry publication is unavailable.
+    mocker.patch(
+        "malscan_worker.consumer.publish_retry",
+        new_callable=AsyncMock,
+        side_effect=ConnectionError("Retry publisher unavailable"),
+    )
+    mocker.patch(
+        "malscan_worker.consumer.get_job_for_context", new_callable=AsyncMock, return_value=None
+    )
 
 
 class _StageRaisesPasswordRequired:
@@ -193,24 +215,18 @@ def test_build_password_attempts_exhausted_report_has_zero_risk_block() -> None:
         "descendant_summary": {},
         "score_trace": {},
     }
-    assert report["report_schema_version"] == "mswr-report-v2"
+    assert report["report_schema_version"] == "mswr-report-v3"
     assert report["explainability"]["failure_diagnostics"]["status"] == "blocked"
     assert (
         report["explainability"]["failure_diagnostics"]["diagnostics"][0]["code"]
         == "password_attempts_exhausted"
     )
     assert report["results"]["archive_extract"]["reason"] == "連續 3 次密碼錯誤，封存檔解壓失敗。"
-    assert (
-        report["explainability"]["summary"]["headline"] == "因密碼嘗試次數耗盡，封存內容未被分析。"
-    )
-    assert (
-        report["explainability"]["summary"]["final_verdict_explainer"]
-        == "此報告僅反映最外層檔案的分析結果。"
-    )
-    assert (
-        report["explainability"]["failure_diagnostics"]["headline"]
-        == "內層封存內容因密碼耗盡而無法分析。"
-    )
+    summary = report["explainability"]["summary"]
+    diagnostics = report["explainability"]["failure_diagnostics"]
+    assert summary["headline"] == "因密碼嘗試次數耗盡，封存內容未被分析。"
+    assert summary["final_verdict_explainer"] == "此報告僅反映最外層檔案的分析結果。"
+    assert diagnostics["headline"] == "內層封存內容因密碼耗盡而無法分析。"
 
 
 @pytest.mark.asyncio
@@ -274,10 +290,8 @@ async def test_consumer_wrong_password_exhausted_stores_report_sets_done_and_ack
         "descendant_summary": {},
         "score_trace": {},
     }
-    assert (
-        saved_result["results"]["archive_extract"]["reason"]
-        == "連續 3 次密碼錯誤，封存檔解壓失敗。"
-    )
+    archive_result = saved_result["results"]["archive_extract"]
+    assert archive_result["reason"] == "連續 3 次密碼錯誤，封存檔解壓失敗。"
     assert saved_result["results"]["archive_extract"]["extraction_failed"] is True
     assert saved_result["explainability"]["failure_diagnostics"]["status"] == "blocked"
     update_artifact_risk.assert_awaited_once_with(
@@ -383,19 +397,25 @@ async def test_consumer_wrong_password_increment_failure_rejects_for_retry(mocke
         }
     )
 
-    mocker.patch(
+    pipeline = mocker.patch(
         "malscan_worker.consumer.run_pipeline",
         new_callable=AsyncMock,
         side_effect=ArchiveWrongPasswordError("zip"),
     )
-    mocker.patch(
+    increment = mocker.patch(
         "malscan_worker.consumer.increment_password_attempts",
         new_callable=AsyncMock,
         side_effect=RuntimeError("db unavailable"),
     )
+    status = mocker.patch(
+        "malscan_worker.consumer.update_job_status", new_callable=AsyncMock
+    )
 
     await consumer.process_message(message)
 
+    pipeline.assert_awaited_once()
+    increment.assert_awaited_once_with("99999999-9999-9999-9999-999999999999")
+    status.assert_awaited_once_with("99999999-9999-9999-9999-999999999999", "scanning")
     message.ack.assert_not_awaited()
     message.reject.assert_awaited_once_with(requeue=True)
 

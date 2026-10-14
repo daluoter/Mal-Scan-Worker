@@ -1,0 +1,14 @@
+.gcloudignore
+.git/
+.gitignore
+__pycache__/
+*.pyc
+test_*.py
+README.md
+.env
+.env.*
+*.key
+*.pem
+*-credentials.json
+*secret*.json
+*invoker*.json

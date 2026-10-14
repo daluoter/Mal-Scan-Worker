@@ -3,6 +3,7 @@
 import asyncio
 import json
 import logging
+from collections.abc import Awaitable, Callable
 
 import aio_pika
 import structlog
@@ -16,7 +17,11 @@ from tenacity import (
 
 from malscan_worker.config import get_settings
 from malscan_worker.db import (
+    StaleAnalysisAttempt,
+    get_job_for_context,
     increment_password_attempts,
+    job_analysis_attempt,
+    job_execution_lock,
     update_artifact_risk,
     update_job_result_strict,
     update_job_status,
@@ -25,6 +30,7 @@ from malscan_worker.exceptions import ArchivePasswordRequiredError, ArchiveWrong
 from malscan_worker.metrics import job_total, worker_active_jobs
 from malscan_worker.pipeline import finalize_deferred_sandbox_job, run_pipeline
 from malscan_worker.reporting import build_password_attempts_exhausted_report
+from malscan_worker.retry import RETRY_COUNT_HEADER, close_retry_publisher, publish_retry
 
 log = structlog.get_logger()
 settings = get_settings()
@@ -42,7 +48,7 @@ MAX_MESSAGE_RETRIES = 3
 
 
 def _get_retry_count(message: aio_pika.abc.AbstractIncomingMessage) -> int:
-    """Extract retry count from message x-death header.
+    """Read native retry count and retain compatibility with x-death deliveries.
 
     RabbitMQ adds x-death header when a message is dead-lettered.
     Each entry in the array represents a dead-letter event with a count.
@@ -51,32 +57,109 @@ def _get_retry_count(message: aio_pika.abc.AbstractIncomingMessage) -> int:
         message: The incoming RabbitMQ message.
 
     Returns:
-        Total number of times this message has been retried.
+        Greatest recorded retry count; native re-publication increments its header.
     """
     headers = message.headers or {}
     x_death = headers.get("x-death")
 
+    native_count = headers.get(RETRY_COUNT_HEADER, 0)
+    native_count = (
+        native_count
+        if (
+            isinstance(native_count, int)
+            and not isinstance(native_count, bool)
+            and native_count >= 0
+        )
+        else 0
+    )
     if not x_death or not isinstance(x_death, list):
-        return 0
+        return native_count
 
     # x-death is a list of dicts, each with a 'count' field
     total_count = 0
     for entry in x_death:
         if isinstance(entry, dict):
             count = entry.get("count", 0)
-            if isinstance(count, int):
+            if isinstance(count, int) and not isinstance(count, bool) and count >= 0:
                 total_count += count
 
-    return total_count
+    return max(native_count, total_count)
+
+
+async def _retry_or_dead_letter(
+    message: aio_pika.abc.AbstractIncomingMessage,
+    *,
+    sandbox: bool = False,
+) -> None:
+    """Count real failed attempts; ordinary nack/requeue cannot update x-death."""
+    retry_count = _get_retry_count(message)
+    if retry_count >= MAX_MESSAGE_RETRIES:
+        await message.reject(requeue=False)
+        return
+    try:
+        await asyncio.sleep(min(2**retry_count, 8))
+        await publish_retry(
+            message,
+            routing_key=settings.rabbitmq_sandbox_queue if sandbox else settings.rabbitmq_queue,
+            retry_count=retry_count + 1,
+        )
+    except Exception as exc:
+        log.warning("retry_publication_unconfirmed", error_type=type(exc).__name__)
+        await message.reject(requeue=True)
+        return
+    await message.ack()
+
+
+async def _with_job_execution_lock(
+    message: aio_pika.abc.AbstractIncomingMessage,
+    handler: Callable[[aio_pika.abc.AbstractIncomingMessage], Awaitable[None]],
+    *,
+    sandbox: bool = False,
+) -> None:
+    """Serialize deliveries per job and acknowledge already-finalized duplicates."""
+    try:
+        body = json.loads(message.body.decode())
+    except (json.JSONDecodeError, UnicodeDecodeError):
+        await message.reject(requeue=False)
+        return
+    job_id = body.get("job_id") if isinstance(body, dict) else None
+    if not isinstance(job_id, str) or not job_id:
+        await message.reject(requeue=False)
+        return
+    try:
+        async with job_execution_lock(job_id) as acquired:
+            if not acquired:
+                await asyncio.sleep(0.25)
+                await message.reject(requeue=True)
+                return
+            job = await get_job_for_context(job_id)
+            status = getattr(job, "status", None)
+            stage = getattr(job, "current_stage", None)
+            if status == "done" or (not sandbox and stage in {"sandbox", "sandbox_pending"}):
+                await message.ack()
+                return
+            async with job_analysis_attempt(job_id):
+                await handler(message)
+    except StaleAnalysisAttempt:
+        log.info("stale_job_delivery_ignored", job_id=job_id)
+        await message.ack()
+    except Exception as exc:
+        log.error("job_lock_or_state_failed", job_id=job_id, error_type=type(exc).__name__)
+        if getattr(message, "processed", False) is True:
+            return
+        await _retry_or_dead_letter(message, sandbox=sandbox)
 
 
 async def process_message(message: aio_pika.abc.AbstractIncomingMessage) -> None:
+    await _with_job_execution_lock(message, _process_message)
+
+
+async def _process_message(message: aio_pika.abc.AbstractIncomingMessage) -> None:
     """Process a single job message with retry tracking.
 
-    If processing fails and retry count < MAX_MESSAGE_RETRIES, the message
-    is rejected with requeue=True for another attempt.
-    If retry count >= MAX_MESSAGE_RETRIES, the message is rejected with
-    requeue=False, causing it to be routed to the DLQ.
+    Failed processing publishes a confirmed replacement with incremented native
+    retry metadata before acknowledging this delivery. Exhausted retries are
+    dead-lettered; uncertain publication retains the original delivery.
     """
     job_id = None
     file_id = None
@@ -98,11 +181,9 @@ async def process_message(message: aio_pika.abc.AbstractIncomingMessage) -> None
         worker_active_jobs.inc()
         job_total.labels(status="scanning").inc()
 
-        # Update job status to scanning
-        if job_id:
-            await update_job_status(job_id, "scanning")
-
         try:
+            if job_id:
+                await update_job_status(job_id, "scanning")
             # Run the analysis pipeline
             pipeline_result = await run_pipeline(body)
             final_status = str(pipeline_result.get("status") or "done")
@@ -112,6 +193,8 @@ async def process_message(message: aio_pika.abc.AbstractIncomingMessage) -> None
             # Acknowledge successful processing
             await message.ack()
 
+        except StaleAnalysisAttempt:
+            await message.ack()
         except ArchivePasswordRequiredError:
             if job_id:
                 await update_job_status(
@@ -123,7 +206,7 @@ async def process_message(message: aio_pika.abc.AbstractIncomingMessage) -> None
                 )
             await message.ack()
 
-        except ArchiveWrongPasswordError:
+        except ArchiveWrongPasswordError as exc:
             try:
                 attempts = await increment_password_attempts(job_id) if job_id else 0
 
@@ -134,7 +217,10 @@ async def process_message(message: aio_pika.abc.AbstractIncomingMessage) -> None
                         error_message="Wrong archive password. Please try again.",
                     )
                 elif job_id and attempts >= 3:
-                    report_payload = build_password_attempts_exhausted_report(body)
+                    report_payload = build_password_attempts_exhausted_report(
+                        body,
+                        existing_report=getattr(exc, "partial_report", None),
+                    )
                     await update_job_result_strict(job_id, report_payload)
                     artifact_id = body.get("artifact_id")
                     risk = report_payload.get("risk") or {}
@@ -156,6 +242,8 @@ async def process_message(message: aio_pika.abc.AbstractIncomingMessage) -> None
                     await update_job_status(job_id, "done")
 
                 await message.ack()
+            except StaleAnalysisAttempt:
+                await message.ack()
             except Exception as e:
                 log.error(
                     "password_retry_flow_failed",
@@ -165,7 +253,7 @@ async def process_message(message: aio_pika.abc.AbstractIncomingMessage) -> None
                     retry_count=retry_count,
                 )
                 if retry_count < MAX_MESSAGE_RETRIES:
-                    await message.reject(requeue=True)
+                    await _retry_or_dead_letter(message)
                 else:
                     if job_id:
                         await update_job_status(
@@ -194,7 +282,7 @@ async def process_message(message: aio_pika.abc.AbstractIncomingMessage) -> None
                     max_retries=MAX_MESSAGE_RETRIES,
                 )
                 # Reject with requeue to try again
-                await message.reject(requeue=True)
+                await _retry_or_dead_letter(message)
             else:
                 log.warning(
                     "job_sent_to_dlq",
@@ -220,6 +308,10 @@ async def process_message(message: aio_pika.abc.AbstractIncomingMessage) -> None
 
 
 async def process_sandbox_message(message: aio_pika.abc.AbstractIncomingMessage) -> None:
+    await _with_job_execution_lock(message, _process_sandbox_message, sandbox=True)
+
+
+async def _process_sandbox_message(message: aio_pika.abc.AbstractIncomingMessage) -> None:
     """Process a deferred sandbox job message with retry tracking."""
     job_id = None
     file_id = None
@@ -240,17 +332,18 @@ async def process_sandbox_message(message: aio_pika.abc.AbstractIncomingMessage)
         worker_active_jobs.inc()
         job_total.labels(status="scanning").inc()
 
-        if job_id:
-            await update_job_status(
-                job_id,
-                "scanning",
-                current_stage="sandbox",
-                stages_done=settings.stages_total - 1,
-            )
-
         try:
+            if job_id:
+                await update_job_status(
+                    job_id,
+                    "scanning",
+                    current_stage="sandbox",
+                    stages_done=settings.stages_total - 1,
+                )
             await finalize_deferred_sandbox_job(body)
             job_total.labels(status="done").inc()
+            await message.ack()
+        except StaleAnalysisAttempt:
             await message.ack()
         except Exception as e:
             log.error(
@@ -262,7 +355,7 @@ async def process_sandbox_message(message: aio_pika.abc.AbstractIncomingMessage)
             )
             job_total.labels(status="failed").inc()
             if retry_count < MAX_MESSAGE_RETRIES:
-                await message.reject(requeue=True)
+                await _retry_or_dead_letter(message, sandbox=True)
             else:
                 if job_id:
                     await update_job_status(
@@ -330,6 +423,10 @@ async def start_consumer(shutdown_event: asyncio.Event) -> None:
                 queue=settings.rabbitmq_queue,
                 reason="queue_already_exists_with_different_arguments",
             )
+            # A precondition failure closes the channel; preserve the existing
+            # queue through a fresh channel rather than deleting its messages.
+            channel = await connection.channel()
+            await channel.set_qos(prefetch_count=1)
             queue = await channel.declare_queue(
                 settings.rabbitmq_queue,
                 durable=True,
@@ -345,6 +442,7 @@ async def start_consumer(shutdown_event: asyncio.Event) -> None:
                 await process_message(message)
 
     log.info("consumer_stopped")
+    await close_retry_publisher()
 
 
 async def start_sandbox_consumer(shutdown_event: asyncio.Event) -> None:
@@ -372,6 +470,8 @@ async def start_sandbox_consumer(shutdown_event: asyncio.Event) -> None:
                 queue=settings.rabbitmq_sandbox_queue,
                 reason="queue_already_exists_with_different_arguments",
             )
+            channel = await connection.channel()
+            await channel.set_qos(prefetch_count=1)
             queue = await channel.declare_queue(
                 settings.rabbitmq_sandbox_queue,
                 durable=True,
@@ -387,3 +487,4 @@ async def start_sandbox_consumer(shutdown_event: asyncio.Event) -> None:
                 await process_sandbox_message(message)
 
     log.info("sandbox_consumer_stopped")
+    await close_retry_publisher()
