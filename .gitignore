@@ -91,3 +91,8 @@ everything-claude-code/
 # Generated, deployment-local configuration
 cloud-static-job*.flags.json
 keyless-dispatcher-service.flags.json
+.malscan-maintenance/
+.malscan-v2-operations/
+.malscan-v2-acceptance/
+.cloud-acceptance/
+demo-cloud-evidence*.json

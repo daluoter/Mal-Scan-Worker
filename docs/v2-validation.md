@@ -79,8 +79,14 @@ repository 內的可攜驗收產物；重現時應保存自己生成的報告與
 
 ## 尚待實際部署與產品完善
 
-新版應用的 20 MB、巢狀密碼／錯誤後恢復、重播／權限邊界、斷線與不確定派送核對、保留期清理，
-以及實際免費用量／Billing 與 live CAPE guest／detonation 仍待驗收。這些項目的本機測試與先前
+後續 P0 已實測正式 API 的巢狀 ZIP、不同密碼 ZIP／7z、錯誤後恢復、20 MB 與超限／owner／ticket
+拒絕，見[P0 驗收紀錄](milestones/2026-10-15-p0-acceptance.md)。20 MB 必要掃描通過，去混淆因
+10,000,000-byte 上限而略過，static 為 partial。該輪 Worker 回歸為 548 passed、3 PostgreSQL
+opt-in skipped，操作工具 50 passed，client 17 HTTP＋1 archive/core case 通過；真容器離線
+控制也通過，並非已在 GCP 建置更新映像。
+
+實際 GCP 執行計數、斷線與不確定派送管理核對、保留期實體清理、真正的更新／回退、
+實際免費用量／Billing 與 live CAPE guest／detonation 仍待驗收。這些項目的本機測試與先前
 PoC 成果不取代正式部署驗收。雲端 demo 固定 static，保留動態擴充於 self-host。
 部署由使用者已授權的 Cloud Shell 執行；本機開發環境沒有替代使用者 GCP 身分呼叫遠端資源。
 

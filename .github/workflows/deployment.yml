@@ -36,6 +36,13 @@ jobs:
         with:
           python-version: '3.12'
 
+      - name: Test checkpointed maintenance, inventory, and retention tools
+        run: python3 -m unittest discover -s deployment/cloud-run -p 'test_*.py' -v
+
+      - name: Test resumable cloud acceptance HTTP contract
+        working-directory: deployment/acceptance
+        run: python3 -m unittest -v test_cloud_acceptance.py
+
       - name: Test keyless dispatcher protocol and HTTP transport
         working-directory: deployment/dispatcher
         run: python3 -m unittest -v test_dispatcher.py
@@ -60,6 +67,8 @@ jobs:
           cat >> "$GITHUB_STEP_SUMMARY" <<'EOF'
           Tests use the real local workerd, SQLite Durable Objects and Python HTTP dispatcher.
           Google APIs are stubbed; this workflow does not deploy cloud resources or verify billing.
+          Operator and acceptance tools are tested offline; no production upload,
+          Secret Manager payload access, image promotion or cleanup runs in CI.
           The optional full-worker container fixture test is skipped when no
           MALSCAN_RUNNER_FIXTURE_DIR is supplied. Run that separate container check
           using deployment/cloudflare/README.md before releasing a new runner image.

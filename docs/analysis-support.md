@@ -21,6 +21,10 @@
 
 已加入的 budget 驗收包含真實 ZIP／7z 提取、7z encrypted headers 密碼恢復、同名不同內容來源保留、巢狀 ZIP 共享累計 bytes、並發 reservation、retry high-water idempotency、PostgreSQL row-lock 累計，以及 timeout／取消後 parser 和外部 helper 停止寫入。RAR 的外部工具與所有加密變種、其他格式的全面相容性，仍需各自的實際 fixture 驗收。
 
+去混淆階段預設 `DEOBFUSCATION_MAX_FILE_SIZE=10000000` bytes。大於此上限的原檔仍可完成
+ClamAV／YARA 等適用階段，但去混淆會以大小限制原因略過，static coverage 因此為 partial。
+正式 v2 的 20,000,000-byte 文字檔已觀察到此行為；上傳大小上限與各分析器的處理上限分開看待。
+
 ## URL 觀察與選用衍生物
 
 IOC 一律保留 URL／domain／IP 與可取得的 offset，不會因此下載或執行 URL。只有明確設定

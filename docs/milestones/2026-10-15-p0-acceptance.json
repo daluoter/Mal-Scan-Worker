@@ -1,0 +1,205 @@
+{
+  "schema": "malscan-p0-acceptance-evidence-v1",
+  "recorded_at": "2026-10-15T01:53:18.330376+00:00",
+  "campaign_id": "593f27ef-15b5-4297-bfbf-61365f8b1fa0",
+  "endpoint": "https://malscan-v2-demo-control.daluoter.workers.dev",
+  "production_origin": "https://malscan-v2-demo.pages.dev",
+  "evidence_source": "Direct production v2 API responses and downloaded reports, independently checked offline; no GCP operator identity was available.",
+  "new_jobs": 3,
+  "positive_upload_or_resume_receipts": 6,
+  "conservative_execution_intents": 7,
+  "actual_gcp_execution_count_verified": false,
+  "cases": [
+    {
+      "case": "nested",
+      "job_id": "6a0910bf-ed13-4de9-b6bf-e0d7ff9cd2a0",
+      "source_bytes": 530,
+      "source_sha256": "4c2277dbda7a329d36a86741a868e68aec05aa50306fba1cae72ca678a3cd62c",
+      "analysis_attempt_id": "9d6b95c4-4e26-4f5a-9011-6057985c1b65",
+      "job_status": "done",
+      "report_complete": true,
+      "static_status": "complete",
+      "dynamic_status": "disabled",
+      "artifact_count": 5,
+      "used_files": 4,
+      "used_bytes": 368,
+      "retention_expires_at": "2026-10-16T01:36:33.112Z",
+      "report_sha256": "5d36d6f296060eae579fd642e6b3b37868256bb358d8562ef395d0b291c2041e",
+      "full_static_analysis_verified": true,
+      "known_limitations": [],
+      "snapshots": [
+        {
+          "round": "initial",
+          "status": "scanning",
+          "report_sha256": "c6b7e21d16cf4dd719379f0a36dc960da49355226e817f1496d8259dc64ca7e4"
+        },
+        {
+          "round": "initial",
+          "status": "done",
+          "report_sha256": "5d36d6f296060eae579fd642e6b3b37868256bb358d8562ef395d0b291c2041e"
+        }
+      ],
+      "verification": {
+        "case": "nested",
+        "success": true,
+        "failures": [],
+        "artifact_count": 5,
+        "report_sha256": "5d36d6f296060eae579fd642e6b3b37868256bb358d8562ef395d0b291c2041e",
+        "execution_intents": 7,
+        "job_intents": 3,
+        "r2_cleanup_verified": false,
+        "cost_verified": false,
+        "verification_scope": "upload_integrity_and_declared_scan_coverage",
+        "analysis_static_status": "complete",
+        "full_static_analysis_verified": true,
+        "known_limitations": []
+      }
+    },
+    {
+      "case": "passwords",
+      "job_id": "04cfe4ec-4f30-4ad9-9b1b-d2dc8f0f3687",
+      "source_bytes": 413,
+      "source_sha256": "ccc113e0a5a6103c8fb11fefafccc0ce199c871a72eec2dcf082b2cf752c4056",
+      "analysis_attempt_id": "63eec382-64b1-422a-8a22-317fc5cb637b",
+      "job_status": "done",
+      "report_complete": true,
+      "static_status": "complete",
+      "dynamic_status": "disabled",
+      "artifact_count": 3,
+      "used_files": 2,
+      "used_bytes": 281,
+      "retention_expires_at": "2026-10-16T01:37:02.955Z",
+      "report_sha256": "92028b46f876abd30749651e31ba41541c45cc0a450bb4979b3e2246f8a0813b",
+      "full_static_analysis_verified": true,
+      "known_limitations": [],
+      "snapshots": [
+        {
+          "round": "initial",
+          "status": "password_required",
+          "report_sha256": "27f6e2f9c8802a681312b9802bdbf5a1b6f15fd80be219856f0147f74a665f70"
+        },
+        {
+          "round": "wrong",
+          "status": "scanning",
+          "report_sha256": "978907fd3c84fda4c0950342a0dc928cedece15721c1ea5aa3bba80872b9a41a"
+        },
+        {
+          "round": "wrong",
+          "status": "password_required",
+          "report_sha256": "34490e1956a30cc5e63fa6d35d2677f8dc42dc432a8bbba28274ec9c098ffe2e"
+        },
+        {
+          "round": "outer",
+          "status": "queued",
+          "report_sha256": "a59670f8c07ffd66f021601b6d1ed472278ef5bdc3e29daf2bac4fba0c7e298d"
+        },
+        {
+          "round": "outer",
+          "status": "password_required",
+          "report_sha256": "56421ba4be2281ed2fc039813d8c379cf7b9493eb2e62ff7da51a06a7e836bdf"
+        },
+        {
+          "round": "inner",
+          "status": "queued",
+          "report_sha256": "13db9f9be98141a6f32fc87eb2eab1f9180268f74caeb1c4f8f367779e1913db"
+        },
+        {
+          "round": "inner",
+          "status": "scanning",
+          "report_sha256": "e18e0f3907d482dd1cc79abb2878eafb87cc87d62d33589f50e3d2dbec7a92d9"
+        },
+        {
+          "round": "inner",
+          "status": "done",
+          "report_sha256": "92028b46f876abd30749651e31ba41541c45cc0a450bb4979b3e2246f8a0813b"
+        }
+      ],
+      "verification": {
+        "case": "passwords",
+        "success": true,
+        "failures": [],
+        "artifact_count": 3,
+        "report_sha256": "92028b46f876abd30749651e31ba41541c45cc0a450bb4979b3e2246f8a0813b",
+        "execution_intents": 7,
+        "job_intents": 3,
+        "r2_cleanup_verified": false,
+        "cost_verified": false,
+        "verification_scope": "upload_integrity_and_declared_scan_coverage",
+        "analysis_static_status": "complete",
+        "full_static_analysis_verified": true,
+        "known_limitations": []
+      }
+    },
+    {
+      "case": "20mb",
+      "job_id": "192e3653-2995-4b10-b9fe-e34a1d453dfe",
+      "source_bytes": 20000000,
+      "source_sha256": "93f763e364651d762acacd99f8796d6f10641bbaad5ae0b5b8a9eb66d08e6351",
+      "analysis_attempt_id": "d73b4981-15ed-412e-8a14-da3d773b5c27",
+      "job_status": "done",
+      "report_complete": true,
+      "static_status": "partial",
+      "dynamic_status": "disabled",
+      "artifact_count": 1,
+      "used_files": 0,
+      "used_bytes": 0,
+      "retention_expires_at": "2026-10-16T01:37:54.586Z",
+      "report_sha256": "e55e960c4d523e19eda38f7d3813eea0d89ba8738d9315505baba982cc6315f5",
+      "full_static_analysis_verified": false,
+      "known_limitations": [
+        "deobfuscation_skipped_size_limit"
+      ],
+      "snapshots": [
+        {
+          "round": "initial",
+          "status": "scanning",
+          "report_sha256": "e539c27dffff090a72505d45604b4dbef96709bd96979ec97b7de34b7afb6ffc"
+        },
+        {
+          "round": "initial",
+          "status": "done",
+          "report_sha256": "e55e960c4d523e19eda38f7d3813eea0d89ba8738d9315505baba982cc6315f5"
+        }
+      ],
+      "verification": {
+        "case": "20mb",
+        "success": true,
+        "failures": [],
+        "artifact_count": 1,
+        "report_sha256": "e55e960c4d523e19eda38f7d3813eea0d89ba8738d9315505baba982cc6315f5",
+        "execution_intents": 7,
+        "job_intents": 3,
+        "r2_cleanup_verified": false,
+        "cost_verified": false,
+        "verification_scope": "upload_integrity_and_declared_scan_coverage",
+        "analysis_static_status": "partial",
+        "full_static_analysis_verified": false,
+        "known_limitations": [
+          "deobfuscation_skipped_size_limit"
+        ]
+      }
+    }
+  ],
+  "negative_api_checks": {
+    "oversized_metadata_http": 400,
+    "oversized_metadata_error": "invalid_upload_metadata",
+    "wrong_owner_http": 404,
+    "consumed_ticket_http": 409,
+    "consumed_ticket_error": "upload_credential_used",
+    "no_extra_gcp_execution_verified": false
+  },
+  "all_cases_retention_check_due_after_taipei": "2026-10-16T09:57:54.586000+08:00",
+  "maintenance": {
+    "offline_real_container_controls_passed": true,
+    "fresh_cloud_build_run": false,
+    "job_image_promoted": false,
+    "automatic_update_schedule_configured": false
+  },
+  "pending_evidence": [
+    "Owner-authenticated GCP execution inventory and usage records",
+    "Actual billed cost, credits and Cloudflare usage",
+    "Physical R2 absence after expiry plus20minutes",
+    "Durable Object row deletion",
+    "Fresh image Cloud Build controls, image-only promotion and rollback in GCP"
+  ]
+}

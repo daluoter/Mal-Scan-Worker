@@ -4,7 +4,7 @@ English | [繁體中文](README.md)
 
 A file analysis platform built around static analysis: upload files, trace archives and embedded children, and read reports with evidence, artifact lineage, coverage and explicit reasons for unfinished work. Self-hosted installations can add CAPE dynamic analysis. The cloud demo runs the same static core with separate usage limits.
 
-**[Open the cloud demo](https://malscan-v2-demo.pages.dev)** · [Supported formats](docs/analysis-support.md) · [v2 architecture](docs/v2-architecture.md) · [Roadmap](docs/roadmap.md)
+**[Open the cloud demo](https://malscan-v2-demo.pages.dev)** · [Supported formats](docs/analysis-support.md) · [v2 architecture](docs/v2-architecture.md) · [Acceptance and maintenance](docs/cloud-demo-operations.md) · [Roadmap](docs/roadmap.md)
 
 ## Current milestone
 

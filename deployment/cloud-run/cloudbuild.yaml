@@ -12,6 +12,20 @@ steps:
       - -t
       - us-central1-docker.pkg.dev/$PROJECT_ID/malscan-v2-poc/full-worker:$_RELEASE
       - .
+  # No credentials, network, updater, root user or Cloud Run execution involved.
+  # A failing clean/EICAR control prevents the images: publication phase.
+  - id: engine-controls
+    name: gcr.io/cloud-builders/docker
+    args:
+      - run
+      - --rm
+      - --network=none
+      - --read-only
+      - --tmpfs=/tmp:rw,size=128m
+      - --entrypoint=python
+      - us-central1-docker.pkg.dev/$PROJECT_ID/malscan-v2-poc/full-worker:$_RELEASE
+      - -m
+      - malscan_worker.runtime.engine_controls
 images:
   - us-central1-docker.pkg.dev/$PROJECT_ID/malscan-v2-poc/full-worker:$_RELEASE
 timeout: 1200s
