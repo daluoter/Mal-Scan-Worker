@@ -28,9 +28,19 @@ def job():
         "metadata": {
             "name": maintenance.JOB,
             "annotations": {"owner-note": "preserve"},
+            "labels": {
+                "run.googleapis.com/lastUpdatedTime": "2026-10-15T01:00:00Z",
+                "user-label": "preserve",
+            },
         },
         "spec": {
             "template": {
+                "metadata": {
+                    "labels": {
+                        "client.knative.dev/nonce": "before-update",
+                        "user-template-label": "preserve",
+                    }
+                },
                 "spec": {
                     "parallelism": 1,
                     "taskCount": 1,
@@ -48,7 +58,7 @@ def job():
                             "volumes": [{"name": "key", "secret": {"secretName": "private-ref"}}],
                         }
                     },
-                }
+                },
             }
         },
     }
@@ -100,6 +110,8 @@ class FakeCloud:
         self.current = job()
         self.build = successful_build()
         self.calls = []
+        self.job_reads = 0
+        self.updates = 0
         self.report = {
             "scope": "offline_engine_controls",
             "success": True,
@@ -125,6 +137,7 @@ class FakeCloud:
         }
 
     def job(self):
+        self.job_reads += 1
         return copy.deepcopy(self.current)
 
     def call(self, args, **kwargs):
@@ -140,9 +153,16 @@ class FakeCloud:
         if args[:2] == ["logging", "read"]:
             return [{"textPayload": json.dumps(self.report)}]
         if args[:3] == ["run", "jobs", "update"]:
+            self.updates += 1
             maintenance.container(self.current)["image"] = next(
                 arg[8:] for arg in args if arg.startswith("--image=")
             )
+            self.current["metadata"].setdefault("labels", {})[
+                "run.googleapis.com/lastUpdatedTime"
+            ] = f"2026-10-15T01:00:0{self.updates}Z"
+            self.current["spec"]["template"].setdefault("metadata", {}).setdefault("labels", {})[
+                "client.knative.dev/nonce"
+            ] = f"after-update-{self.updates}"
             return copy.deepcopy(self.current)
         raise AssertionError(args)
 
@@ -172,16 +192,24 @@ class MaintenanceTests(unittest.TestCase):
         self.assertEqual(self.tool.status()["phase"], "build_verified")
 
     def test_full_workflow_and_guarded_image_only_rollback(self):
-        before = maintenance.job_configuration(self.cloud.current)
+        before = copy.deepcopy(maintenance.job_configuration(self.cloud.current))
         self.verified()
         state = self.tool.update_image()
         self.assertEqual(state["phase"], "promoted")
-        self.assertEqual(
-            maintenance.job_configuration(self.cloud.current),
-            maintenance.expected_configuration(before, NEW),
+        self.assertTrue(
+            maintenance.configurations_equal(
+                maintenance.job_configuration(self.cloud.current),
+                maintenance.expected_configuration(before, NEW),
+            )
         )
+        self.assertNotEqual(maintenance.job_configuration(self.cloud.current), before)
         self.assertEqual(self.tool.update_image(rollback=True)["phase"], "rolled_back")
-        self.assertEqual(maintenance.job_configuration(self.cloud.current), before)
+        self.assertTrue(
+            maintenance.configurations_equal(
+                maintenance.job_configuration(self.cloud.current), before
+            )
+        )
+        self.assertNotEqual(maintenance.job_configuration(self.cloud.current), before)
         writes = [args for args in self.cloud.calls if args[:3] == ["run", "jobs", "update"]]
         self.assertEqual(len(writes), 2)
         self.assertTrue(all(len(args) == 6 and args[-1].startswith("--image=") for args in writes))
@@ -282,10 +310,184 @@ class MaintenanceTests(unittest.TestCase):
         with self.assertRaisesRegex(maintenance.MaintenanceError, "response lost"):
             self.tool.update_image()
         self.assertEqual(self.tool.load()["phase"], "promotion_pending")
+        calls_before_status = len(self.cloud.calls)
+        reads_before_status = self.cloud.job_reads
+        self.assertEqual(self.tool.status()["phase"], "promoted")
+        self.assertEqual(len(self.cloud.calls), calls_before_status)
+        self.assertEqual(self.cloud.job_reads, reads_before_status + 1)
         self.assertEqual(self.tool.status()["phase"], "promoted")
         self.assertEqual(
-            len([args for args in self.cloud.calls if args[:3] == ["run", "jobs", "update"]]), 1
+            len([args for args in self.cloud.calls if args[:3] == ["run", "jobs", "update"]]),
+            1,
         )
+
+    def test_comparison_ignores_only_observed_paths_without_mutating_checkpoint(self):
+        before = copy.deepcopy(maintenance.job_configuration(self.cloud.current))
+        after = copy.deepcopy(before)
+        after["labels"]["run.googleapis.com/lastUpdatedTime"] = "new-server-time"
+        after["spec"]["template"]["metadata"]["labels"][
+            "client.knative.dev/nonce"
+        ] = "new-client-nonce"
+        frozen_before, frozen_after = copy.deepcopy(before), copy.deepcopy(after)
+        self.assertTrue(maintenance.configurations_equal(before, after))
+        self.assertEqual(before, frozen_before)
+        self.assertEqual(after, frozen_after)
+        self.assertNotEqual(maintenance.fingerprint(before), maintenance.fingerprint(after))
+
+    def test_legacy_baseline_fingerprint_and_metadata_tamper_guard_are_preserved(self):
+        # Captured using maintain-demo.py from commit 8685393, before the fix.
+        legacy_fingerprint = "f2a30a1a46b654e32f5ece282d75b1c5226bd23e8cdbc5c5917c4c15dddfe97e"
+        self.assertEqual(self.tool.load()["baseline_fingerprint"], legacy_fingerprint)
+        baseline_path = self.tool.directory / "job-before.json"
+        baseline = maintenance.read_private(baseline_path)
+        original_bytes = baseline_path.read_bytes()
+        self.verified()
+        self.assertEqual(self.tool.update_image()["phase"], "promoted")
+        self.assertEqual(baseline_path.read_bytes(), original_bytes)
+        self.assertEqual(self.tool.load()["baseline_fingerprint"], legacy_fingerprint)
+
+        for path in (
+            ("metadata", "labels", "run.googleapis.com/lastUpdatedTime"),
+            ("spec", "template", "metadata", "labels", "client.knative.dev/nonce"),
+        ):
+            with self.subTest(path=path):
+                tampered = copy.deepcopy(baseline)
+                target = tampered
+                for key in path[:-1]:
+                    target = target[key]
+                target[path[-1]] = "tampered-checkpoint"
+                maintenance.write_private(baseline_path, tampered)
+                with self.assertRaisesRegex(maintenance.MaintenanceError, "fingerprint changed"):
+                    self.tool.load()
+                maintenance.write_private(baseline_path, baseline)
+
+    def test_added_nonce_only_metadata_does_not_block_image_update(self):
+        for index, baseline_metadata in enumerate(
+            ({}, {"annotations": {"user-note": "preserve"}}, None)
+        ):
+            with self.subTest(metadata=baseline_metadata):
+                self.cloud.current = job()
+                template = self.cloud.current["spec"]["template"]
+                if baseline_metadata is None:
+                    del template["metadata"]
+                else:
+                    template["metadata"] = copy.deepcopy(baseline_metadata)
+                directory = self.root / f"nonce-{index}" / RELEASE
+                tool = maintenance.Maintenance(directory, self.repository, self.cloud)
+                tool.prepare()
+                tool.submit()
+                self.assertEqual(tool.status()["phase"], "build_verified")
+                self.assertEqual(tool.update_image()["phase"], "promoted")
+                self.assertEqual(tool.update_image(rollback=True)["phase"], "rolled_back")
+
+    def test_meaningful_drift_still_blocks_promotion_and_rollback(self):
+        self.verified()
+        task_spec = ("spec", "template", "spec", "template", "spec")
+        changes = [
+            (("spec", "template", "spec", "taskCount"), 2),
+            (task_spec + ("serviceAccountName",), "different@example.invalid"),
+            (task_spec + ("containers", 0, "env", 0, "value"), "/different/secret"),
+            (task_spec + ("volumes", 0, "secret", "secretName"), "different-secret"),
+            (task_spec + ("containers", 0, "resources", "limits", "cpu"), "4"),
+            (("metadata", "labels", "user-label"), "changed"),
+            (("metadata", "annotations", "owner-note"), "changed"),
+            (
+                ("spec", "template", "metadata", "labels", "user-template-label"),
+                "changed",
+            ),
+            (("metadata", "labels", "client.knative.dev/nonce"), "not-ignored-here"),
+            (
+                (
+                    "spec",
+                    "template",
+                    "metadata",
+                    "labels",
+                    "run.googleapis.com/lastUpdatedTime",
+                ),
+                "not-ignored-here",
+            ),
+            (
+                ("spec", "template", "spec", "template", "metadata", "labels"),
+                {"client.knative.dev/nonce": "not-ignored-in-task-template"},
+            ),
+        ]
+        for rollback in (False, True):
+            if rollback:
+                self.assertEqual(self.tool.update_image()["phase"], "promoted")
+            frozen_job = copy.deepcopy(self.cloud.current)
+            frozen_state = self.tool.load()
+            for path, value in changes:
+                with self.subTest(rollback=rollback, path=path):
+                    self.cloud.current = copy.deepcopy(frozen_job)
+                    self.cloud.current["metadata"]["labels"][
+                        "run.googleapis.com/lastUpdatedTime"
+                    ] = "different-time"
+                    self.cloud.current["spec"]["template"]["metadata"]["labels"][
+                        "client.knative.dev/nonce"
+                    ] = "different-nonce"
+                    target = self.cloud.current
+                    for key in path[:-1]:
+                        if isinstance(target, dict):
+                            target = target.setdefault(key, {})
+                        else:
+                            target = target[key]
+                    target[path[-1]] = value
+                    updates_before = self.cloud.updates
+                    with self.assertRaisesRegex(maintenance.MaintenanceError, "Job changed"):
+                        self.tool.update_image(rollback=rollback)
+                    self.assertEqual(self.cloud.updates, updates_before)
+                    self.assertEqual(self.tool.load()["phase"], frozen_state["phase"])
+            self.cloud.current = frozen_job
+
+    def test_pending_recovery_preserves_real_drift_and_requires_ready(self):
+        self.verified()
+        original = self.cloud.call
+
+        def interrupted(args, **kwargs):
+            result = original(args, **kwargs)
+            if args[:3] == ["run", "jobs", "update"]:
+                raise maintenance.MaintenanceError("response lost")
+            return result
+
+        self.cloud.call = interrupted
+        with self.assertRaisesRegex(maintenance.MaintenanceError, "response lost"):
+            self.tool.update_image()
+        promoted_job = copy.deepcopy(self.cloud.current)
+        self.cloud.current["spec"]["template"]["spec"]["template"]["spec"][
+            "serviceAccountName"
+        ] = "unexpected@example.invalid"
+        calls_before = len(self.cloud.calls)
+        self.assertEqual(self.tool.status()["phase"], "promotion_pending")
+        self.cloud.current = copy.deepcopy(promoted_job)
+        self.cloud.current["status"]["conditions"][0]["status"] = "False"
+        self.assertEqual(self.tool.status()["phase"], "promotion_pending")
+        self.assertEqual(len(self.cloud.calls), calls_before)
+        self.cloud.current = promoted_job
+        self.assertEqual(self.tool.status()["phase"], "promoted")
+        self.assertEqual(self.cloud.updates, 1)
+        self.assertEqual(len(self.cloud.calls), calls_before)
+
+    def test_interrupted_rollback_reconciles_new_server_metadata_without_another_write(
+        self,
+    ):
+        self.verified()
+        self.tool.update_image()
+        original = self.cloud.call
+
+        def interrupted(args, **kwargs):
+            result = original(args, **kwargs)
+            if args[:3] == ["run", "jobs", "update"]:
+                raise maintenance.MaintenanceError("rollback response lost")
+            return result
+
+        self.cloud.call = interrupted
+        with self.assertRaisesRegex(maintenance.MaintenanceError, "rollback response lost"):
+            self.tool.update_image(rollback=True)
+        self.assertEqual(self.tool.load()["phase"], "rollback_pending")
+        calls_before = len(self.cloud.calls)
+        self.assertEqual(self.tool.status()["phase"], "rolled_back")
+        self.assertEqual(self.cloud.updates, 2)
+        self.assertEqual(len(self.cloud.calls), calls_before)
 
     def test_failed_control_or_missing_negative_is_rejected(self):
         self.tool.submit()

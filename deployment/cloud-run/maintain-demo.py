@@ -142,7 +142,7 @@ def immutable_image(value: str) -> str:
 
 
 def job_configuration(job: dict) -> dict:
-    """Include spec, user labels and annotations; omit only server/client metadata."""
+    """Preserve the v1 snapshot format used by existing checkpoint fingerprints."""
     container(job)
     metadata = job.get("metadata", {})
     if metadata.get("name") != JOB:
@@ -156,6 +156,31 @@ def job_configuration(job: dict) -> dict:
             if key not in IGNORED_ANNOTATIONS
         },
     }
+
+
+def configuration_for_comparison(configuration: dict) -> dict:
+    """Omit only the two update-generated labels observed on the demo Job.
+
+    Keep this separate from job_configuration: existing v1 fingerprints include
+    these labels and must still detect changes to the saved baseline.
+    """
+    result = copy.deepcopy(configuration)
+    result["labels"].pop("run.googleapis.com/lastUpdatedTime", None)
+    template = result["spec"]["template"]
+    metadata = template.get("metadata")
+    if metadata is not None:
+        labels = metadata.get("labels")
+        if labels is not None:
+            labels.pop("client.knative.dev/nonce", None)
+            if not labels:
+                del metadata["labels"]
+        if not metadata:
+            del template["metadata"]
+    return result
+
+
+def configurations_equal(left: dict, right: dict) -> bool:
+    return configuration_for_comparison(left) == configuration_for_comparison(right)
 
 
 def job_ready(job: dict) -> bool:
@@ -455,7 +480,9 @@ class Maintenance:
                 else state["previous_image"]
             )
             baseline = job_configuration(read_private(self.directory / "job-before.json"))
-            if current == expected_configuration(baseline, target) and job_ready(job):
+            if configurations_equal(
+                current, expected_configuration(baseline, target)
+            ) and job_ready(job):
                 state["phase"] = (
                     "promoted" if state["phase"] == "promotion_pending" else "rolled_back"
                 )
@@ -503,7 +530,7 @@ class Maintenance:
             expected_configuration(baseline, state["candidate_image"]) if rollback else baseline
         )
         current = job_configuration(self.cloud.job())
-        if current != before:
+        if not configurations_equal(current, before):
             raise MaintenanceError("Job changed since capture/promotion; refusing to overwrite it")
         image = state["previous_image"] if rollback else immutable_image(state["candidate_image"])
         state["phase"] = "rollback_pending" if rollback else "promotion_pending"
@@ -511,7 +538,7 @@ class Maintenance:
         self.cloud.call(["run", "jobs", "update", JOB, f"--region={REGION}", f"--image={image}"])
         job = self.cloud.job()
         current = job_configuration(job)
-        if current != expected_configuration(baseline, image):
+        if not configurations_equal(current, expected_configuration(baseline, image)):
             raise MaintenanceError(
                 "Post-update configuration differs; inspect before any further action"
             )

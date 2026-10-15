@@ -83,6 +83,14 @@ promote 再次驗證候選、daily 年齡及既有設定未變，只以 `--image
 
 若更新回應不確定，使用 status 核對既有狀態，不要重跑更新。已成功 promote 且現行設定仍一致時，可明確執行 `rollback` 回到保存的上一個 digest。舊映像的病毒庫也會變舊；回退不取代新鮮度檢查，七天 gate 仍可能讓其 ClamAV 階段失敗。
 
+設定比對只排除已確認會隨更新改變的兩個系統標籤：Job 的
+`metadata.labels["run.googleapis.com/lastUpdatedTime"]`，以及
+`spec.template.metadata.labels["client.knative.dev/nonce"]`。其他使用者標籤、
+環境變數、Secret 參照、資源限制及 service account 仍須一致。
+舊版若因這兩個標籤而停在 `promotion_pending`，更新維護工具後執行 `status`
+即可重新核對並記錄 `promoted`；此步驟只讀取雲端設定，不重新提交更新。
+既有 `job-before.json` 與 v1 檢查點指紋的驗證方式保留，無須修改檢查點或重建映像。
+
 先完成一次人工建置／驗證／切換／回退流程，再依實際建置、映像保留及執行費用決定更新頻率與自動排程。
 七天限制從 daily CVD 的產生時間起算，不是映像建置時間。更新應在資料庫年齡達五天前安排，
 預留失敗修復時間；單純每七天建置一次可能在兩次建置間遇到過期。
