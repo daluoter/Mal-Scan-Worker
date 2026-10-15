@@ -100,8 +100,9 @@ gcloud artifacts docker images describe \
   --format='value(image_summary.fully_qualified_digest)'
 ```
 
-後續使用 `full-worker@sha256:…`，不要用可變 tag。每週以新 RELEASE 重建，強制 signatures
-layer 更新。freshclam 與 sigtool 驗證 CVD，建置與執行時拒絕超過七天的 daily CVD；過期會
+後續使用 `full-worker@sha256:…`，不要用可變 tag。在 daily 資料庫年齡達五天前安排以新 RELEASE
+重建，預留下載／驗證失敗的修復時間，並強制 signatures layer 更新。七天是從 CVD 產生時間起算，
+不是映像建置時間；固定每七天重建可能留下過期空窗。freshclam 與 sigtool 驗證 CVD，建置與執行時拒絕超過七天的 daily CVD；過期會
 呈現 ClamAV coverage failed。更新排程須由部署者設定，這裡沒有聲稱已建立自動更新。
 
 ## 3. Runner 身分、固定 Secret versions
