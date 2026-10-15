@@ -191,15 +191,75 @@
   "all_cases_retention_check_due_after_taipei": "2026-10-16T09:57:54.586000+08:00",
   "maintenance": {
     "offline_real_container_controls_passed": true,
-    "fresh_cloud_build_run": false,
-    "job_image_promoted": false,
-    "automatic_update_schedule_configured": false
+    "fresh_cloud_build_run": true,
+    "job_image_promoted": true,
+    "automatic_update_schedule_configured": false,
+    "evidence_source": "User-provided authenticated Cloud Shell build_verified, read-only live Job diagnosis and promoted checkpoint outputs.",
+    "release": "db-20261015T030349Z-4d822a51b521",
+    "build_id": "a8b1f551-5176-43ec-96f0-1e728a41071c",
+    "build_status": "SUCCESS",
+    "previous_image": "us-central1-docker.pkg.dev/malscan-v2-poc/malscan-v2-poc/full-worker@sha256:0e81e655f561a84c4b56de729869b0da70e93a571c8ab4cc4259a6bedb9e5843",
+    "promoted_image": "us-central1-docker.pkg.dev/malscan-v2-poc/malscan-v2-poc/full-worker@sha256:361ce60bfeb1e285471ee3e8dbaba9d458f4d5e5f15297d9058a73c1d5fd57f6",
+    "checkpoint_phase": "promoted",
+    "cloud_build_offline_controls_passed": true,
+    "clamav_version": "ClamAV 1.4.3/28153/Wed Oct 14 06:24:15 2026",
+    "yara_version": "4.5.4",
+    "yara_rules_sha256": "3f7fa8d5c76e4b5532848d70797adf93841aabce288401fcd10446141c199091",
+    "all_three_official_database_signatures_verified": true,
+    "daily_database_age_at_control_seconds": 76864,
+    "metadata_recovery_fix_commit": "7149eaadb8d6a5641442b742f2c2d175591c70f9",
+    "legacy_checkpoint_reconciled_without_repeated_update": true,
+    "actual_cloud_rollback_verified": false
   },
   "pending_evidence": [
     "Owner-authenticated GCP execution inventory and usage records",
     "Actual billed cost, credits and Cloudflare usage",
     "Physical R2 absence after expiry plus20minutes",
     "Durable Object row deletion",
-    "Fresh image Cloud Build controls, image-only promotion and rollback in GCP"
-  ]
+    "Actual guarded rollback in GCP; build controls and image-only promotion are complete"
+  ],
+  "post_promotion_smoke": {
+    "evidence_source": "One production v2 upload followed by read-only job/report retrieval and strict offline report verification after operator-confirmed promotion.",
+    "job_id": "1975bcf6-2e5b-41dd-a1c0-ca6b2e026e30",
+    "new_jobs": 1,
+    "accepted_upload_receipts": 1,
+    "execution_intents": 1,
+    "fixture": {
+      "bytes": 49,
+      "filename": "p0-promoted-smoke.txt",
+      "sha256": "ba1ae2a2353a5f20e7c897a26dcf5ce56ab0cfeab0376c993f460182904f2d4c"
+    },
+    "job_status": "done",
+    "report_complete": true,
+    "static_status": "complete",
+    "dynamic_status": "disabled",
+    "artifact_count": 1,
+    "analysis_attempt_id": "439280b1-f95f-4e2f-8ec8-60b73d15379e",
+    "report_sha256": "2017ce7dddfdf21ea99bbe2de5dc643049653401a4391672b084db234ff5995b",
+    "verification_failures": [],
+    "clamav_infected": false,
+    "yara_hits_count": 0,
+    "clamav_version": "ClamAV 1.4.3/28153/Wed Oct 14 06:24:15 2026",
+    "yara_version": "4.5.4",
+    "yara_rules_sha256": "3f7fa8d5c76e4b5532848d70797adf93841aabce288401fcd10446141c199091",
+    "started_at": "2026-10-15T07:15:41.963047+00:00",
+    "upload_received_at": "2026-10-15T07:15:46.795634+00:00",
+    "done_observed_at": "2026-10-15T07:18:53.186048+00:00",
+    "retention_expires_at": "2026-10-16T07:15:42.709Z",
+    "stage_statuses": {
+      "file-type": "ok",
+      "clamav": "ok",
+      "yara": "ok",
+      "ioc-extract": "ok",
+      "deobfuscation": "ok",
+      "format-analysis": "skipped",
+      "archive-extract": "skipped",
+      "document-analysis": "skipped",
+      "sandbox": "skipped"
+    },
+    "analysis_total_ms": 25333,
+    "execution_image_digest_independently_verified": false,
+    "cost_verified": false,
+    "physical_cleanup_verified": false
+  }
 }

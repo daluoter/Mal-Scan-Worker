@@ -45,14 +45,31 @@ Client 共建立 3 個工作，取得 6 次原始上傳／密碼續跑的接受�
 | 範圍 | 結果 |
 | --- | --- |
 | Worker 完整回歸 | 548 passed、3 PostgreSQL opt-in skipped；Ruff 與 strict mypy 79 source files 通過 |
-| 操作工具 | 50 passed，包含維護 17、metadata 17、retention 16 |
+| 操作工具 | 系統標籤修正後 56 passed，包含維護 23、metadata 17、retention 16 |
 | 驗收 client | 17 項真 loopback HTTP 測試＋1 項真 ZIP／7z 共用核心測試通過 |
 | 真實容器離線控制 | 官方簽章、daily 年齡、正常／EICAR AV 及 YARA 全部通過 |
 
+## 正式雲端維護更新
+
+同日後續已由已登入原專案的 Cloud Shell 完成建置與映像切換；本段依使用者貼回的
+`build_verified`、唯讀 Job 診斷及最終 `promoted` 輸出記錄，與前述本機容器證據分開。
+
+- Cloud Build：`a8b1f551-5176-43ec-96f0-1e728a41071c`，最終 SUCCESS。
+- 候選 digest：`sha256:361ce60bfeb1e285471ee3e8dbaba9d458f4d5e5f15297d9058a73c1d5fd57f6`，Registry 讀回一致，Job Ready。
+- ClamAV 1.4.3／DB 28153、YARA 4.5.4；三份官方病毒庫簽章及四項正常／EICAR 控制通過。daily 在控制驗證時約 21 小時，版本號不代表全球最新版本宣告。
+- 更新時的 `lastUpdatedTime`／template `nonce` 引發舊工具誤判；`7149eaa` 僅排除這兩個指定標籤路徑，保留舊檢查點指紋及其他設定保護。既有檢查點透過 `status` 核對為 `promoted`。
+
+切換後另建立一筆 49-byte 良性文字檔工作 `1975bcf6-2e5b-41dd-a1c0-ca6b2e026e30`，
+透過正式 API 驗證為 done／report complete／static complete。檔案大小、SHA256、
+單一節點、提取預算及必要階段皆通過；ClamAV 未偵測感染、YARA 無命中，工具及規則版本
+與建置控制報告一致，動態分析 disabled。這是新的一筆上傳與執行意圖，獨立於前述三案例計數。
+公開報告不含執行映像 digest，該次 execution 與映像的控制面對應仍待 GCP 證據。
+此工作的 R2 清理應在 **2026-10-16 15:36（Asia/Taipei）之後**另行核對。
+
 ## 尚待遠端完成
 
-1. 在已登入的 Cloud Shell 收集 GCP metadata、關聯這三個工作；核對實際執行清單。成功 log 缺席不能證明沒有執行。
-2. 用新工具完成一次真正的 Cloud Build → 控制報告 → Registry digest → image-only promotion；保留原映像並驗證回退流程。目前沒有在 GCP 執行此更新，也未建立自動排程。
+1. 取得並審查已收集的完整 GCP metadata JSON、關聯這三個工作及核對實際執行清單；目前已收到讀取全部成功的摘要。成功 log 缺席不能證明沒有執行。
+2. 雲端建置、控制報告、Registry digest 及 image-only promotion 已完成；原映像 digest 保留於檢查點。受保護回退流程有離線回歸測試，實際 GCP 回退尚未驗證，也未建立自動更新排程。
 3. 核對 Billing／抵用／幣別及 Cloudflare 用量；尚不宣稱零費用。
 4. 三個工作的 R2 實體清理最早應在 **2026-10-16 09:58（Asia/Taipei）之後**核對。公開 404 只驗證撤權；DO row 實體刪除與 lifecycle 設定仍需獨立管理端證據。
 
