@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { apiClient, Report } from '../api/client'
 import ArtifactTreePanel from '../components/report/ArtifactTreePanel'
+import AntivirusPanel from '../components/report/AntivirusPanel'
+import YaraRulesPanel from '../components/report/YaraRulesPanel'
 import EvidenceTimelinePanel from '../components/report/EvidenceTimelinePanel'
 import FailureDiagnosticsPanel from '../components/report/FailureDiagnosticsPanel'
 import ScoreTracePanel from '../components/report/ScoreTracePanel'
@@ -225,7 +227,7 @@ export default function ReportPage() {
 
             <TopFindingsSummary explainability={report.explainability} />
             <ScoreTracePanel risk={report.risk} />
-            <ArtifactTreePanel tree={report.artifact_tree} />
+            <ArtifactTreePanel tree={report.artifact_tree} coverage={report.explainability?.artifact_coverage} />
             <EvidenceTimelinePanel explainability={report.explainability} />
             <FailureDiagnosticsPanel explainability={report.explainability} />
 
@@ -346,55 +348,8 @@ export default function ReportPage() {
                 </div>
             </div>
 
-            {/* AV Results */}
-            <div className="glass-card p-6 mb-4">
-                <h2 className="text-lg font-bold mb-4 text-neon-cyan">🛡️ 防毒掃描</h2>
-                    <div className="flex justify-between items-center font-mono text-sm">
-                        <span className="text-slate-400">{report.results.av_result.engine}</span>
-                        <span className={report.results.av_result.infected ? 'text-alert-red' : avCompleted ? 'text-matrix-green' : 'text-caution-yellow'}>
-                            {report.results.av_result.infected
-                                ? `☠️ ${report.results.av_result.threat_name}`
-                                : avCompleted ? '✓ 已掃描，未發現威脅' : `尚未完成有效掃描：${localizeReportText(stageCoverage(report, 'clamav')?.reason) || '請查看分析範圍與限制'}`}
-                        </span>
-                    </div>
-                </div>
-
-            {/* YARA Hits */}
-            {(
-                <div className="glass-card p-6 mb-4">
-                    <h2 className="text-lg font-bold mb-4 text-neon-cyan">🎯 YARA 規則匹配</h2>
-                    {report.results.yara_hits.length === 0 && <p className={`text-sm ${yaraCompleted ? 'text-slate-300' : 'text-caution-yellow'}`}>{yaraCompleted ? '已比對，未命中規則。' : `尚未完成有效規則比對：${localizeReportText(stageCoverage(report, 'yara')?.reason) || '請查看分析範圍與限制'}`}</p>}
-                    <div className="space-y-3">
-                        {report.results.yara_hits.map((hit, index) => (
-                            <div key={index} className="stage-item flex-col items-start">
-                                <div className="flex items-center gap-3 w-full">
-                                    <span className="font-mono text-alert-red font-bold">{hit.rule}</span>
-                                    {hit.severity && (
-                                        <span className={`text-xs px-2 py-0.5 rounded font-mono ${hit.severity === 'high' ? 'bg-alert-red/20 text-alert-red' :
-                                                hit.severity === 'medium' ? 'bg-caution-yellow/20 text-caution-yellow' :
-                                                    'bg-slate-500/20 text-slate-400'
-                                            }`}>
-                                            {hit.severity.toUpperCase()}
-                                        </span>
-                                    )}
-                                </div>
-                                {hit.description && (
-                                    <p className="text-sm text-slate-400 mt-1">{hit.description}</p>
-                                )}
-                                {hit.tags.length > 0 && (
-                                    <div className="flex gap-2 mt-2">
-                                        {hit.tags.map((tag, i) => (
-                                            <span key={i} className="text-xs px-2 py-0.5 rounded bg-neon-purple/20 text-neon-purple">
-                                                {tag}
-                                            </span>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            )}
+            <AntivirusPanel result={report.results.av_result} coverage={stageCoverage(report, 'clamav')} completed={avCompleted} />
+            <YaraRulesPanel hits={report.results.yara_hits} coverage={stageCoverage(report, 'yara')} completed={yaraCompleted} provenance={report.results.yara_rule_provenance} />
 
             {/* IOC - Code Snippet Style */}
             <div className="glass-card p-6 mb-4">

@@ -1,7 +1,6 @@
 """YARA scanning stage using memory-resident yara-python."""
 
 import asyncio
-import hashlib
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -10,6 +9,7 @@ import structlog
 import yara
 
 from malscan_worker.config import get_settings
+from malscan_worker.rule_provenance import RuleBundle, load_rule_bundle
 from malscan_worker.stages.base import Stage, StageContext, StageResult
 
 settings = get_settings()
@@ -20,6 +20,7 @@ _compiled_rules = None
 _rules_loaded = False
 _rules_load_error: str | None = None
 _rules_version: str | None = None
+_rule_bundle: RuleBundle | None = None
 
 
 def _load_yara_rules() -> yara.Rules | None:
@@ -27,45 +28,38 @@ def _load_yara_rules() -> yara.Rules | None:
 
     This runs synchronously and should be called once during startup.
     """
-    global _compiled_rules, _rules_loaded, _rules_load_error, _rules_version
+    global _compiled_rules, _rules_loaded, _rules_load_error, _rules_version, _rule_bundle
 
     if _rules_loaded:
         return _compiled_rules
 
-    rules_path = Path(settings.yara_rules_path)
-    if not rules_path.exists():
-        log.warning("yara_rules_dir_not_found", path=str(rules_path))
-        _rules_loaded = True
-        return None
-
-    rule_files = list(rules_path.glob("*.yar")) + list(rules_path.glob("*.yara"))
-    if not rule_files:
-        log.info("no_yara_rules_found", path=str(rules_path))
-        _rules_loaded = True
-        return None
-
-    # Prepare filepath dict for yara.compile
-    # Format: {'namespace': 'filepath'}
-    filepaths = {f.stem: str(f) for f in rule_files}
-
+    _rule_bundle = None
+    _rules_load_error = None
+    _rules_version = None
     try:
-        rule_digest = hashlib.sha256()
-        for rule_file in sorted(rule_files):
-            rule_digest.update(rule_file.name.encode())
-            rule_digest.update(b"\0")
-            rule_digest.update(rule_file.read_bytes())
-        _rules_version = rule_digest.hexdigest()
-        log.info("compiling_yara_rules", count=len(filepaths))
-        _compiled_rules = yara.compile(filepaths=filepaths)
-        log.info("yara_rules_compiled_successfully")
+        _rule_bundle = load_rule_bundle(Path(settings.yara_rules_path))
+        _compiled_rules = _rule_bundle.rules
+        _rules_version = _rule_bundle.rules_sha256
+        if _compiled_rules is None:
+            log.warning("no_yara_rules_found", path=settings.yara_rules_path)
+        else:
+            log.info(
+                "yara_rules_compiled_successfully",
+                provenance_status=_rule_bundle.provenance["status"],
+            )
     except Exception as e:
         log.error("yara_rules_compile_failed", error=str(e))
-        # Keep None to fail gracefully
         _compiled_rules = None
         _rules_load_error = "YARA rule compilation failed"
 
     _rules_loaded = True
     return _compiled_rules
+
+
+def _provenance() -> dict[str, Any]:
+    if _rule_bundle is None:
+        return {"status": "unverified", "reason": "rules_not_loaded"}
+    return _rule_bundle.provenance
 
 
 class YaraStage(Stage):
@@ -88,7 +82,7 @@ class YaraStage(Stage):
 
             rules = _load_yara_rules()
 
-            if not rules:
+            if rules is None:
                 # No rules available - skip
                 ended_at = datetime.now(timezone.utc)
                 duration_ms = int((ended_at - started_at).total_seconds() * 1000)
@@ -101,6 +95,7 @@ class YaraStage(Stage):
                     findings={
                         "matches": [],
                         "reason": _rules_load_error or "No YARA rules configured",
+                        "rule_provenance": _provenance(),
                     },
                     artifacts=[],
                     error=_rules_load_error,
@@ -144,6 +139,11 @@ class YaraStage(Stage):
                         "author": meta_dict.get("author", ""),
                         "tags": match.tags,
                         "strings": strings_list,
+                        "provenance": (
+                            _rule_bundle.match_provenance(match.namespace, match.rule)
+                            if _rule_bundle is not None
+                            else {"status": "unverified", "reason": "rules_not_loaded"}
+                        ),
                     }
                 )
 
@@ -156,7 +156,7 @@ class YaraStage(Stage):
                 started_at=started_at,
                 ended_at=ended_at,
                 duration_ms=duration_ms,
-                findings={"matches": matches},
+                findings={"matches": matches, "rule_provenance": _provenance()},
                 artifacts=[],
                 error=None,
                 tool_version=getattr(yara, "__version__", None),
@@ -173,7 +173,7 @@ class YaraStage(Stage):
                 started_at=started_at,
                 ended_at=ended_at,
                 duration_ms=duration_ms,
-                findings={},
+                findings={"rule_provenance": _provenance()},
                 artifacts=[],
                 error=str(e),
                 tool_version=getattr(yara, "__version__", None),

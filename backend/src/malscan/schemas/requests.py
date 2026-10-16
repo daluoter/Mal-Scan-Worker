@@ -228,6 +228,7 @@ class ExplainabilityBlock(BaseModel):
     uncertainties: list[dict[str, Any]] = Field(default_factory=list)
     timeline: list[dict[str, Any]] = Field(default_factory=list)
     failure_diagnostics: dict[str, Any] = Field(default_factory=dict)
+    artifact_coverage: dict[str, int] = Field(default_factory=dict)
 
 
 class AnalysisResults(BaseModel):
@@ -337,11 +338,18 @@ class ArtifactTreeNode(BaseModel):
     risk_level: str | None = None
     policy_version: str | None = None
     job_id: str | None = None
+    root_artifact_id: str | None = None
+    root_job_id: str | None = None
     display_path: str | None = None
     archive_layer: int | None = None
     analysis_status: str | None = None
     job_status: str | None = None
     analysis: AnalysisState = Field(default_factory=AnalysisState)
+    analysis_reference: dict[str, Any] | None = None
+    direct_finding_ids: list[str] = Field(default_factory=list)
+    inherited_finding_ids: list[str] = Field(default_factory=list)
+    direct_evidence_ids: list[str] = Field(default_factory=list)
+    inherited_evidence_ids: list[str] = Field(default_factory=list)
     primary_analyzer: str | None = None
     finding_ids: list[str] = Field(default_factory=list)
     uncertainty_ids: list[str] = Field(default_factory=list)

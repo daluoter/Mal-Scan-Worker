@@ -259,6 +259,49 @@ async def test_deobfuscation_stage_default_threshold_emits_base64_candidate_and_
 
 
 @pytest.mark.asyncio
+async def test_real_candidate_cap_keeps_decoded_evidence_and_marks_report_partial(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from malscan_worker.pipeline import build_analysis_result
+
+    first_url = b"https://first.example/path"
+    second_url = b"https://second.example/path"
+    sample = tmp_path / "two-encoded-urls.txt"
+    sample.write_bytes(base64.b64encode(first_url) + b"\n" + base64.b64encode(second_url))
+    ctx = _context_for_file(sample)
+    monkeypatch.setattr(
+        "malscan_worker.stages.deobfuscation.get_settings",
+        lambda: SimpleNamespace(
+            deobfuscation_enabled=True,
+            deobfuscation_max_candidates=1,
+            deobfuscation_per_decoder_limit=16,
+            deobfuscation_max_wall_time_seconds=10,
+        ),
+    )
+
+    result = await DeobfuscationStage().execute(ctx)
+    report = build_analysis_result(ctx.job_id, ctx.file_id, ctx, [result], result.duration_ms)
+
+    assert result.status == "partial"
+    assert result.error is None
+    assert result.findings["stats"]["truncated"] is True
+    assert result.findings["stats"]["stop_reason"] == "candidate_cap"
+    assert "candidate_cap" in result.findings["reason"]
+    candidates = result.findings["candidates"]
+    assert len(candidates) == 1
+    assert candidates[0]["content"] == first_url.decode()
+    assert first_url.decode() in result.findings["extracted_iocs"]["urls"]
+    assert second_url.decode() not in result.findings["extracted_iocs"]["urls"]
+    assert report["analysis"]["static"]["status"] == "partial"
+    coverage = report["analysis"]["static"]["stage_coverage"]
+    assert coverage[0]["stage"] == "deobfuscation"
+    assert coverage[0]["status"] == "partial"
+    assert "candidate_cap" in coverage[0]["reason"]
+    assert report["results"]["deobfuscation"]["candidates"] == candidates
+
+
+@pytest.mark.asyncio
 async def test_deobfuscation_stage_truncates_serialized_candidate_content_by_config(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

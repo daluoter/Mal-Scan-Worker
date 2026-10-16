@@ -723,6 +723,7 @@ def _build_analysis_result(
                 "threat_name": clamav.get("threat_name"),
             },
             "yara_hits": yara_matches,
+            "yara_rule_provenance": stage_findings.get("yara", {}).get("rule_provenance"),
             "iocs": iocs,
             "format_analysis": {
                 **fmt,

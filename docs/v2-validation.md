@@ -2,6 +2,12 @@
 
 里程碑日期：2026-10-15（Asia/Taipei）。本文件區分本機可重現測試、先前引擎 PoC 與新版雲端應用的實際驗收，避免將其中一種證據當成全部部署能力。部署拓撲與操作見[Cloud Run 指南](../deployment/cloud-run/README.md)，首份正式網頁報告見[雲端里程碑](milestones/2026-10-15-cloud-demo.md)。
 
+2026-10-16 P1 更新：worker 618 passed／3 PostgreSQL opt-in skipped、backend 160 passed／1 opt-in skipped、
+frontend 28 passed；Ruff、strict mypy（83＋27 source files）與前端正式建置通過。
+18 個合成案例另以真實 ClamAV／YARA 的完整靜態流程通過，包含子檔案證據、重複內容、
+損壞／缺工具與資源限制。詳見[靜態品質基準](static-quality.md)及[結果 JSON](milestones/2026-10-16-static-quality.json)。
+下方原始數字保留為 10/15 里程碑；最新 P0 雲端、維護與保留期證據見[P0 紀錄](milestones/2026-10-15-p0-acceptance.md)。
+
 ## 已實作
 
 - 共用靜態 stage executor、`mswr-report-v3`、逐階段／子檔 coverage、部分報告與工具／規則版本。
@@ -91,8 +97,8 @@ PoC 成果不取代正式部署驗收。雲端 demo 固定 static，保留動態
 部署由使用者已授權的 Cloud Shell 執行；本機開發環境沒有替代使用者 GCP 身分呼叫遠端資源。
 
 靜態 coverage complete 是宣告支援範圍內的完成狀態，不能保證所有格式／加密方法、零漏報或
-完整反編譯。加密 Office／PDF、ISO 提取、ELF／Mach-O／郵件／APK 深度支援、重複節點的證據
-共用、動態多 task 聚合／掉落檔再分析與全面的誤報／漏報 fixture corpus，仍需逐項完善。
+完整反編譯。加密 Office／PDF、ISO 提取、ELF／Mach-O／郵件／APK 深度支援、更多重複內容變種、
+動態多 task 聚合／掉落檔再分析與全面的誤報／漏報 fixture corpus，仍需逐項完善。
 目前真實限制見 [支援矩陣](analysis-support.md)。
 
 開發環境的安裝／啟動設定已保存為設定草稿。儲存並發布後，下一個任務仍需啟動服務並驗證

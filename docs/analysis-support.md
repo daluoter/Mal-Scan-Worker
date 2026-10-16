@@ -33,9 +33,11 @@ IOC 一律保留 URL／domain／IP 與可取得的 offset，不會因此下載�
 每份來源最多 50 個，遺漏／配額／派送失敗留下 partial 與原始 IOC；相同合成檔進入 ancestor
 會停止循環。動態 URL detonation 還需要已啟用且可用的 sandbox provider。
 
-自架版同一提取內的重複內容目前保留獨立來源節點，但可省略重複派送；未連結完整分析證據的
-duplicate node 仍顯示 unknown，樹狀 summary 因此為 partial。這項證據共用尚待完善，不能把
-省略的節點標為已完整分析。Portable runner 則逐 occurrence 分析並保留各自報告。
+自架版同一提取內的重複內容保留獨立來源節點，但可省略重複派送。報告以 `analysis_reference`
+引用同 root、相同 SHA-256／大小且已完成必要階段及子樹的直接來源；沿用節點不宣稱重新掃描，
+來源階段與證據 IDs 分開呈現。來源缺失、失敗或不完整時仍為 unknown／partial。
+Portable runner 逐 occurrence 分析並保留各自報告。父報告會聚合已驗證子檔案的 findings 與證據，
+相同內容保留全部位置但風險只計一次，詳見[品質基準](static-quality.md)。
 
 ## root 累計與時間窗
 

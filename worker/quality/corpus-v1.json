@@ -1,0 +1,472 @@
+{
+  "schema_version": 1,
+  "corpus_version": "static-quality-v1.0.0",
+  "scope": "Synthetic benign, indicator and failure controls; not a malware collection or real-world accuracy estimate.",
+  "fixtures": {
+    "clean": {
+      "kind": "text",
+      "text": "Hello MalScan quality baseline.\n",
+      "sha256": "ad5ca9fc7f00f85a021fe057c63e1832329f5b942aaf239e450d70ab5557a814"
+    },
+    "config": {
+      "kind": "text",
+      "text": "{\"name\":\"normal-configuration\",\"enabled\":true,\"count\":4}\n",
+      "sha256": "121bb6c5444adcc0aebb792a96b8e6a8b8248bbfadaa02a64b1d7407254a09f0"
+    },
+    "benign-url": {
+      "kind": "text",
+      "text": "Documentation: https://example.com/manual\n",
+      "sha256": "da4a3c3495fd9623d968a66b1a451313f384bcb545358624c22657f2b4459f65"
+    },
+    "benign-java": {
+      "kind": "text",
+      "text": "// Harmless Java API documentation, not executable content.\nInputStream in = socket.getInputStream();\n",
+      "sha256": "36c5806478f1b93a1457339916b6a5b960054c49d7fb4f459ce5c28dd9e25a11"
+    },
+    "eicar": {
+      "kind": "eicar",
+      "sha256": "275a021bbfb6489e54d471899f7db9d1663fc695ec2fe2a2c4538aabf651fd0f"
+    },
+    "php-indicator": {
+      "kind": "text",
+      "text": "Synthetic detector marker (plain text, never executed): eval($_POST[\n",
+      "sha256": "3abff8a3f8cfb1aef06bca5d7088f43d4fd1c45dc488ceae2cf3581ed653d48f"
+    },
+    "encoded-url": {
+      "kind": "text",
+      "text": "aHR0cHM6Ly9leGFtcGxlLmNvbS9xdWFsaXR5\n",
+      "sha256": "4ab647116fe114e82b3974eef05df354af64715fcb9ab768dcf86bb57b4ca476"
+    },
+    "two-encoded-urls": {
+      "kind": "text",
+      "text": "aHR0cHM6Ly9leGFtcGxlLmNvbS9maXJzdA==\naHR0cHM6Ly9leGFtcGxlLm9yZy9zZWNvbmQ=\n",
+      "sha256": "4f1352e35dad853bdcce6cf60bbac9ea954189517ec36438541f18e1d99c23c7"
+    },
+    "corrupt-zip": {
+      "kind": "text",
+      "text": "PK\u0003\u0004truncated quality fixture\n",
+      "sha256": "bceeffaa7ed2a06f758165844386d5feca4884f9b0b8e3ef84e61ada24a21231"
+    },
+    "corrupt-pdf": {
+      "kind": "text",
+      "text": "%PDF-1.7\nTruncated quality fixture, no object table.\n",
+      "sha256": "cbbac1fb8af6f1974f557ce5d3663791c9fa6f952018110567a3d46b6310e406"
+    },
+    "inner-zip": {
+      "kind": "zip",
+      "entries": [
+        {
+          "name": "payload.txt",
+          "fixture": "clean"
+        }
+      ],
+      "sha256": "786e464cf54e65d8dda2621bd9bda7dd4a27d1fc3271547a07b3303be61b7654"
+    },
+    "nested-duplicates": {
+      "kind": "zip",
+      "entries": [
+        {
+          "name": "one/inner.zip",
+          "fixture": "inner-zip"
+        },
+        {
+          "name": "two/inner.zip",
+          "fixture": "inner-zip"
+        }
+      ],
+      "sha256": "9a48373900c8d0933665e60e9b1ec3737a819e8faf7a036898342ddf99ae1e64"
+    },
+    "eicar-zip": {
+      "kind": "zip",
+      "deflated": true,
+      "entries": [
+        {
+          "name": "test-signature.com",
+          "fixture": "eicar"
+        }
+      ],
+      "sha256": "0bcf2a4f69bb07f7b7b4b5254a585df23bccd78b9bf932de0e5489c660916e94"
+    },
+    "eicar-gzip": {
+      "kind": "gzip",
+      "fixture": "eicar",
+      "sha256": "d89ebd0cf36657104773359aad152bb4cf1a0bef52246f0e679e9c89702b719a"
+    }
+  },
+  "cases": [
+    {
+      "id": "clean-text",
+      "fixture": "clean",
+      "filename": "hello.txt",
+      "label": "benign",
+      "scenario": "normal",
+      "expect": {
+        "static_status": "complete",
+        "artifact_count": 1,
+        "yara_rules": [],
+        "infected_artifacts": 0,
+        "risk_score_min": 0,
+        "risk_score_max": 0,
+        "verdicts": [
+          "clean"
+        ]
+      }
+    },
+    {
+      "id": "clean-configuration",
+      "fixture": "config",
+      "filename": "settings.json",
+      "label": "benign",
+      "scenario": "normal",
+      "expect": {
+        "static_status": "complete",
+        "artifact_count": 1,
+        "yara_rules": [],
+        "infected_artifacts": 0,
+        "risk_score_min": 0,
+        "risk_score_max": 9,
+        "verdicts": [
+          "clean"
+        ]
+      }
+    },
+    {
+      "id": "benign-documentation-url",
+      "fixture": "benign-url",
+      "filename": "manual.txt",
+      "label": "benign",
+      "scenario": "normal",
+      "expect": {
+        "static_status": "complete",
+        "artifact_count": 1,
+        "yara_rules": [
+          "network_iocs"
+        ],
+        "infected_artifacts": 0,
+        "risk_score_min": 0,
+        "risk_score_max": 29,
+        "verdicts": [
+          "clean",
+          "suspicious"
+        ]
+      },
+      "known_limitations": [
+        "A plain benign URL currently triggers a generic YARA heuristic; this is an observed false-positive baseline, not malware ground truth."
+      ]
+    },
+    {
+      "id": "benign-java-api",
+      "fixture": "benign-java",
+      "filename": "example.java",
+      "label": "benign",
+      "scenario": "normal",
+      "expect": {
+        "static_status": "complete",
+        "artifact_count": 1,
+        "yara_rules": [
+          "jsp_webshell"
+        ],
+        "infected_artifacts": 0,
+        "risk_score_min": 0,
+        "risk_score_max": 29,
+        "verdicts": [
+          "clean",
+          "suspicious"
+        ]
+      },
+      "known_limitations": [
+        "A benign Java API name currently matches a broad webshell heuristic; this case records the false-positive baseline."
+      ]
+    },
+    {
+      "id": "eicar-direct",
+      "fixture": "eicar",
+      "filename": "eicar.com",
+      "label": "test_signature",
+      "scenario": "normal",
+      "expect": {
+        "static_status": "complete",
+        "artifact_count": 1,
+        "yara_rules": [
+          "eicar"
+        ],
+        "infected_artifacts": 1,
+        "risk_score_min": 85,
+        "risk_score_max": 100,
+        "verdicts": [
+          "malicious"
+        ]
+      }
+    },
+    {
+      "id": "synthetic-php-indicator",
+      "fixture": "php-indicator",
+      "filename": "marker.txt",
+      "label": "synthetic_indicator",
+      "scenario": "normal",
+      "expect": {
+        "static_status": "complete",
+        "artifact_count": 1,
+        "yara_rules": [
+          "php_webshell"
+        ]
+      }
+    },
+    {
+      "id": "encoded-url",
+      "fixture": "encoded-url",
+      "filename": "encoded.txt",
+      "label": "synthetic_indicator",
+      "scenario": "normal",
+      "expect": {
+        "static_status": "complete",
+        "artifact_count": 1,
+        "yara_rules": [
+          "base64_url"
+        ],
+        "infected_artifacts": 0
+      }
+    },
+    {
+      "id": "nested-duplicate-occurrences",
+      "fixture": "nested-duplicates",
+      "filename": "nested.zip",
+      "label": "benign",
+      "scenario": "normal",
+      "expect": {
+        "static_status": "complete",
+        "artifact_count": 5,
+        "yara_rules": [],
+        "infected_artifacts": 0,
+        "risk_score_min": 0,
+        "risk_score_max": 29,
+        "verdicts": [
+          "clean",
+          "suspicious"
+        ]
+      }
+    },
+    {
+      "id": "eicar-in-zip",
+      "fixture": "eicar-zip",
+      "filename": "eicar.zip",
+      "label": "test_signature",
+      "scenario": "normal",
+      "expect": {
+        "static_status": "complete",
+        "artifact_count": 2,
+        "yara_rules": [
+          "eicar"
+        ],
+        "infected_artifacts": 1,
+        "inherited_risk": true,
+        "risk_score_min": 60,
+        "risk_score_max": 100,
+        "verdicts": [
+          "suspicious",
+          "malicious"
+        ]
+      }
+    },
+    {
+      "id": "eicar-in-gzip",
+      "fixture": "eicar-gzip",
+      "filename": "eicar.com.gz",
+      "label": "test_signature",
+      "scenario": "normal",
+      "expect": {
+        "static_status": "complete",
+        "artifact_count": 2,
+        "yara_rules": [
+          "eicar"
+        ],
+        "infected_artifacts": 1,
+        "inherited_risk": true,
+        "risk_score_min": 60,
+        "risk_score_max": 100,
+        "verdicts": [
+          "suspicious",
+          "malicious"
+        ]
+      }
+    },
+    {
+      "id": "corrupt-archive",
+      "fixture": "corrupt-zip",
+      "filename": "broken.zip",
+      "label": "failure",
+      "scenario": "normal",
+      "expect": {
+        "static_status": "partial",
+        "artifact_count": 1,
+        "yara_rules": [],
+        "infected_artifacts": 0,
+        "root_stages": {
+          "archive-extract": "partial"
+        },
+        "risk_score_min": 0,
+        "risk_score_max": 59,
+        "verdicts": [
+          "clean",
+          "suspicious"
+        ]
+      }
+    },
+    {
+      "id": "corrupt-document",
+      "fixture": "corrupt-pdf",
+      "filename": "broken.pdf",
+      "label": "failure",
+      "scenario": "normal",
+      "expect": {
+        "static_status": "partial",
+        "artifact_count": 1,
+        "yara_rules": [],
+        "infected_artifacts": 0,
+        "root_stages": {
+          "format-analysis": "partial"
+        },
+        "risk_score_min": 0,
+        "risk_score_max": 59,
+        "verdicts": [
+          "clean",
+          "suspicious"
+        ]
+      }
+    },
+    {
+      "id": "missing-antivirus",
+      "fixture": "clean",
+      "filename": "hello.txt",
+      "label": "failure",
+      "scenario": "missing_av",
+      "expect": {
+        "static_status": "partial",
+        "artifact_count": 1,
+        "yara_rules": [],
+        "infected_artifacts": 0,
+        "root_stages": {
+          "clamav": "failed"
+        },
+        "risk_score_min": 0,
+        "risk_score_max": 59,
+        "verdicts": [
+          "clean",
+          "suspicious"
+        ]
+      }
+    },
+    {
+      "id": "missing-yara-rules",
+      "fixture": "clean",
+      "filename": "hello.txt",
+      "label": "failure",
+      "scenario": "missing_rules",
+      "expect": {
+        "static_status": "partial",
+        "artifact_count": 1,
+        "yara_rules": [],
+        "infected_artifacts": 0,
+        "root_stages": {
+          "yara": "skipped"
+        },
+        "risk_score_min": 0,
+        "risk_score_max": 59,
+        "verdicts": [
+          "clean",
+          "suspicious"
+        ]
+      }
+    },
+    {
+      "id": "invalid-yara-rules",
+      "fixture": "clean",
+      "filename": "hello.txt",
+      "label": "failure",
+      "scenario": "invalid_rules",
+      "expect": {
+        "static_status": "partial",
+        "artifact_count": 1,
+        "yara_rules": [],
+        "infected_artifacts": 0,
+        "root_stages": {
+          "yara": "failed"
+        },
+        "risk_score_min": 0,
+        "risk_score_max": 59,
+        "verdicts": [
+          "clean",
+          "suspicious"
+        ]
+      }
+    },
+    {
+      "id": "deobfuscation-candidate-limit",
+      "fixture": "two-encoded-urls",
+      "filename": "encoded.txt",
+      "label": "failure",
+      "scenario": "candidate_cap",
+      "expect": {
+        "static_status": "partial",
+        "artifact_count": 1,
+        "yara_rules": [
+          "base64_url"
+        ],
+        "infected_artifacts": 0,
+        "root_stages": {
+          "deobfuscation": "partial"
+        },
+        "risk_score_min": 0,
+        "risk_score_max": 59,
+        "verdicts": [
+          "clean",
+          "suspicious"
+        ]
+      }
+    },
+    {
+      "id": "deobfuscation-size-limit",
+      "fixture": "clean",
+      "filename": "hello.txt",
+      "label": "failure",
+      "scenario": "deob_size_limit",
+      "expect": {
+        "static_status": "partial",
+        "artifact_count": 1,
+        "yara_rules": [],
+        "infected_artifacts": 0,
+        "root_stages": {
+          "deobfuscation": "skipped"
+        },
+        "risk_score_min": 0,
+        "risk_score_max": 59,
+        "verdicts": [
+          "clean",
+          "suspicious"
+        ]
+      }
+    },
+    {
+      "id": "archive-depth-limit",
+      "fixture": "nested-duplicates",
+      "filename": "nested.zip",
+      "label": "failure",
+      "scenario": "depth_limit",
+      "expect": {
+        "static_status": "partial",
+        "artifact_count": 3,
+        "yara_rules": [],
+        "infected_artifacts": 0,
+        "risk_score_min": 0,
+        "risk_score_max": 59,
+        "verdicts": [
+          "clean",
+          "suspicious"
+        ],
+        "partial_stages": [
+          "archive-extract"
+        ]
+      }
+    }
+  ]
+}

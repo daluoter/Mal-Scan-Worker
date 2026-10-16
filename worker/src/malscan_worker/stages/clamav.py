@@ -39,6 +39,25 @@ def _daemon_version() -> str | None:
     return value.strip() if isinstance(value, str) else None
 
 
+def version_metadata(version: str | None) -> dict[str, str]:
+    """Separate the engine from the database's own version and timestamp.
+
+    Keep unknown formats in tool_version only; a database timestamp is not an
+    update check or a claim that the installed signatures are the latest.
+    """
+    if not version:
+        return {}
+    match = re.fullmatch(r"ClamAV\s+([^/\s]+)(?:/(\d+)(?:/(.+))?)?", version.strip())
+    if match is None:
+        return {"tool_version": version}
+    result = {"tool_version": version, "engine_version": match[1]}
+    if match[2]:
+        result["database_version"] = match[2]
+    if match[3]:
+        result["database_timestamp"] = match[3]
+    return result
+
+
 async def _command(*arguments: str) -> tuple[int, str, str]:
     """Run a scanner command and terminate its process group on cancellation."""
     process = await asyncio.create_subprocess_exec(
@@ -140,6 +159,7 @@ class ClamAVStage(Stage):
                 "infected": infected,
                 "threat_name": threat_name,
                 "adapter": settings.clamav_mode,
+                **version_metadata(tool_version),
             }
         except Exception as exc:
             status, findings = "failed", {}

@@ -22,6 +22,8 @@ const { dynamicStatus, jobNeedsPassword, passwordTargets, shouldRefreshReport, s
 const CoveragePanel = require('../src/components/report/AnalysisCoveragePanel.tsx').default
 const DynamicPanel = require('../src/components/report/DynamicAnalysisPanel.tsx').default
 const ArtifactTreePanel = require('../src/components/report/ArtifactTreePanel.tsx').default
+const YaraRulesPanel = require('../src/components/report/YaraRulesPanel.tsx').default
+const AntivirusPanel = require('../src/components/report/AntivirusPanel.tsx').default
 const PasswordForm = require('../src/components/PasswordForm.tsx').default
 
 function report(overrides = {}) {
@@ -145,4 +147,123 @@ test('artifact tree shows password state and links to the specific descendant jo
     assert.match(html, /href="\/jobs\/leaf-job"/)
     assert.match(html, /等待解壓密碼/)
     assert.match(html, /部分完成/)
+})
+
+test('YARA engine, content digest and unverified legacy provenance stay separate', () => {
+    const html = render(YaraRulesPanel, { hits: [], completed: true, coverage: {
+        stage: 'yara', status: 'ok', tool_version: '4.5.4', rules_version: 'a'.repeat(64),
+    } })
+    assert.match(html, /比對引擎：YARA 4\.5\.4/)
+    assert.match(html, /規則內容 SHA-256/)
+    assert.match(html, /未驗證/)
+    assert.match(html, /未提供規則來源清單/)
+    assert.match(html, /未命中本次配置的規則/)
+    assert.doesNotMatch(html, /確認安全|已確認惡意/)
+})
+
+test('verified local YARA inventory never becomes an authorship, licensing or malware claim', () => {
+    const provenance = { status: 'verified', ruleset_id: 'bundled-basic', ruleset_version: '1.0.0',
+        ruleset_sha256: 'b'.repeat(64), file_count: 2, rule_count: 2,
+        source: { repository: 'https://example.test/rules', declared_author: 'Self-declared author' },
+        license: { spdx_expression: 'NOASSERTION', status: 'not_declared', permission_verified: false },
+    }
+    const html = render(YaraRulesPanel, { completed: true, provenance, hits: [
+        { rule: 'eicar', namespace: 'tests', severity: 'high', provenance: { ...provenance, category: 'test', limitations: 'Test only.' } },
+        { rule: 'network_strings', namespace: 'context', provenance: { ...provenance, category: 'heuristic', limitations: 'Benign documentation also matches.' } },
+    ] })
+    assert.match(html, /bundled-basic/)
+    assert.match(html, /1\.0\.0/)
+    assert.match(html, /本地檔案雜湊與規則清單校驗完成/)
+    assert.match(html, /自述作者（未獨立驗證）/)
+    assert.match(html, /未聲明／尚未確認授權許可/)
+    assert.match(html, /測試標記/)
+    assert.match(html, /啟發式／脈絡線索/)
+    assert.match(html, /不等同真實惡意程式/)
+    assert.match(html, /Benign documentation also matches/)
+    assert.doesNotMatch(html, /text-alert-red|href=/)
+})
+
+test('unverified rule metadata is not promoted to checked source or test classification', () => {
+    const unknown = { status: 'unverified', reason: 'file_hash_mismatch', category: 'test',
+        source: { repository: 'untrusted-source' }, license: { spdx_expression: 'InventedLicense' } }
+    const html = render(YaraRulesPanel, { provenance: unknown, hits: [{ rule: 'custom', namespace: 'custom', provenance: unknown }] })
+    assert.match(html, /規則檔案雜湊不一致/)
+    assert.match(html, /規則分類未驗證/)
+    assert.doesNotMatch(html, /untrusted-source|InventedLicense|此命中用於測試偵測流程/)
+})
+
+test('failed and unsupported YARA scans remain distinct from successful empty scans', () => {
+    for (const [status, label] of [['failed', '失敗'], ['unsupported', '不支援']]) {
+        const html = render(YaraRulesPanel, { coverage: { stage: 'yara', status, reason: 'rules_unavailable' } })
+        assert.match(html, new RegExp(`比對狀態：${label}`))
+        assert.match(html, /尚未完成有效規則比對/)
+        assert.doesNotMatch(html, /已比對，未命中/)
+    }
+})
+
+test('ClamAV engine and database metadata are separate and do not imply an upstream latest check', () => {
+    const html = render(AntivirusPanel, { completed: true, result: { engine: 'ClamAV', engine_version: '1.4.3',
+        database_version: '28153', database_timestamp: 'Wed Oct 14 06:24:15 2026', infected: false },
+    })
+    assert.match(html, /ClamAV 1\.4\.3/)
+    assert.match(html, /病毒資料庫版本/)
+    assert.match(html, /28153/)
+    assert.match(html, /病毒資料庫所載時間/)
+    assert.match(html, /不能單獨證明/)
+    const legacy = render(AntivirusPanel, { result: { engine: 'ClamAV', infected: false },
+        coverage: { stage: 'clamav', status: 'failed', tool_version: 'ClamAV 1.4.3/28153/date' },
+    })
+    assert.match(legacy, /原始工具版本：ClamAV 1\.4\.3\/28153\/date/)
+    assert.match(legacy, /掃描狀態：失敗/)
+    assert.doesNotMatch(legacy, /已掃描，未命中/)
+})
+
+test('duplicate artifacts expose inherited source coverage without inventing a direct rerun', () => {
+    const html = render(ArtifactTreePanel, { coverage: { occurrences: 2, direct: 1, inherited: 1, unresolved: 0 }, tree: {
+        id: 'duplicate', filename: 'repeated.txt', sha256: 'c'.repeat(64), analysis_status: 'complete',
+        analysis_reference: { mode: 'inherited', status: 'verified', source_artifact_id: 'source-artifact', source_job_id: 'source-job',
+            source_sha256: 'c'.repeat(64), source_analysis_status: 'partial', source_evidence_ids: ['e1'], source_finding_ids: ['f1'],
+            risk: { score: 95, risk_level: 'malicious', verdict: 'malicious' },
+            source_stage_coverage: [{ stage: 'clamav', status: 'ok' }, { stage: 'deobfuscation', status: 'unsupported' }, { stage: 'yara', status: 'failed' }],
+        },
+    } })
+    assert.match(html, /直接分析 1、沿用分析 1、來源未確認 0/)
+    assert.match(html, /本節點未重跑階段/)
+    assert.match(html, /source-artifact/)
+    assert.match(html, /href="\/jobs\/source-job"/)
+    assert.match(html, /部分完成/)
+    assert.match(html, /去混淆：不支援/)
+    assert.match(html, /YARA 規則比對：失敗/)
+    assert.match(html, /直接分數 —/)
+    assert.match(html, /本節點無直接判定/)
+    assert.match(html, /沿用來源風險/)
+    assert.match(html, /風險 惡意 \/ 分數 95 \/ 判定 惡意/)
+    assert.doesNotMatch(html, /直接分數 0/)
+    assert.doesNotMatch(html, /本檔直接分析/)
+})
+
+test('unresolved artifact references and incomplete legacy coverage remain readable', () => {
+    const html = render(ArtifactTreePanel, { coverage: {}, tree: { id: 'missing', filename: 'unresolved.bin',
+        analysis_reference: { mode: 'unresolved', status: 'unresolved', reason: 'source_missing' },
+    } })
+    assert.match(html, /分析來源尚未確認/)
+    assert.match(html, /覆蓋範圍仍不完整/)
+    assert.match(html, /分數 —/)
+    assert.doesNotMatch(html, /分數 0/)
+    assert.doesNotMatch(html, /本檔直接分析|沿用相同內容/)
+    assert.doesNotMatch(html, /檔案節點.*個：直接分析/)
+    assert.match(render(CoveragePanel, { analysis: { static: {} } }), /無法確認完整分析範圍/)
+    assert.equal(stageCompleted(report({ analysis: { static: {} } }), 'yara'), false)
+})
+
+test('direct artifact details preserve partial and failed coverage rather than inheriting completion', () => {
+    const html = render(ArtifactTreePanel, { tree: { id: 'direct', filename: 'direct.bin',
+        analysis_status: 'partial', analysis_reference: { mode: 'direct', status: 'verified',
+            source_analysis_status: 'partial', source_stage_coverage: [{ stage: 'yara', status: 'failed' }],
+        },
+    } })
+    assert.match(html, /本檔直接分析/)
+    assert.match(html, /部分完成/)
+    assert.match(html, /YARA 規則比對：失敗/)
+    assert.doesNotMatch(html, /沿用相同內容/)
 })

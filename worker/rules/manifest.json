@@ -1,0 +1,132 @@
+{
+  "schema_version": 1,
+  "ruleset_id": "malscan-bundled-basic",
+  "ruleset_version": "1.0.0",
+  "verification_scope": "Local file hashes and native rule inventory only; this unsigned manifest does not authenticate authorship, grant license permission or establish detection accuracy.",
+  "source": {
+    "type": "repository-maintained",
+    "repository": "https://github.com/daluoter/MalScanWorker",
+    "introduced_commit": "874bd482afe1cc779afe63f00a1005e6eb19ac23",
+    "declared_author": "MalScan (rule meta.author)",
+    "authorship_status": "self_declared_not_independently_verified",
+    "external_upstream_status": "not_documented_in_repository"
+  },
+  "license": {
+    "spdx_expression": "NOASSERTION",
+    "status": "not_declared",
+    "permission_verified": false,
+    "note": "No repository LICENSE or per-rule license declaration was present when this manifest was recorded. NOASSERTION is an unknown-license marker, not a license grant."
+  },
+  "files": [
+    {
+      "path": "crypto_miners.yar",
+      "namespace": "crypto_miners",
+      "sha256": "6513ac69e6559f3414a25eb2b053c0b79e2695e4f231e44c96fc89fa6a34b8d9",
+      "rules": [
+        {
+          "name": "crypto_miner",
+          "category": "heuristic",
+          "limitations": "Mining protocol/pool strings also occur in legitimate mining tools, documentation and examples; no malicious behavior is proven."
+        },
+        {
+          "name": "crypto_miner_binary",
+          "category": "heuristic",
+          "limitations": "Miner names can appear in legitimate software or documentation; a name match does not establish execution or unauthorized mining."
+        },
+        {
+          "name": "crypto_miner_config",
+          "category": "heuristic",
+          "limitations": "Generic configuration options can occur in benign command lines and documentation; two strings alone do not establish mining or malicious intent."
+        }
+      ]
+    },
+    {
+      "path": "eicar.yar",
+      "namespace": "eicar",
+      "sha256": "754050e6b42d6368b71236b0a2254a080c5b68c18ec9479d72c6c6f3cebe3f5d",
+      "rules": [
+        {
+          "name": "eicar",
+          "category": "test",
+          "limitations": "Test-only EICAR marker. A hit proves this test string was recognized, not that the file contains real malware."
+        }
+      ]
+    },
+    {
+      "path": "network.yar",
+      "namespace": "network",
+      "sha256": "75c2acf5be5600d09fc552434054839bdfe5011206f65d9d013732f2551d45cd",
+      "rules": [
+        {
+          "name": "base64_url",
+          "category": "heuristic",
+          "limitations": "Encoded URLs also occur in benign data and examples; decoding context and destination reputation are not evaluated by this rule."
+        },
+        {
+          "name": "network_iocs",
+          "category": "heuristic",
+          "limitations": "Any literal HTTP/HTTPS URL matches, including ordinary benign HTML and documentation. This is contextual evidence, not a malicious network verdict."
+        },
+        {
+          "name": "suspicious_network_patterns",
+          "category": "heuristic",
+          "limitations": "Common download commands, user agents and TXT strings can appear in legitimate administration and documentation; two matches do not prove command-and-control."
+        }
+      ]
+    },
+    {
+      "path": "suspicious.yar",
+      "namespace": "suspicious",
+      "sha256": "4a2198965095addf1dec88e2811bad5f5db7cbeaeaccd1e7bafeca1cd6546907",
+      "rules": [
+        {
+          "name": "persistence_registry",
+          "category": "heuristic",
+          "limitations": "Registry paths can occur in legitimate startup configuration and documentation; a string match does not prove the registry was modified."
+        },
+        {
+          "name": "suspicious_api_calls",
+          "category": "heuristic",
+          "limitations": "Windows memory/loading API names are common in benign development tools and documentation; two strings do not prove code injection."
+        },
+        {
+          "name": "suspicious_dll_injection",
+          "category": "heuristic",
+          "limitations": "DLL-loading API and Windows library names are used by legitimate programs; their co-occurrence does not prove DLL injection."
+        },
+        {
+          "name": "suspicious_process_injection",
+          "category": "heuristic",
+          "limitations": "Thread and mapping API names can occur in legitimate software and documentation; a string match does not prove process injection."
+        }
+      ]
+    },
+    {
+      "path": "webshells.yar",
+      "namespace": "webshells",
+      "sha256": "5c31589540a803dd7c802824f62f09f17759b272ad9b8db054e9f9e3c0c412b4",
+      "rules": [
+        {
+          "name": "asp_webshell",
+          "category": "heuristic",
+          "limitations": "Process, shell and filesystem strings are also used by legitimate administration code and documentation; this is a heuristic string match."
+        },
+        {
+          "name": "generic_webshell",
+          "category": "heuristic",
+          "limitations": "Password/upload/permission strings are common in benign applications and examples; two strings do not establish a webshell."
+        },
+        {
+          "name": "jsp_webshell",
+          "category": "heuristic",
+          "limitations": "ProcessBuilder( and getInputStream() are common benign Java APIs and also match this rule; a hit alone does not establish a webshell."
+        },
+        {
+          "name": "php_webshell",
+          "category": "heuristic",
+          "limitations": "Patterns such as passthru(), shell_exec() and create_function() can occur in legitimate PHP utilities or examples; no taint flow or malicious intent is established."
+        }
+      ]
+    }
+  ]
+}

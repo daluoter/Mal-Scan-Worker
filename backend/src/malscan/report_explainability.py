@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+from copy import deepcopy
 from typing import Any
 
 from malscan.analysis_contract import analysis_from_report
+from malscan.artifact_references import resolve_artifact_analysis_references
 
 
 def ensure_artifact_tree_root(
@@ -51,13 +53,67 @@ def build_explainability(
     *,
     report: dict[str, Any],
     artifact_tree: dict[str, Any] | None,
+    artifact_reports: dict[str, dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     tree = ensure_artifact_tree_root(report, artifact_tree)
+    root_aggregate = {
+        key: deepcopy(tree[key]) for key in ("analysis", "analysis_status") if key in tree
+    }
+    if artifact_reports is None:
+        artifact_reports = {
+            str(item["artifact_id"]): item["report"]
+            for item in report.get("artifacts", [])
+            if isinstance(item, dict)
+            and isinstance(item.get("artifact_id"), str)
+            and isinstance(item.get("report"), dict)
+        }
+    if artifact_reports:
+        resolve_artifact_analysis_references(tree, artifact_reports)
+        # The root's visible coverage is the complete tree aggregate. Resolving
+        # its direct reference must not replace that aggregate with local stages.
+        tree.update(root_aggregate)
     artifacts = _flatten_artifacts(tree)
-    findings = _build_finding_groups(report, artifacts)
+    evidence: list[dict[str, Any]] = []
+    for item in report.get("risk", {}).get("evidence", []):
+        scoped_item = dict(item)
+        artifact_id = str(item.get("artifact_id") or artifacts[0]["artifact_id"])
+        raw_id = item.get("id") or item.get("evidence_id") or f"ev-{len(evidence) + 1}"
+        scoped_item.update(
+            id=(
+                raw_id
+                if str(raw_id).startswith(f"evidence::{artifact_id}::")
+                else f"evidence::{artifact_id}::{raw_id}"
+            ),
+            artifact_id=artifact_id,
+            source_evidence_id=item.get("source_evidence_id") or raw_id,
+        )
+        evidence.append(scoped_item)
+    root_view = {**report, "risk": {**report.get("risk", {}), "evidence": evidence}}
+    findings = _build_finding_groups(root_view, artifacts)
     iocs = _build_ioc_records(report, findings, artifacts)
     decoded = _build_decoded_records(report, findings, artifacts)
+    for artifact in artifacts[1:]:
+        reference = artifact.get("analysis_reference") or {}
+        local_report = artifact_reports.get(artifact["artifact_id"])
+        if (
+            not isinstance(local_report, dict)
+            or reference.get("mode") != "direct"
+            or reference.get("status") != "verified"
+            or not reference.get("source_stage_coverage")
+        ):
+            continue
+        scoped = _scope_artifact_report(local_report, artifact["artifact_id"])
+        ordered = [artifact, *[item for item in artifacts if item is not artifact]]
+        local_findings = _build_finding_groups(scoped, ordered)
+        for finding in local_findings:
+            finding["source_report_job_id"] = reference.get("source_job_id")
+        findings.extend(local_findings)
+        evidence.extend(scoped.get("risk", {}).get("evidence", []))
+        iocs.extend(_build_ioc_records(scoped, local_findings, ordered))
+        decoded.extend(_build_decoded_records(scoped, local_findings, ordered))
+    findings.sort(key=lambda item: -int(item.get("score_impact") or 0))
     findings = _attach_finding_refs(findings, iocs, decoded)
+    _attach_analysis_reference_ids(artifacts, findings, evidence)
     uncertainties = _build_uncertainties(report, artifacts)
     diagnostics = _build_failure_diagnostics(report, artifacts)
     timeline = _build_timeline(report, findings, iocs, decoded, artifacts)
@@ -66,13 +122,92 @@ def build_explainability(
         "summary": _build_summary(report, artifacts, findings),
         "artifacts": artifacts,
         "findings": findings,
-        "evidence": list(report.get("risk", {}).get("evidence", [])),
+        "evidence": evidence,
         "iocs": iocs,
         "decoded_strings": decoded,
         "uncertainties": uncertainties,
         "timeline": timeline,
         "failure_diagnostics": diagnostics,
+        "artifact_coverage": {
+            "occurrences": len(artifacts),
+            "direct": sum(
+                item.get("analysis_reference", {}).get("mode") == "direct" for item in artifacts
+            ),
+            "inherited": sum(
+                item.get("analysis_reference", {}).get("mode") == "inherited" for item in artifacts
+            ),
+            "unresolved": sum(
+                item.get("analysis_reference", {}).get("mode") not in {"direct", "inherited"}
+                for item in artifacts
+            ),
+        },
     }
+
+
+def _scope_artifact_report(report: dict[str, Any], artifact_id: str) -> dict[str, Any]:
+    """Scope local identifiers while leaving the scored report unchanged."""
+    scoped = deepcopy(report)
+
+    def scoped_id(kind: str, value: Any) -> str:
+        prefix = f"{kind}::{artifact_id}::"
+        return str(value) if str(value).startswith(prefix) else f"{prefix}{value}"
+
+    for item in scoped.get("risk", {}).get("evidence", []):
+        item["artifact_id"] = artifact_id
+        raw_id = item.get("id") or item.get("evidence_id")
+        if raw_id:
+            item["source_evidence_id"] = raw_id
+            item["id"] = scoped_id("evidence", raw_id)
+        item["decoded_ids"] = [scoped_id("decoded", value) for value in item.get("decoded_ids", [])]
+    results = scoped.get("results", {})
+    for item in results.get("iocs", {}).get("ioc_items", []) or []:
+        item["artifact_id"] = artifact_id
+        if item.get("ioc_id"):
+            item["ioc_id"] = scoped_id("ioc", item["ioc_id"])
+        if item.get("decoded_id"):
+            item["decoded_id"] = scoped_id("decoded", item["decoded_id"])
+    for item in (results.get("deobfuscation") or {}).get("candidates", []):
+        item["artifact_id"] = artifact_id
+        if item.get("decoded_id"):
+            item["decoded_id"] = scoped_id("decoded", item["decoded_id"])
+    return scoped
+
+
+def _attach_analysis_reference_ids(
+    artifacts: list[dict[str, Any]],
+    findings: list[dict[str, Any]],
+    evidence: list[dict[str, Any]],
+) -> None:
+    by_artifact = {item["artifact_id"]: item for item in artifacts}
+    for artifact in artifacts:
+        reference = artifact.get("analysis_reference") or {}
+        if reference.get("mode") == "direct" and reference.get("status") == "verified":
+            reference["source_finding_ids"] = [
+                item["finding_id"]
+                for item in findings
+                if item.get("artifact_id") == artifact["artifact_id"]
+            ]
+            reference["source_evidence_ids"] = [
+                item.get("id") or item.get("evidence_id")
+                for item in evidence
+                if item.get("artifact_id") == artifact["artifact_id"]
+                and (item.get("id") or item.get("evidence_id"))
+            ]
+    for artifact in artifacts:
+        reference = artifact.get("analysis_reference")
+        reference = reference if isinstance(reference, dict) else {}
+        artifact["analysis_reference"] = reference
+        direct = reference.get("status") == "verified" and reference.get("mode") == "direct"
+        inherited = reference.get("status") == "verified" and reference.get("mode") == "inherited"
+        if inherited:
+            source = by_artifact.get(reference.get("source_artifact_id"), {})
+            source_reference = source.get("analysis_reference") or {}
+            for kind in ("finding", "evidence"):
+                reference[f"source_{kind}_ids"] = source_reference.get(f"source_{kind}_ids", [])
+        for kind in ("finding", "evidence"):
+            ids = list(reference.get(f"source_{kind}_ids") or [])
+            artifact[f"direct_{kind}_ids"] = ids if direct else []
+            artifact[f"inherited_{kind}_ids"] = ids if inherited else []
 
 
 def _flatten_artifacts(tree: dict[str, Any]) -> list[dict[str, Any]]:
@@ -462,9 +597,7 @@ def _build_failure_diagnostics(
     return {
         "status": "degraded" if diagnostics else "none",
         "headline": (
-            "部分檔案或階段尚未完成分析。"
-            if diagnostics
-            else "未偵測到會阻斷分析覆蓋率的問題。"
+            "部分檔案或階段尚未完成分析。" if diagnostics else "未偵測到會阻斷分析覆蓋率的問題。"
         ),
         "diagnostics": diagnostics,
         "suspected_miss_stages": [
@@ -601,6 +734,10 @@ def _enrich_tree(
             node["archive_layer"] = artifact.get("archive_layer")
             node["analysis_status"] = artifact.get("analysis_status")
             node["primary_analyzer"] = artifact.get("primary_analyzer")
+            for kind in ("finding", "evidence"):
+                for mode in ("direct", "inherited"):
+                    field = f"{mode}_{kind}_ids"
+                    node[field] = artifact.get(field, [])
         node_findings = findings_by_artifact.get(str(node["id"]), [])
         node["finding_ids"] = [item["finding_id"] for item in node_findings]
         node["uncertainty_ids"] = uncertainty_by_artifact.get(str(node["id"]), [])

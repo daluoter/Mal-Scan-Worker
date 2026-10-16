@@ -22,6 +22,7 @@ from malscan.analysis_contract import (
     analysis_from_report,
     summarize_static_artifacts,
 )
+from malscan.artifact_references import resolve_artifact_analysis_references
 from malscan.config import get_settings
 from malscan.db import get_db, get_session_factory
 from malscan.models import File, Job, JobStatus
@@ -834,7 +835,11 @@ async def stream_job_status(job_id: str, request: Request) -> EventSourceRespons
     return EventSourceResponse(event_generator())
 
 
-async def _build_artifact_tree(root_job_id: str, db: AsyncSession) -> JsonObject | None:
+async def _build_artifact_tree(
+    root_job_id: str,
+    db: AsyncSession,
+    reports_by_artifact: dict[str, dict[str, Any]] | None = None,
+) -> JsonObject | None:
     """Build hierarchical artifact tree from flat records."""
     from uuid import UUID
 
@@ -851,6 +856,8 @@ async def _build_artifact_tree(root_job_id: str, db: AsyncSession) -> JsonObject
         return None
 
     nodes: dict[str, JsonObject] = {}
+    if reports_by_artifact is None:
+        reports_by_artifact = {}
     root: JsonObject | None = None
     extra_roots: list[JsonObject] = []
     for art in artifacts:
@@ -860,8 +867,19 @@ async def _build_artifact_tree(root_job_id: str, db: AsyncSession) -> JsonObject
         linked_report = getattr(linked_job, "result", None)
         linked_report = linked_report if isinstance(linked_report, dict) else {}
         analysis = analysis_from_report(linked_report, linked_status)
+        reports_by_artifact[str(art.id)] = linked_report
+        root_artifact_id = getattr(art, "root_id", None)
+        root_artifact_id = (
+            str(root_artifact_id)
+            if isinstance(root_artifact_id, (UUID, str))
+            else str(art.id)
+            if art.depth == 0
+            else None
+        )
         node: JsonObject = {
             "id": str(art.id),
+            "root_artifact_id": root_artifact_id,
+            "root_job_id": root_job_id,
             "filename": art.original_filename,
             "sha256": art.sha256,
             "mime": art.mime,
@@ -899,6 +917,8 @@ async def _build_artifact_tree(root_job_id: str, db: AsyncSession) -> JsonObject
         assert isinstance(children, list)
         children.extend(extra_roots)
 
+    if root is not None:
+        resolve_artifact_analysis_references(root, reports_by_artifact)
     return root
 
 
@@ -933,6 +953,7 @@ def _apply_tree_risk_rollup(
             independent_source_count=int(risk.get("independent_source_count") or 0),
         ),
         policy_version=str(risk.get("policy_version") or POLICY_VERSION),
+        score_trace=deepcopy(risk.get("score_trace") or {}),
     )
 
     descendants: list[dict[str, Any]] = []
@@ -953,6 +974,14 @@ def _apply_tree_risk_rollup(
                         "origin_path": child.get("origin_path"),
                         "verdict": child.get("verdict"),
                         "extraction_note": child.get("extraction_note"),
+                        "size": child.get("size"),
+                        "job_status": child.get("job_status"),
+                        "job_id": child.get("job_id"),
+                        "analysis_status": child.get("analysis_status"),
+                        "analysis_reference": child.get("analysis_reference"),
+                        "display_path": child.get("display_path")
+                        or child.get("origin_path")
+                        or child.get("filename"),
                     }
                 )
             _collect(child)
@@ -971,7 +1000,11 @@ def _apply_tree_risk_rollup(
     risk["independent_source_count"] = final.breakdown.independent_source_count
     breakdown["inherited_score"] = final.breakdown.inherited_score
     breakdown["final_score"] = final.breakdown.final_score
+    breakdown["malicious_gate_open"] = final.breakdown.malicious_gate_open
+    breakdown["high_gate_open"] = final.breakdown.high_gate_open
+    breakdown["independent_source_count"] = final.breakdown.independent_source_count
     risk["descendant_summary"] = final.descendant_summary
+    risk["score_trace"] = final.score_trace
     artifact_tree["score"] = final.risk_score
     artifact_tree["verdict"] = final.legacy_verdict
     artifact_tree["risk_level"] = final.risk_level
@@ -1118,7 +1151,8 @@ async def get_report(job_id: str, db: AsyncSession = Depends(get_db)) -> dict[st
     report["child_jobs"] = child_jobs
 
     # Build artifact tree (returns None for non-archive files)
-    report["artifact_tree"] = await _build_artifact_tree(str(job.id), db)
+    artifact_reports: dict[str, dict[str, Any]] = {}
+    report["artifact_tree"] = await _build_artifact_tree(str(job.id), db, artifact_reports)
     report = _apply_tree_risk_rollup(report, report["artifact_tree"])
     report["artifact_tree"] = ensure_artifact_tree_root(report, report["artifact_tree"])
     descendant_statuses: list[str] = []
@@ -1133,9 +1167,12 @@ async def get_report(job_id: str, db: AsyncSession = Depends(get_db)) -> dict[st
     report["analysis"]["static"]["status"] = summarize_static_artifacts(
         report["analysis"]["static"]["status"], descendant_statuses
     )
+    report["artifact_tree"]["analysis"] = deepcopy(report["analysis"])
+    report["artifact_tree"]["analysis_status"] = report["analysis"]["static"]["status"]
     synthesized_explainability = build_explainability(
         report=report,
         artifact_tree=report["artifact_tree"],
+        artifact_reports=artifact_reports,
     )
     if _should_preserve_stored_explainability(report):
         report_explainability = report.get("explainability")

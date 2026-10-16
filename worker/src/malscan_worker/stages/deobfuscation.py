@@ -165,8 +165,11 @@ class DeobfuscationStage(Stage):
             if engine_result.stats.truncated:
                 reason = engine_result.stats.stop_reason or "unknown"
                 deobfuscation_truncation_total.labels(reason=reason).inc()
+                findings["reason"] = f"Deobfuscation incomplete: {reason}"
 
-            return self._result(started_at, "ok", findings)
+            return self._result(
+                started_at, "partial" if engine_result.stats.truncated else "ok", findings
+            )
 
         except Exception as exc:
             return self._result(started_at, "failed", {}, str(exc))

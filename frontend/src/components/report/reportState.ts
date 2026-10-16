@@ -25,7 +25,7 @@ export function shouldRefreshReport(report: Report): boolean {
 }
 
 export function stageCoverage(report: Pick<Report, 'analysis' | 'timings'>, stage: string): StageCoverage | undefined {
-    return report.analysis?.static.stage_coverage.find((entry) => entry.stage === stage)
+    return report.analysis?.static?.stage_coverage?.find((entry) => entry.stage === stage)
 }
 
 export function stageCompleted(report: Pick<Report, 'analysis' | 'timings'>, stage: string): boolean {

@@ -112,6 +112,8 @@ class FormatAnalysisStage(Stage):
         )
         if limited:
             findings["resource_limited"] = True
+        if errors:
+            findings["reason"] = "Format analysis incomplete: " + "; ".join(errors[:5])[:512]
         return self._result(
             started_at, "partial" if limited or errors else "ok", findings, artifacts=artifact_ids
         )

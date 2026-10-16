@@ -7,6 +7,40 @@ import pytest
 from malscan_worker.stages import clamav
 
 
+@pytest.mark.parametrize(
+    "version,expected",
+    [
+        (
+            "ClamAV 1.4.3/28153/Wed Oct 14 06:24:15 2026",
+            {
+                "tool_version": "ClamAV 1.4.3/28153/Wed Oct 14 06:24:15 2026",
+                "engine_version": "1.4.3",
+                "database_version": "28153",
+                "database_timestamp": "Wed Oct 14 06:24:15 2026",
+            },
+        ),
+        (
+            "ClamAV 1.4.3/28153",
+            {
+                "tool_version": "ClamAV 1.4.3/28153",
+                "engine_version": "1.4.3",
+                "database_version": "28153",
+            },
+        ),
+        ("ClamAV 1.4.3", {"tool_version": "ClamAV 1.4.3", "engine_version": "1.4.3"}),
+        ("unrecognized scanner build", {"tool_version": "unrecognized scanner build"}),
+        (
+            "ClamAV 1.4.3/not-a-database-version",
+            {"tool_version": "ClamAV 1.4.3/not-a-database-version"},
+        ),
+        (None, {}),
+        ("", {}),
+    ],
+)
+def test_version_metadata_preserves_only_observed_engine_and_database_fields(version, expected):
+    assert clamav.version_metadata(version) == expected
+
+
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     "code,stdout,stderr,status,infected",
@@ -56,6 +90,44 @@ async def test_daemon_scan_records_actual_version(monkeypatch, stage_context):
     assert result.status == "ok"
     assert result.findings["infected"] is False
     assert result.tool_version == "ClamAV 1.5/123/date"
+
+
+@pytest.mark.asyncio
+async def test_daemon_result_exposes_separate_engine_and_database_versions(
+    monkeypatch, stage_context
+):
+    version = "ClamAV 1.4.3/28153/Wed Oct 14 06:24:15 2026"
+    monkeypatch.setattr(clamav.settings, "clamav_mode", "daemon")
+    monkeypatch.setattr(clamav, "_scan_stream_sync", lambda data: None)
+    monkeypatch.setattr(clamav, "_daemon_version", lambda: version)
+
+    result = await clamav.ClamAVStage().execute(stage_context)
+
+    assert result.status == "ok"
+    assert result.findings["infected"] is False
+    assert result.findings["engine_version"] == "1.4.3"
+    assert result.findings["database_version"] == "28153"
+    assert result.findings["database_timestamp"] == "Wed Oct 14 06:24:15 2026"
+    assert result.findings["tool_version"] == result.tool_version == version
+
+
+@pytest.mark.asyncio
+async def test_missing_daemon_version_does_not_invent_database_metadata(monkeypatch, stage_context):
+    monkeypatch.setattr(clamav.settings, "clamav_mode", "daemon")
+    monkeypatch.setattr(clamav, "_scan_stream_sync", lambda data: None)
+
+    def unavailable_version():
+        raise ConnectionError("Version endpoint unavailable")
+
+    monkeypatch.setattr(clamav, "_daemon_version", unavailable_version)
+    result = await clamav.ClamAVStage().execute(stage_context)
+
+    assert result.status == "ok"
+    assert result.findings["infected"] is False
+    assert result.tool_version is None
+    assert not {"tool_version", "engine_version", "database_version", "database_timestamp"} & set(
+        result.findings
+    )
 
 
 @pytest.mark.asyncio

@@ -1,0 +1,438 @@
+{
+  "schema_version": 1,
+  "milestone": "P1 first static-quality batch",
+  "scope": "local_synthetic_static_quality",
+  "cloud_run_executed": false,
+  "production_deployment_verified": false,
+  "corpus_version": "static-quality-v1.0.0",
+  "manifest_sha256": "520dabec01e8a5baec69b360a29b203bb628cfb1d6a5605173e28e85d66b0a42",
+  "native_run": {
+    "started_at": "2026-10-16T15:32:13.594556+00:00",
+    "finished_at": "2026-10-16T15:36:15.753131+00:00",
+    "case_count": 18,
+    "passed_count": 18,
+    "passed": true,
+    "benign_cases_with_rule_hits": [
+      "benign-documentation-url",
+      "benign-java-api"
+    ]
+  },
+  "native_runtime": {
+    "base_image_config_id": "sha256:c68556066d9443cf701fefa9faeb6b8296b0e610d80622ad537489b979f10467",
+    "current_source_and_rules_mounted_read_only": true,
+    "network": "none",
+    "read_only_root": true,
+    "unprivileged": true,
+    "cpu": 2,
+    "memory": "4GiB",
+    "tmpfs": "256MiB"
+  },
+  "tool_versions": {
+    "clamav": [
+      "ClamAV 1.4.3/28152/Tue Oct 13 06:26:14 2026"
+    ],
+    "yara": [
+      "4.5.4"
+    ]
+  },
+  "yara_rules_sha256": [
+    "3f7fa8d5c76e4b5532848d70797adf93841aabce288401fcd10446141c199091"
+  ],
+  "rule_manifest_sha256": [
+    "ddb78acf8fba8202a3a74d3bb50c23a3149fcb11bf21a9d9b84b28779095f077"
+  ],
+  "regression_tests": {
+    "worker": {
+      "passed": 618,
+      "skipped": 3
+    },
+    "backend": {
+      "passed": 160,
+      "skipped": 1
+    },
+    "frontend": {
+      "passed": 28,
+      "skipped": 0
+    },
+    "skips": "PostgreSQL opt-in only",
+    "ruff": "passed",
+    "strict_mypy": {
+      "worker_source_files": 83,
+      "backend_source_files": 27,
+      "status": "passed"
+    },
+    "frontend_typecheck_lint_cloud_demo_build": "passed"
+  },
+  "cases": [
+    {
+      "id": "clean-text",
+      "label": "benign",
+      "scenario": "normal",
+      "fixture_sha256": "ad5ca9fc7f00f85a021fe057c63e1832329f5b942aaf239e450d70ab5557a814",
+      "known_limitations": [],
+      "elapsed_seconds": 10.09,
+      "passed": true,
+      "errors": [],
+      "static_status": "complete",
+      "artifact_count": 1,
+      "yara_rules": [],
+      "infected_artifacts": 0,
+      "detector_failures": [],
+      "verdict": "clean",
+      "score": 0,
+      "report_sha256": "e095ed39d2cf52a7628e29e8a44a18217d3aa44da7655e4a1fbc96a8bf01a542"
+    },
+    {
+      "id": "clean-configuration",
+      "label": "benign",
+      "scenario": "normal",
+      "fixture_sha256": "121bb6c5444adcc0aebb792a96b8e6a8b8248bbfadaa02a64b1d7407254a09f0",
+      "known_limitations": [],
+      "elapsed_seconds": 9.996,
+      "passed": true,
+      "errors": [],
+      "static_status": "complete",
+      "artifact_count": 1,
+      "yara_rules": [],
+      "infected_artifacts": 0,
+      "detector_failures": [],
+      "verdict": "clean",
+      "score": 8,
+      "report_sha256": "090b870dc0bb3ea8008182a42146760cb882f67c37dda8053be744dd0630b369"
+    },
+    {
+      "id": "benign-documentation-url",
+      "label": "benign",
+      "scenario": "normal",
+      "fixture_sha256": "da4a3c3495fd9623d968a66b1a451313f384bcb545358624c22657f2b4459f65",
+      "known_limitations": [
+        "A plain benign URL currently triggers a generic YARA heuristic; this is an observed false-positive baseline, not malware ground truth."
+      ],
+      "elapsed_seconds": 9.843,
+      "passed": true,
+      "errors": [],
+      "static_status": "complete",
+      "artifact_count": 1,
+      "yara_rules": [
+        "network_iocs"
+      ],
+      "infected_artifacts": 0,
+      "detector_failures": [],
+      "verdict": "suspicious",
+      "score": 28,
+      "report_sha256": "6aa7bb34c787743bd93f8f7066a9719c6f6df6ccb8de624049104270c95261ec"
+    },
+    {
+      "id": "benign-java-api",
+      "label": "benign",
+      "scenario": "normal",
+      "fixture_sha256": "36c5806478f1b93a1457339916b6a5b960054c49d7fb4f459ce5c28dd9e25a11",
+      "known_limitations": [
+        "A benign Java API name currently matches a broad webshell heuristic; this case records the false-positive baseline."
+      ],
+      "elapsed_seconds": 9.849,
+      "passed": true,
+      "errors": [],
+      "static_status": "complete",
+      "artifact_count": 1,
+      "yara_rules": [
+        "jsp_webshell"
+      ],
+      "infected_artifacts": 0,
+      "detector_failures": [],
+      "verdict": "suspicious",
+      "score": 29,
+      "report_sha256": "e536c858a55b42a4cab241f8accca8e00c2a1c8f34641245df6e8fd8fc144d09"
+    },
+    {
+      "id": "eicar-direct",
+      "label": "test_signature",
+      "scenario": "normal",
+      "fixture_sha256": "275a021bbfb6489e54d471899f7db9d1663fc695ec2fe2a2c4538aabf651fd0f",
+      "known_limitations": [],
+      "elapsed_seconds": 9.9,
+      "passed": true,
+      "errors": [],
+      "static_status": "complete",
+      "artifact_count": 1,
+      "yara_rules": [
+        "eicar"
+      ],
+      "infected_artifacts": 1,
+      "detector_failures": [],
+      "verdict": "malicious",
+      "score": 100,
+      "report_sha256": "d342bc1aad60b83dd7e10563ab0687dc8ed638fb78ff88b816f17e5213b5e97b"
+    },
+    {
+      "id": "synthetic-php-indicator",
+      "label": "synthetic_indicator",
+      "scenario": "normal",
+      "fixture_sha256": "3abff8a3f8cfb1aef06bca5d7088f43d4fd1c45dc488ceae2cf3581ed653d48f",
+      "known_limitations": [],
+      "elapsed_seconds": 10.19,
+      "passed": true,
+      "errors": [],
+      "static_status": "complete",
+      "artifact_count": 1,
+      "yara_rules": [
+        "php_webshell"
+      ],
+      "infected_artifacts": 0,
+      "detector_failures": [],
+      "verdict": "suspicious",
+      "score": 25,
+      "report_sha256": "c999d01343d9696658a10d9a378e4d3d95888be6565b63690f15a0368af123e9"
+    },
+    {
+      "id": "encoded-url",
+      "label": "synthetic_indicator",
+      "scenario": "normal",
+      "fixture_sha256": "4ab647116fe114e82b3974eef05df354af64715fcb9ab768dcf86bb57b4ca476",
+      "known_limitations": [],
+      "elapsed_seconds": 10.737,
+      "passed": true,
+      "errors": [],
+      "static_status": "complete",
+      "artifact_count": 1,
+      "yara_rules": [
+        "base64_url"
+      ],
+      "infected_artifacts": 0,
+      "detector_failures": [],
+      "verdict": "suspicious",
+      "score": 29,
+      "report_sha256": "58bf1f30bb71fc67f24fcb1b333513f941bd99b2fede9fae4dfc2c646a28836a"
+    },
+    {
+      "id": "nested-duplicate-occurrences",
+      "label": "benign",
+      "scenario": "normal",
+      "fixture_sha256": "9a48373900c8d0933665e60e9b1ec3737a819e8faf7a036898342ddf99ae1e64",
+      "known_limitations": [],
+      "elapsed_seconds": 46.692,
+      "passed": true,
+      "errors": [],
+      "static_status": "complete",
+      "artifact_count": 5,
+      "yara_rules": [],
+      "infected_artifacts": 0,
+      "detector_failures": [],
+      "verdict": "clean",
+      "score": 9,
+      "report_sha256": "86fb183b93951cb3bef10db44204e9c6f3a0a1ee1adde1a6f1989ae5e32ad8e8"
+    },
+    {
+      "id": "eicar-in-zip",
+      "label": "test_signature",
+      "scenario": "normal",
+      "fixture_sha256": "0bcf2a4f69bb07f7b7b4b5254a585df23bccd78b9bf932de0e5489c660916e94",
+      "known_limitations": [],
+      "elapsed_seconds": 18.128,
+      "passed": true,
+      "errors": [],
+      "static_status": "complete",
+      "artifact_count": 2,
+      "yara_rules": [
+        "eicar"
+      ],
+      "infected_artifacts": 1,
+      "detector_failures": [],
+      "verdict": "suspicious",
+      "score": 60,
+      "report_sha256": "cc662a7895282ccc861cd5d9f63d9ee5235372545585041321df864e5b4da50f"
+    },
+    {
+      "id": "eicar-in-gzip",
+      "label": "test_signature",
+      "scenario": "normal",
+      "fixture_sha256": "d89ebd0cf36657104773359aad152bb4cf1a0bef52246f0e679e9c89702b719a",
+      "known_limitations": [],
+      "elapsed_seconds": 18.009,
+      "passed": true,
+      "errors": [],
+      "static_status": "complete",
+      "artifact_count": 2,
+      "yara_rules": [
+        "eicar"
+      ],
+      "infected_artifacts": 1,
+      "detector_failures": [],
+      "verdict": "suspicious",
+      "score": 60,
+      "report_sha256": "e606c37e118b446f58482fada0a08f4e95cb3a2e6df50df75b527b95e3f845e5"
+    },
+    {
+      "id": "corrupt-archive",
+      "label": "failure",
+      "scenario": "normal",
+      "fixture_sha256": "bceeffaa7ed2a06f758165844386d5feca4884f9b0b8e3ef84e61ada24a21231",
+      "known_limitations": [],
+      "elapsed_seconds": 9.99,
+      "passed": true,
+      "errors": [],
+      "static_status": "partial",
+      "artifact_count": 1,
+      "yara_rules": [],
+      "infected_artifacts": 0,
+      "detector_failures": [],
+      "verdict": "clean",
+      "score": 0,
+      "report_sha256": "292107f88e25aeb2bea1854016150d3affdd9b4ba6fb7b612cfe5b95f8c3b53f"
+    },
+    {
+      "id": "corrupt-document",
+      "label": "failure",
+      "scenario": "normal",
+      "fixture_sha256": "cbbac1fb8af6f1974f557ce5d3663791c9fa6f952018110567a3d46b6310e406",
+      "known_limitations": [],
+      "elapsed_seconds": 10.241,
+      "passed": true,
+      "errors": [],
+      "static_status": "partial",
+      "artifact_count": 1,
+      "yara_rules": [],
+      "infected_artifacts": 0,
+      "detector_failures": [],
+      "verdict": "clean",
+      "score": 4,
+      "report_sha256": "476e769efc77afb358ee906b7f20a0addb2da1a9025249e0d4046cf8d52a7f7d"
+    },
+    {
+      "id": "missing-antivirus",
+      "label": "failure",
+      "scenario": "missing_av",
+      "fixture_sha256": "ad5ca9fc7f00f85a021fe057c63e1832329f5b942aaf239e450d70ab5557a814",
+      "known_limitations": [],
+      "elapsed_seconds": 2.17,
+      "passed": true,
+      "errors": [],
+      "static_status": "partial",
+      "artifact_count": 1,
+      "yara_rules": [],
+      "infected_artifacts": 0,
+      "detector_failures": [
+        {
+          "artifact_id": "3d3020c0-de86-4546-9b17-f31031d4ec04",
+          "stage": "clamav",
+          "status": "failed"
+        }
+      ],
+      "verdict": "clean",
+      "score": 0,
+      "report_sha256": "d1f97f01e23fcd96dbffacfa3d32fc14b5d7e8a20c78c4b9c6d6fd9dd088b593"
+    },
+    {
+      "id": "missing-yara-rules",
+      "label": "failure",
+      "scenario": "missing_rules",
+      "fixture_sha256": "ad5ca9fc7f00f85a021fe057c63e1832329f5b942aaf239e450d70ab5557a814",
+      "known_limitations": [],
+      "elapsed_seconds": 9.989,
+      "passed": true,
+      "errors": [],
+      "static_status": "partial",
+      "artifact_count": 1,
+      "yara_rules": [],
+      "infected_artifacts": 0,
+      "detector_failures": [
+        {
+          "artifact_id": "ba4ce360-ea57-4330-958a-dd859c57da69",
+          "stage": "yara",
+          "status": "skipped"
+        }
+      ],
+      "verdict": "clean",
+      "score": 0,
+      "report_sha256": "097392f0755819ed626a0a8705eddf2a75a0083200f7668d33518b52c2b2493a"
+    },
+    {
+      "id": "invalid-yara-rules",
+      "label": "failure",
+      "scenario": "invalid_rules",
+      "fixture_sha256": "ad5ca9fc7f00f85a021fe057c63e1832329f5b942aaf239e450d70ab5557a814",
+      "known_limitations": [],
+      "elapsed_seconds": 10.341,
+      "passed": true,
+      "errors": [],
+      "static_status": "partial",
+      "artifact_count": 1,
+      "yara_rules": [],
+      "infected_artifacts": 0,
+      "detector_failures": [
+        {
+          "artifact_id": "33dfb1c5-15a6-4ba0-8631-775f1a04bae3",
+          "stage": "yara",
+          "status": "failed"
+        }
+      ],
+      "verdict": "clean",
+      "score": 0,
+      "report_sha256": "848ffcfb96a13d4c78d83fafe377a2d35217c6ffc4eac1751366e2abefc3d064"
+    },
+    {
+      "id": "deobfuscation-candidate-limit",
+      "label": "failure",
+      "scenario": "candidate_cap",
+      "fixture_sha256": "4f1352e35dad853bdcce6cf60bbac9ea954189517ec36438541f18e1d99c23c7",
+      "known_limitations": [],
+      "elapsed_seconds": 10.09,
+      "passed": true,
+      "errors": [],
+      "static_status": "partial",
+      "artifact_count": 1,
+      "yara_rules": [
+        "base64_url"
+      ],
+      "infected_artifacts": 0,
+      "detector_failures": [],
+      "verdict": "suspicious",
+      "score": 29,
+      "report_sha256": "8fc6c8007ce303d98fd6156f5bab6c0e2f2fe3bf4a82633b4c9608ee30f16cc5"
+    },
+    {
+      "id": "deobfuscation-size-limit",
+      "label": "failure",
+      "scenario": "deob_size_limit",
+      "fixture_sha256": "ad5ca9fc7f00f85a021fe057c63e1832329f5b942aaf239e450d70ab5557a814",
+      "known_limitations": [],
+      "elapsed_seconds": 10.037,
+      "passed": true,
+      "errors": [],
+      "static_status": "partial",
+      "artifact_count": 1,
+      "yara_rules": [],
+      "infected_artifacts": 0,
+      "detector_failures": [],
+      "verdict": "clean",
+      "score": 0,
+      "report_sha256": "95f31af4bd3f53914dbb0f9796143500878a364d11aae081c1ff16b4185283af"
+    },
+    {
+      "id": "archive-depth-limit",
+      "label": "failure",
+      "scenario": "depth_limit",
+      "fixture_sha256": "9a48373900c8d0933665e60e9b1ec3737a819e8faf7a036898342ddf99ae1e64",
+      "known_limitations": [],
+      "elapsed_seconds": 25.857,
+      "passed": true,
+      "errors": [],
+      "static_status": "partial",
+      "artifact_count": 3,
+      "yara_rules": [],
+      "infected_artifacts": 0,
+      "detector_failures": [],
+      "verdict": "clean",
+      "score": 9,
+      "report_sha256": "a3c2dbdadc18446f889b191026872888439b23f37f6bdefc673c169347d07d49"
+    }
+  ],
+  "limitations": [
+    "Synthetic fixtures are not a real-world malware detection-rate study.",
+    "Two benign inputs still match broad heuristic YARA rules; their hits are explicitly retained in the baseline.",
+    "Rule metadata local verification does not establish authorship, licensing permission or detection accuracy.",
+    "Live GCP/Cloudflare deployment and new real PostgreSQL opt-in execution were not part of this batch.",
+    "Encrypted Office/PDF, broader format fixtures and real dynamic analysis remain separate work."
+  ],
+  "post_run_report_assembly_revalidated_cases": 18
+}

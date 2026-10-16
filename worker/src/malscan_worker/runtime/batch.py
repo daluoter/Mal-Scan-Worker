@@ -533,6 +533,10 @@ class RootBatchRunner:
             risk.update(
                 risk_score=decision.risk_score,
                 risk_level=decision.risk_level,
+                legacy_verdict=decision.legacy_verdict,
+                malicious_gate_open=decision.breakdown.malicious_gate_open,
+                high_gate_open=decision.breakdown.high_gate_open,
+                independent_source_count=decision.breakdown.independent_source_count,
                 breakdown=asdict(decision.breakdown),
                 descendant_summary=decision.descendant_summary,
                 score_trace=decision.score_trace,

@@ -39,6 +39,9 @@ export interface FileMetadata {
 
 export interface AvResult {
     engine: string
+    engine_version?: string | null
+    database_version?: string | null
+    database_timestamp?: string | null
     infected: boolean
     threat_name: string | null
 }
@@ -54,6 +57,37 @@ export interface YaraHit {
     author: string
     tags: string[]
     strings: string[]
+    provenance?: YaraRuleProvenance
+}
+
+export interface YaraRuleProvenance {
+    status: string
+    reason?: string
+    verification_scope?: string
+    ruleset_id?: string
+    ruleset_version?: string
+    ruleset_sha256?: string | null
+    manifest_sha256?: string
+    file_count?: number
+    rule_count?: number
+    source?: {
+        type?: string
+        repository?: string
+        introduced_commit?: string
+        declared_author?: string
+        authorship_status?: string
+        external_upstream_status?: string
+    }
+    license?: {
+        spdx_expression?: string
+        status?: string
+        permission_verified?: boolean
+        note?: string
+    }
+    file?: string
+    file_sha256?: string
+    category?: string
+    limitations?: string
 }
 
 export interface Iocs {
@@ -163,10 +197,36 @@ export interface ArtifactTreeNode {
     analysis?: AnalysisState
     primary_analyzer?: string | null
     finding_ids: string[]
+    direct_finding_ids?: string[]
+    inherited_finding_ids?: string[]
+    direct_evidence_ids?: string[]
+    inherited_evidence_ids?: string[]
+    analysis_reference?: ArtifactAnalysisReference
     uncertainty_ids: string[]
     diagnostic_ids: string[]
     top_finding_titles: string[]
     children: ArtifactTreeNode[]
+}
+
+export interface ArtifactAnalysisReference {
+    schema_version: string
+    mode: string
+    status: string
+    source_artifact_id?: string | null
+    source_job_id?: string | null
+    source_root_artifact_id?: string | null
+    source_sha256?: string | null
+    source_size?: number | null
+    source_analysis_status?: string | null
+    source_stage_coverage?: StageCoverage[]
+    source_evidence_ids?: string[]
+    source_finding_ids?: string[]
+    risk?: {
+        score?: number | null
+        risk_level?: string | null
+        verdict?: string | null
+    }
+    reason?: string | null
 }
 
 export interface ExplainabilitySummaryFinding {
@@ -299,6 +359,12 @@ export interface ExplainabilityBlock {
     uncertainties: ExplainabilityUncertainty[]
     timeline: ExplainabilityTimelineEvent[]
     failure_diagnostics: FailureDiagnostics
+    artifact_coverage?: {
+        occurrences: number
+        direct: number
+        inherited: number
+        unresolved: number
+    }
 }
 
 export interface Report {
@@ -322,6 +388,7 @@ export interface Report {
     results: {
         av_result: AvResult
         yara_hits: YaraHit[]
+        yara_rule_provenance?: YaraRuleProvenance
         iocs: Iocs
         sandbox: {
             executed: boolean

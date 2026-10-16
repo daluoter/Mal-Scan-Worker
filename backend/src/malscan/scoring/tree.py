@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from math import floor
 from typing import Any
 
@@ -31,7 +32,70 @@ def merge_with_descendants(
     local: RiskDecision,
     descendants: list[dict[str, Any]],
 ) -> RiskDecision:
-    seen_hashes: set[object] = set()
+    candidates: list[dict[str, Any]] = []
+    source_nodes = {str(item.get("artifact_id")): item for item in descendants}
+    for descendant in descendants:
+        reference = descendant.get("analysis_reference") or {}
+        source = source_nodes.get(str(reference.get("source_artifact_id")))
+        source_reference = (source or {}).get("analysis_reference") or {}
+        inherited = (
+            reference.get("mode") == "inherited"
+            and reference.get("status") == "verified"
+            and source is not None
+            and source_reference.get("mode") == "direct"
+            and source_reference.get("status") == "verified"
+            and source.get("job_status") == "done"
+            and source.get("analysis_status") == "complete"
+            and source.get("sha256") == descendant.get("sha256")
+            and source.get("size") == descendant.get("size")
+            and reference.get("source_sha256") == source.get("sha256")
+            and reference.get("source_size") == source.get("size")
+            and reference.get("source_job_id") == source.get("job_id")
+            and source_reference.get("source_root_artifact_id")
+            == reference.get("source_root_artifact_id")
+            and source_reference.get("source_root_job_id") == reference.get("source_root_job_id")
+        )
+        if descendant.get("verdict") == "skipped" and not inherited:
+            continue
+        if descendant.get("extraction_note") == "duplicate_within_extraction" and not inherited:
+            continue
+        candidate = dict(descendant)
+        if inherited:
+            risk = reference.get("risk") or {}
+            if (
+                not isinstance(risk.get("score"), int)
+                or isinstance(risk.get("score"), bool)
+                or not 0 <= risk["score"] <= 100
+                or risk.get("risk_level") not in INHERITANCE_BASE
+            ):
+                continue
+            candidate.update(
+                risk_score=risk["score"],
+                risk_level=risk["risk_level"],
+                verdict=risk.get("verdict"),
+            )
+        candidates.append(candidate)
+
+    # Pick the strongest, nearest occurrence before hash deduplication. Traversal
+    # order must not suppress a direct malicious child behind a deeper copy.
+    candidates.sort(
+        key=lambda item: (
+            -INHERITANCE_BASE.get(str(item.get("risk_level")), -1),
+            int(item.get("relative_depth") or 0),
+            -int(item.get("risk_score") or 0),
+            str(item.get("artifact_id") or ""),
+            str(item.get("display_path") or item.get("origin_path") or ""),
+        )
+    )
+    content_groups: dict[str, list[dict[str, Any]]] = {}
+    for index, item in enumerate(candidates):
+        digest = item.get("sha256")
+        key = (
+            digest.lower()
+            if isinstance(digest, str) and re.fullmatch(r"[a-fA-F0-9]{64}", digest)
+            else f"unverified-content::{index}"
+        )
+        content_groups.setdefault(key, []).append(item)
     top_descendants: list[dict[str, Any]] = []
     branch_scores: list[int] = []
     descendant_components: list[dict[str, Any]] = []
@@ -40,17 +104,8 @@ def merge_with_descendants(
     direct_child_malicious = False
     any_nearby_high_or_malicious = False
 
-    for descendant in descendants:
-        if descendant.get("verdict") == "skipped":
-            continue
-        if descendant.get("extraction_note") == "duplicate_within_extraction":
-            continue
-
-        sha256 = descendant.get("sha256")
-        if sha256 in seen_hashes:
-            continue
-        seen_hashes.add(sha256)
-
+    for occurrences in content_groups.values():
+        descendant = occurrences[0]
         level = descendant.get("risk_level", "clean")
         depth = descendant.get("relative_depth") or 0
         base = INHERITANCE_BASE.get(level, 0)
@@ -59,6 +114,18 @@ def merge_with_descendants(
 
         descendant_copy = dict(descendant)
         descendant_copy["inherited_points"] = inherited_points
+        descendant_copy["occurrences"] = [
+            {
+                "artifact_id": item.get("artifact_id"),
+                "display_path": item.get("display_path") or item.get("origin_path"),
+                "relative_depth": item.get("relative_depth"),
+                "analysis_mode": (item.get("analysis_reference") or {}).get("mode", "direct"),
+                "source_artifact_id": (item.get("analysis_reference") or {}).get(
+                    "source_artifact_id"
+                ),
+            }
+            for item in occurrences
+        ]
         top_descendants.append(descendant_copy)
         branch_scores.append(inherited_points)
         descendant_components.append(
@@ -133,6 +200,8 @@ def merge_with_descendants(
         breakdown=breakdown,
         descendant_summary={
             "total_descendants": len(top_descendants),
+            "total_occurrences": len(candidates),
+            "duplicate_occurrences": len(candidates) - len(top_descendants),
             "malicious_descendants": malicious_descendants,
             "high_descendants": high_descendants,
             "top_descendants": top_descendants[:3],
@@ -141,7 +210,19 @@ def merge_with_descendants(
         score_trace={
             "formula": local.score_trace.get("formula", ""),
             "components": [*list(local.score_trace.get("components", [])), *descendant_components],
-            "gates": dict(local.score_trace.get("gates", {})),
+            "gates": {
+                **dict(local.score_trace.get("gates", {})),
+                "local_capped_by": local.score_trace.get("gates", {}).get("capped_by"),
+                "malicious_gate_open": malicious_gate_open,
+                "high_gate_open": high_gate_open,
+                "capped_by": (
+                    "no_high_gate"
+                    if not high_gate_open
+                    else "no_malicious_gate"
+                    if not malicious_gate_open
+                    else None
+                ),
+            },
             "breakdown": {
                 "local_score": local.breakdown.local_score,
                 "inherited_score": inherited_score,

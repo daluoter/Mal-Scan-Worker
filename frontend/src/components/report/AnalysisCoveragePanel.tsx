@@ -16,10 +16,10 @@ export default function AnalysisCoveragePanel({ analysis, complete, pendingDesce
                 {' '}工作結束不代表所有內容都已成功分析。
             </p>
             <div className="mt-3 flex flex-wrap gap-3 font-mono text-sm text-slate-300">
-                <span>靜態分析：{localizeStatus(analysis?.static.status || 'unknown')}</span>
+                <span>靜態分析：{localizeStatus(analysis?.static?.status || 'unknown')}</span>
                 {pendingDescendants > 0 && <span className="text-caution-yellow">等待子檔：{pendingDescendants}</span>}
             </div>
-            {!analysis?.static.stage_coverage.length ? (
+            {!analysis?.static?.stage_coverage?.length ? (
                 <p className="mt-3 text-sm text-caution-yellow">未提供逐階段覆蓋資料，無法確認完整分析範圍。</p>
             ) : (
                 <div className="mt-4 overflow-x-auto">
@@ -31,8 +31,8 @@ export default function AnalysisCoveragePanel({ analysis, complete, pendingDesce
                                     <td className="py-2 pr-3 text-white">{localizeStage(entry.stage)}</td>
                                     <td className="py-2 pr-3 text-slate-300">{localizeStatus(entry.status)}</td>
                                     <td className="py-2 pr-3 font-mono text-xs text-slate-400">
-                                        {entry.tool_version && <div>工具 {entry.tool_version}</div>}
-                                        {entry.rules_version && <div>規則 {entry.rules_version}</div>}
+                                        {entry.tool_version && <div>工具版本 {entry.tool_version}</div>}
+                                        {entry.rules_version && <div className="break-all">{/^[a-f0-9]{64}$/i.test(entry.rules_version) ? '規則內容 SHA-256' : '規則版本'} {entry.rules_version}</div>}
                                         {typeof entry.duration_ms === 'number' && <div>{entry.duration_ms} ms</div>}
                                     </td>
                                     <td className="py-2 text-slate-300 break-words">{localizeReportText(entry.reason) || '—'}</td>

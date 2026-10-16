@@ -55,8 +55,8 @@ def test_duplicate_descendant_hash_only_counts_once() -> None:
     decision = merge_with_descendants(
         local=_decision(15, "low"),
         descendants=[
-            {"sha256": "dup", "risk_level": "high", "relative_depth": 1},
-            {"sha256": "dup", "risk_level": "high", "relative_depth": 1},
+            {"sha256": "a" * 64, "risk_level": "high", "relative_depth": 1},
+            {"sha256": "a" * 64, "risk_level": "high", "relative_depth": 1},
         ],
     )
 

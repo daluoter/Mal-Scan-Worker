@@ -56,8 +56,12 @@ from that image, not a promise of the latest upstream release.
 The bundled YARA baseline contains five files and fifteen rules. Its reported
 SHA256 fingerprints the rule filenames and bytes; it is separate from the YARA
 library version. This is a small project rule set, not a comprehensive community
-feed. Rule acquisition, provenance, licensing, update tests and false-positive
-measurement remain planned work.
+feed. A versioned manifest now records file/rule inventory, hashes, repository
+origin, test/heuristic categories and limitations. Local verification checks
+consistency, not author identity or accuracy. No rule license is currently
+declared (`NOASSERTION`); external-feed acquisition and licensing remain open.
+The [static quality baseline](../docs/static-quality.md) records 18 synthetic
+cases, including two known benign-rule hits, and runs the real shared pipeline.
 
 The `cloud-job` Docker target updates and verifies signed ClamAV databases during
 build. Build/runtime checks reject a daily CVD older than seven days. There is no

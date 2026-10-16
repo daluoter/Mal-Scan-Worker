@@ -128,6 +128,50 @@ async def test_real_archive_duplicate_entries_keep_occurrences_and_accounting(tm
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("child_count,expected_level", [(1, "high"), (2, "malicious")])
+async def test_child_detection_rollup_keeps_public_risk_verdict_and_gates_consistent(
+    tmp_path, child_count, expected_level
+):
+    class ChildDetectionStage(CountingStage):
+        async def execute(self, ctx):
+            now = datetime.now(timezone.utc)
+            findings = {"infected": ctx.depth > 0}
+            if findings["infected"]:
+                findings["threat_name"] = "Contract-Test-Signature"
+            return StageResult(self.name, "ok", now, now, 0, findings, [])
+
+    source = tmp_path / "child-detections.zip"
+    _zip(
+        source,
+        {f"child-{index}": f"unique child {index}".encode() for index in range(child_count)},
+    )
+
+    report = await _runner(
+        tmp_path, AnalysisManifest.for_local_file(source), counter=ChildDetectionStage()
+    ).run()
+
+    assert report["report_complete"] is True
+    assert report["risk_level"] == expected_level
+    assert report["risk"]["risk_level"] == report["risk_level"]
+    assert report["risk"]["risk_score"] == report["score"]
+    expected_verdict = "malicious" if child_count == 2 else "suspicious"
+    assert report["verdict"] == report["risk"]["legacy_verdict"] == expected_verdict
+    assert report["risk"]["high_gate_open"] is True
+    assert report["risk"]["malicious_gate_open"] is (child_count == 2)
+    breakdown = report["risk"]["breakdown"]
+    assert breakdown["high_gate_open"] == report["risk"]["high_gate_open"]
+    assert breakdown["malicious_gate_open"] == report["risk"]["malicious_gate_open"]
+    assert breakdown["local_score"] == 0
+    assert breakdown["inherited_score"] > 0
+    assert report["results"]["av_result"]["infected"] is False
+    assert all(
+        node["report"]["results"]["av_result"]["infected"] is True
+        for node in report["artifacts"]
+        if node["depth"] == 1
+    )
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("suffix,compress", [("gz", gzip.compress), ("bz2", bz2.compress)])
 async def test_single_stream_archives_use_default_occurrence(tmp_path, suffix, compress):
     source = tmp_path / f"payload.txt.{suffix}"
