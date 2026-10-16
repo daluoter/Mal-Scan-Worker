@@ -461,10 +461,10 @@
     "actual_cloud_rollback_verified": false
   },
   "pending_evidence": [
-    "Actual billed cost, credits and Cloudflare usage",
-    "Post-promotion smoke physical R2 absence after2026-10-16T15:36+08:00; original three cases verified",
     "Durable Object row deletion and bucket lifecycle configuration",
-    "Actual guarded rollback in GCP; build controls and image-only promotion are complete"
+    "Cloudflare usage/quota observations and long-term per-job/monthly maintenance costs",
+    "Credit category and final monthly invoice; current project-reported TWD costs reviewed",
+    "Actual guarded rollback in GCP and automatic signed database update scheduling"
   ],
   "post_promotion_smoke": {
     "evidence_source": "One production v2 upload followed by read-only job/report retrieval and strict offline report verification after operator-confirmed promotion.",
@@ -508,10 +508,92 @@
     "analysis_total_ms": 25333,
     "execution_image_digest_independently_verified": true,
     "cost_verified": false,
-    "physical_cleanup_verified": false,
+    "physical_cleanup_verified": true,
     "cloud_run_execution_name": "malscan-v2-static-demo-dm5pr",
     "execution_image_verification_source": "user_uploaded_schema_v2_authenticated_cloud_shell_inventory",
-    "execution_image_inventory_collected_at": "2026-10-16T03:51:06.295076Z"
+    "execution_image_inventory_collected_at": "2026-10-16T03:51:06.295076Z",
+    "retention_verification": {
+      "evidence_source": "user_supplied_authenticated_cloud_shell_retention_output",
+      "schema_version": 1,
+      "scope": "r2_prefix_retention_verification",
+      "read_only": true,
+      "metadata_only": true,
+      "job_id": "1975bcf6-2e5b-41dd-a1c0-ca6b2e026e30",
+      "observed_at": "2026-10-16T14:58:39.675508Z",
+      "retention_expires_at": "2026-10-16T07:15:42.709000Z",
+      "verification_due_at": "2026-10-16T07:35:42.709000Z",
+      "grace_seconds": 1200,
+      "verification_due": true,
+      "status": "verified_absent",
+      "r2_absence_confirmed": true,
+      "prefixes": [
+        {
+          "bucket": "malscan-v2-upload-poc",
+          "prefix": "uploads/1975bcf6-2e5b-41dd-a1c0-ca6b2e026e30/",
+          "observed": true,
+          "http_status": 200,
+          "objects_present": false
+        },
+        {
+          "bucket": "malscan-v2-upload-poc",
+          "prefix": "manifests/1975bcf6-2e5b-41dd-a1c0-ca6b2e026e30/",
+          "observed": true,
+          "http_status": 200,
+          "objects_present": false
+        },
+        {
+          "bucket": "malscan-v2-analysis-results",
+          "prefix": "controls/1975bcf6-2e5b-41dd-a1c0-ca6b2e026e30/",
+          "observed": true,
+          "http_status": 200,
+          "objects_present": false
+        },
+        {
+          "bucket": "malscan-v2-analysis-results",
+          "prefix": "statuses/1975bcf6-2e5b-41dd-a1c0-ca6b2e026e30/",
+          "observed": true,
+          "http_status": 200,
+          "objects_present": false
+        },
+        {
+          "bucket": "malscan-v2-analysis-results",
+          "prefix": "reports/1975bcf6-2e5b-41dd-a1c0-ca6b2e026e30/",
+          "observed": true,
+          "http_status": 200,
+          "objects_present": false
+        },
+        {
+          "bucket": "malscan-v2-analysis-results",
+          "prefix": "checkpoints/1975bcf6-2e5b-41dd-a1c0-ca6b2e026e30/",
+          "observed": true,
+          "http_status": 200,
+          "objects_present": false
+        },
+        {
+          "bucket": "malscan-v2-analysis-results",
+          "prefix": "artifacts/1975bcf6-2e5b-41dd-a1c0-ca6b2e026e30/",
+          "observed": true,
+          "http_status": 200,
+          "objects_present": false
+        }
+      ],
+      "durable_object_row_deletion": "not_observed",
+      "bucket_lifecycle_configuration": "not_observed",
+      "billed_usage": "not_observed",
+      "public_api_withdrawal_is_physical_deletion_proof": false
+    },
+    "public_access_withdrawal_verification": {
+      "evidence_source": "Direct production API owner-authenticated GET responses; credentials omitted",
+      "scope": "owner_access_withdrawal_only",
+      "job_id": "1975bcf6-2e5b-41dd-a1c0-ca6b2e026e30",
+      "checks": {
+        "jobs": 404,
+        "reports": 404
+      },
+      "checked_at": "2026-10-16T15:02:06.082493+00:00",
+      "public_access_withdrawn": true,
+      "proves_physical_deletion": false
+    }
   },
   "retention_summary": {
     "original_case_count": 3,
@@ -522,7 +604,11 @@
     "scope": "Only the listed root prefixes at their recorded observation times; not a bucket-wide inventory or exact deletion-time proof",
     "durable_object_row_deletion": "not_observed",
     "bucket_lifecycle_configuration": "not_observed",
-    "post_promotion_smoke_cleanup_verified": false
+    "post_promotion_smoke_cleanup_verified": true,
+    "all_recorded_case_count": 4,
+    "all_recorded_case_r2_absence_verified_count": 4,
+    "all_recorded_case_prefixes_verified_empty": 28,
+    "all_recorded_case_public_access_withdrawn_count": 4
   },
   "actual_correlated_positive_execution_count": 6,
   "gcp_inventory_review": {
@@ -828,5 +914,21 @@
       "paid_storage_usd_per_gib_month": 0.1,
       "scope": "Billing account across attached projects; instantaneous repository bytes are not monthly billed usage or invoice cost."
     }
+  },
+  "reported_project_cost_review": {
+    "project_attribution_verified": true,
+    "currency": "TWD",
+    "scope": "Month-to-date project report, not a final invoice",
+    "displayed_net_subtotal_rounds_to_zero": true,
+    "unrounded_net_is_exact_zero": false,
+    "precise_amounts_and_raw_billing_attachments_published": false,
+    "credit_category_verified": false,
+    "final_invoice_verified": false,
+    "evidence_source": "User-provided Billing Reports service CSV, project-grouped screenshot and gcloud currencyCode output; private financial records retained separately"
+  },
+  "current_batch_status": {
+    "status": "core_cloud_acceptance_and_four_r2_cases_verified",
+    "all_p0_operations_exit_criteria_verified": false,
+    "next_development_priority": "P1 static evidence and detection quality"
   }
 }

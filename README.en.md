@@ -8,11 +8,15 @@ A file analysis platform built around static analysis: upload files, trace archi
 
 ## Current milestone
 
-**Milestone recorded on 2026-10-15 (Asia/Taipei): the first full v2 cloud workflow passed acceptance.** The actual run took place on 2026-10-14 at 23:08–23:12 (Asia/Taipei). A user uploaded a 13-byte `hello.txt` through the production frontend, traversed the Cloudflare control plane, a dispatcher without Google private keys, a Cloud Run Job and private R2, and downloaded the complete static JSON report: `job_status=done`, `report_complete=true`, static analysis complete and dynamic analysis disabled.
+**2026-10-16 (Asia/Taipei): the current cloud acceptance batch is verified.** Production API tests covered nested archives, different ZIP/7z passwords with resume, a 20,000,000-byte file, and a 49-byte scan after image promotion. The 20 MB report correctly remains static `partial` because deobfuscation has a 10 MB limit; its required scans completed. See the [P0 acceptance record](docs/milestones/2026-10-15-p0-acceptance.md) for results and evidence boundaries.
 
-The execution took approximately **3 minutes 58 seconds** from creation to completion. Resource readiness to the reported start took approximately **2 minutes 45 seconds**; analysis recorded in the report took **29.3 seconds**. This is one observed baseline, not a latency guarantee. The current “queued” UI also covers execution environment preparation.
+Manual maintenance verified signed antivirus databases, clean/EICAR controls, image promotion and the subsequent scan's use of that image. After expiry, all four jobs had empty listings under their 28 R2 prefixes, and owner status/report requests returned 404. The project's month-to-date Google Cloud billing was reviewed in TWD: the net amount is near zero but positive before rounding. Durable Object row deletion, lifecycle settings, Cloudflare usage, longer-term costs, a live rollback and automatic database refresh remain operational follow-ups.
 
-The earlier **20,000,000-byte upload / R2 download / scanning PoC** passed separately. The new application's upper-size, nested-password, interrupted-recovery, replay, retention and actual-cost cloud acceptance cases remain open. See the [milestone record](docs/milestones/2026-10-15-cloud-demo.md) and [local validation](docs/v2-validation.md).
+The **first full v2 cloud workflow**, recorded on 2026-10-15, ran on 2026-10-14 at 23:08–23:12 (Asia/Taipei). A user uploaded a 13-byte `hello.txt` through the production frontend, traversed the Cloudflare control plane, a dispatcher without Google private keys, a Cloud Run Job and private R2, and downloaded the complete static JSON report: `job_status=done`, `report_complete=true`, static analysis complete and dynamic analysis disabled.
+
+That first execution took approximately **3 minutes 58 seconds** from creation to completion. Resource readiness to the reported start took approximately **2 minutes 45 seconds**; analysis recorded in the report took **29.3 seconds**. This is one historical baseline, not a latency guarantee. The current “queued” UI also covers execution environment preparation.
+
+The earlier **20,000,000-byte upload / R2 download / scanning PoC** passed separately from application acceptance. See the [first cloud milestone](docs/milestones/2026-10-15-cloud-demo.md) and [local validation](docs/v2-validation.md).
 
 ## What it analyzes
 
@@ -63,7 +67,7 @@ The demo is static-only, with these current settings:
 | Analysis window / Cloud Run task timeout | 840 seconds / 900 seconds |
 | New-job allowance | 10 per day |
 | Execution allowance | 20 per day, 40 per month; includes password resumes and dispatches with uncertain outcomes |
-| Retention | Configured to 24 hours; actual expiry cleanup remains a cloud acceptance case |
+| Retention | Configured to 24 hours; expiry checks found all 28 R2 prefixes empty across four test jobs; DO row deletion remains unverified |
 
 Free-tier usage is a cost target, **not a zero-bill guarantee**. Cloud Run, builds/images, Secret Manager, storage and logging require cost observation. The product's self-hosted capabilities are separate from demo quotas.
 
@@ -161,4 +165,4 @@ The cloud image refreshes ClamAV signatures **at build time**, not during each s
 
 Local validation covers backend/worker/frontend tests, real PostgreSQL budgets and attempts, real ZIP/7z different-password recovery, full-container/S3 checkpoints and Worker-to-Python-dispatcher HTTP integration. Consult the [validation record](docs/v2-validation.md) for counts, commands and evidence boundaries. These tests do not replace live-provider or billing acceptance.
 
-First complete cloud acceptance, database maintenance and cost observation. Then improve static evidence/rule quality, followed by deeper analysis of common formats and password/attachment handling. Measured performance work follows those static foundations; live CAPE acceptance depends on available infrastructure. Startup-status clarity can proceed alongside cloud acceptance. The [project roadmap](docs/roadmap.md) defines the order and acceptance criteria.
+The next development priority is P1 static evidence and detection quality: versioned test samples, traceable artifact coverage and rule provenance, followed by deeper analysis of common formats and password/attachment handling. Remaining cloud maintenance and cost observations continue alongside that work. Measured performance improvements follow those static foundations; live CAPE acceptance depends on available infrastructure. The [project roadmap](docs/roadmap.md) defines the order and acceptance criteria.
