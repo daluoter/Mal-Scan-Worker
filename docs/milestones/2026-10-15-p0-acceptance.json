@@ -461,7 +461,7 @@
     "actual_cloud_rollback_verified": false
   },
   "pending_evidence": [
-    "Review full owner-authenticated GCP execution inventory JSON and usage records; successful collection summary received",
+    "Refresh resource/image fields with schema v2 collector; reviewed snapshot predates maintenance and49byte smoke",
     "Actual billed cost, credits and Cloudflare usage",
     "Post-promotion smoke physical R2 absence after2026-10-16T15:36+08:00; original three cases verified",
     "Durable Object row deletion and bucket lifecycle configuration",
@@ -522,5 +522,88 @@
     "durable_object_row_deletion": "not_observed",
     "bucket_lifecycle_configuration": "not_observed",
     "post_promotion_smoke_cleanup_verified": false
-  }
+  },
+  "actual_correlated_positive_execution_count": 6,
+  "gcp_inventory_review": {
+    "source": "user_uploaded_allowlisted_inventory",
+    "source_file_sha256": "be37f4ac46c1736e39d5fccb388cd4ea9517c1f4cd89e034c3bba4924f19e04a",
+    "collected_at_utc": "2026-10-15T03:02:52.313131Z",
+    "collection_complete": true,
+    "observed_reads": 13,
+    "failed_reads": [],
+    "successful_correlated_entrypoints": 6,
+    "observed_correlated_execution_count": 6,
+    "correlation_roots": [
+      {
+        "job_id": "6a0910bf-ed13-4de9-b6bf-e0d7ff9cd2a0",
+        "successful_entrypoint_log_count": 1,
+        "execution_names": [
+          "malscan-v2-static-demo-xg4b5"
+        ],
+        "dispatch_ids": [
+          "937acda5-4619-429d-8ed6-aad5817596e7"
+        ],
+        "batch_analysis_statuses": [
+          "complete"
+        ],
+        "records_without_execution_name": 0,
+        "observed_unique_execution_count": 1,
+        "first_success_log_at": "2026-10-15T01:42:40.027932Z",
+        "last_success_log_at": "2026-10-15T01:42:40.027932Z"
+      },
+      {
+        "job_id": "04cfe4ec-4f30-4ad9-9b1b-d2dc8f0f3687",
+        "successful_entrypoint_log_count": 4,
+        "execution_names": [
+          "malscan-v2-static-demo-2h248",
+          "malscan-v2-static-demo-64jg5",
+          "malscan-v2-static-demo-cp8dn",
+          "malscan-v2-static-demo-dnr8c"
+        ],
+        "dispatch_ids": [
+          "33fe6f3d-31f1-4960-9409-80c323cf4e9d",
+          "85769416-8b30-4737-9843-6929bd64c63b",
+          "c4720a03-512e-49e4-ad2e-91325ba6d9ed",
+          "e96076cb-a295-4333-b6b5-eabafc9f9ce8"
+        ],
+        "batch_analysis_statuses": [
+          "complete",
+          "partial"
+        ],
+        "records_without_execution_name": 0,
+        "observed_unique_execution_count": 4,
+        "first_success_log_at": "2026-10-15T01:40:06.971139Z",
+        "last_success_log_at": "2026-10-15T01:50:22.736796Z"
+      },
+      {
+        "job_id": "192e3653-2995-4b10-b9fe-e34a1d453dfe",
+        "successful_entrypoint_log_count": 1,
+        "execution_names": [
+          "malscan-v2-static-demo-kzrpn"
+        ],
+        "dispatch_ids": [
+          "14f0064b-8154-4286-aa81-61a21d8412f8"
+        ],
+        "batch_analysis_statuses": [
+          "partial"
+        ],
+        "records_without_execution_name": 0,
+        "observed_unique_execution_count": 1,
+        "first_success_log_at": "2026-10-15T01:40:17.370714Z",
+        "last_success_log_at": "2026-10-15T01:40:17.370714Z"
+      }
+    ],
+    "runner_execution_list_count": 7,
+    "other_listed_executions": [
+      "malscan-v2-static-demo-hrcmh"
+    ],
+    "listed_executions_all_completed": true,
+    "historical_resource_fields_missing": true,
+    "resource_envelope_excluded_count": 7,
+    "actual_cost_verified": false,
+    "inventory_precedes_maintenance_and_smoke": true,
+    "no_extra_execution_proven": false,
+    "count_verification_scope": "Six distinct successful acceptance executions also present in the captured Job execution list; does not prove absence of extra unlisted executions."
+  },
+  "correlated_positive_execution_count_verified": true
 }

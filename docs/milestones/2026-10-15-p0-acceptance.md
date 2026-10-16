@@ -20,7 +20,7 @@
 - 錯誤 owner capability 回傳 404／`job_not_found`。
 - 已消耗 ticket 在原有效期內回傳 409／`upload_credential_used`，重放僅送 1 byte。
 
-Client 共建立 3 個工作，取得 6 次原始上傳／密碼續跑的接受回覆；對 replay 另保守記錄一個可能執行意圖，因此 journal 為 7。這不是從 GCP 控制面取得的實際 execution 計數；額外執行與帳單仍需獨立 metadata／用量證據。
+Client 共建立 3 個工作，取得 6 次原始上傳／密碼續跑的接受回覆；對 replay 另保守記錄一個可能執行意圖，因此 journal 為 7。這些 client 意圖與 GCP execution 計數分開看待；後續控制面核對見下方，額外執行與帳單仍需獨立證據。
 
 ## 20 MB 發現的實際限制
 
@@ -45,7 +45,7 @@ Client 共建立 3 個工作，取得 6 次原始上傳／密碼續跑的接受�
 | 範圍 | 結果 |
 | --- | --- |
 | Worker 完整回歸 | 548 passed、3 PostgreSQL opt-in skipped；Ruff 與 strict mypy 79 source files 通過 |
-| 操作工具 | 系統標籤修正後 56 passed，包含維護 23、metadata 17、retention 16 |
+| 操作工具 | 取證投影修正後 64 passed：維護 23、metadata 21、真 SDK 投影 4、retention 16 |
 | 驗收 client | 17 項真 loopback HTTP 測試＋1 項真 ZIP／7z 共用核心測試通過 |
 | 真實容器離線控制 | 官方簽章、daily 年齡、正常／EICAR AV 及 YARA 全部通過 |
 
@@ -83,9 +83,23 @@ Client 共建立 3 個工作，取得 6 次原始上傳／密碼續跑的接受�
 這六次公開 API 查詢與上述 R2 管理端證據分開記錄。
 DO 資料列刪除、bucket lifecycle 設定及費用仍未觀察，也不包含較晚到期的 49-byte 工作。
 
+## 上傳的 GCP 取證檔案核對
+
+使用者提供的完整檔案收集於 2026-10-15 11:02:52（Asia/Taipei），早於後續維護建置與
+49-byte 測試。原三個工作有 6 筆成功摘要，分別對應到 1、4、1 個不同 execution，
+皆可在該次 Job execution 清單找到；密碼流程的中途 partial 與 20 MB 的 partial 保留。
+清單共 7 筆，均記錄成功完成；另一筆為先前的瀏覽器良性檔測試 `hrcmh`。
+這個有限時間窗與成功摘要不構成「絕無額外執行」的證明。
+
+該版取證的容器與建置映像陣列欄位因 gcloud 投影格式而遺漏，7 筆 execution 都被排除於
+資源包絡計算。當中的 vCPU／GiB 秒數為 0 代表缺少計算資料，不能解讀為零用量或免費。
+schema v2 修正陣列投影，完全缺少資源時改回傳 null／unavailable，另保留 execution 自身映像；
+Artifact Registry 大小則避開 describe 的顯示處理，改用固定名稱 list。
+修正以真實 Google SDK formatter 離線測試驗證，仍待已登入 Cloud Shell 重新取證。
+
 ## 尚待遠端完成
 
-1. 取得並審查已收集的完整 GCP metadata JSON、關聯這三個工作及核對實際執行清單；目前已收到讀取全部成功的摘要。成功 log 缺席不能證明沒有執行。
+1. 原三個工作的 6 筆正向 execution 已核對；用新版取證工具補齊資源／映像欄位及較晚的維護、49-byte 工作。成功 log 缺席不能證明沒有執行。
 2. 雲端建置、控制報告、Registry digest 及 image-only promotion 已完成；原映像 digest 保留於檢查點。受保護回退流程有離線回歸測試，實際 GCP 回退尚未驗證，也未建立自動更新排程。
 3. 核對 Billing／抵用／幣別及 Cloudflare 用量；尚不宣稱零費用。
 4. 原三個工作的 R2 前綴清理與到期撤權已驗證；49-byte 工作仍待 **2026-10-16 15:36（Asia/Taipei）之後**核對。DO row 實體刪除與 lifecycle 設定仍需獨立管理端證據。

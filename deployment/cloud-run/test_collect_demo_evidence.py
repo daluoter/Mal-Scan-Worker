@@ -63,6 +63,15 @@ class InventoryTests(unittest.TestCase):
                 ["secrets", "versions", "list"],
             ):
                 return {"observed": True, "data": []}
+            if args[:3] == ["artifacts", "repositories", "list"]:
+                return {
+                    "observed": True,
+                    "data": [
+                        {
+                            "name": f"projects/{collector.PROJECT}/locations/{collector.REGION}/repositories/{collector.REPOSITORY}"
+                        }
+                    ],
+                }
             return {"observed": True, "data": {}}
 
         report = collector.collect(days=30, limit=200, now=NOW, runner=runner)
@@ -162,6 +171,55 @@ class InventoryTests(unittest.TestCase):
         self.assertEqual(clean["scaling"]["autoscaling.knative.dev/maxScale"], "1")
         self.assertNotIn("sensitive annotation", json.dumps(clean))
 
+    def test_repository_size_uses_exact_filtered_list_without_describe_presentation_hook(
+        self,
+    ):
+        calls = []
+        name = f"projects/{collector.PROJECT}/locations/{collector.REGION}/repositories/{collector.REPOSITORY}"
+
+        def runner(args):
+            calls.append(args)
+            if args[:3] == ["artifacts", "repositories", "list"]:
+                return {
+                    "observed": True,
+                    "data": [
+                        {
+                            "name": name,
+                            "sizeBytes": "1234567",
+                            "private": "not exported",
+                        }
+                    ],
+                }
+            return {"observed": False, "reason": "not_available"}
+
+        report = collector.collect(days=30, limit=200, now=NOW, runner=runner)
+        row = report["observations"]["artifact_repository"]
+        self.assertTrue(row["observed"])
+        self.assertEqual(row["data"]["sizeBytes"], "1234567")
+        self.assertTrue(row["data"]["size_bytes_observed"])
+        args = next(args for args in calls if args[:2] == ["artifacts", "repositories"])
+        self.assertIn(f'--filter=name="{name}"', args)
+        self.assertIn("--limit=2", args)
+        self.assertNotIn("not exported", json.dumps(report))
+
+    def test_missing_repository_size_is_unobserved_and_target_must_match(self):
+        name = f"projects/{collector.PROJECT}/locations/{collector.REGION}/repositories/{collector.REPOSITORY}"
+        for size in (None, -1, True, {"private": "not exported"}):
+            with self.subTest(size=size):
+                clean = collector.sanitize_repository(
+                    [{"name": name, "sizeBytes": size}]
+                )
+                self.assertFalse(clean["size_bytes_observed"])
+                self.assertNotIn("sizeBytes", clean)
+        for rows in (
+            [],
+            [{"name": name}, {"name": name}],
+            [{"name": "another-repository"}],
+            {},
+        ):
+            with self.subTest(rows=rows), self.assertRaises(ValueError):
+                collector.sanitize_repository(rows)
+
     def test_execution_real_milestone_times_and_non_billing_resource_envelope(self):
         result = collector.summarize_executions([execution()], 200)
         item = result["executions"][0]
@@ -173,6 +231,7 @@ class InventoryTests(unittest.TestCase):
         self.assertAlmostEqual(envelope["vcpu_seconds"], 430.215726)
         self.assertAlmostEqual(envelope["gib_seconds"], 860.431452)
         self.assertEqual(envelope["included_completed_executions"], 1)
+        self.assertEqual(envelope["coverage"], "complete")
         self.assertFalse(envelope["is_billable_usage"])
         self.assertNotIn("not exported", json.dumps(result))
 
@@ -181,6 +240,26 @@ class InventoryTests(unittest.TestCase):
         envelope = result["resource_time_envelope"]
         self.assertEqual(envelope["included_completed_executions"], 0)
         self.assertEqual(envelope["excluded_executions"], 1)
+        self.assertIsNone(envelope["vcpu_seconds"])
+        self.assertIsNone(envelope["gib_seconds"])
+        self.assertEqual(envelope["coverage"], "unavailable")
+
+    def test_partial_resource_coverage_keeps_missing_executions_explicit(self):
+        result = collector.summarize_executions(
+            [execution(), execution(with_resources=False)], 200
+        )
+        envelope = result["resource_time_envelope"]
+        self.assertEqual(envelope["included_completed_executions"], 1)
+        self.assertEqual(envelope["excluded_executions"], 1)
+        self.assertEqual(envelope["coverage"], "partial")
+        self.assertAlmostEqual(envelope["vcpu_seconds"], 430.215726)
+        self.assertFalse(envelope["is_billable_usage"])
+
+    def test_empty_execution_list_is_distinct_from_missing_resources(self):
+        envelope = collector.summarize_executions([], 200)["resource_time_envelope"]
+        self.assertEqual(envelope["coverage"], "no_executions")
+        self.assertEqual(envelope["included_completed_executions"], 0)
+        self.assertEqual(envelope["excluded_executions"], 0)
         self.assertEqual(envelope["vcpu_seconds"], 0)
 
     def test_unfinished_and_invalid_durations_excluded_and_limit_reported(self):
@@ -349,7 +428,7 @@ class InventoryTests(unittest.TestCase):
             ["6a0910bf-ed13-1de9-b6bf-e0d7ff9cd2a0"],
             [JOB_IDS[0] + '" OR true'],
             [None],
-            JOB_IDS + [DISPATCH_ID],
+            JOB_IDS + [DISPATCH_ID, DISPATCH_ID],
         ):
             with self.subTest(job_ids=job_ids), patch.object(
                 collector, "run_gcloud"
@@ -361,6 +440,9 @@ class InventoryTests(unittest.TestCase):
                 run.assert_not_called()
         self.assertEqual(
             collector.validate_job_ids([JOB_IDS[0], JOB_IDS[0]]), [JOB_IDS[0]]
+        )
+        self.assertEqual(
+            collector.validate_job_ids(JOB_IDS + [DISPATCH_ID]), JOB_IDS + [DISPATCH_ID]
         )
 
 

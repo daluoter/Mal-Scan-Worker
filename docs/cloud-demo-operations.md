@@ -103,13 +103,23 @@ python3 deployment/cloud-run/collect-demo-evidence.py \
   --output "$HOME/demo-cloud-evidence-20261015.json"
 ```
 
-可額外重複提供最多三個 `--job-id ROOT_UUID`，以唯讀 Logging 查詢關聯指定工作的成功摘要、
+可額外重複提供最多四個 `--job-id ROOT_UUID`，以唯讀 Logging 查詢關聯指定工作的成功摘要、
 execution／dispatch ID 與時間。該查詢只取指定結構化欄位；失敗、中斷、尚未送達或缺少的日誌
 仍不可用來證明沒有額外 execution。
 
 工具只保存允許的 metadata，輸出檔為 0600 且不覆寫舊結果。權限不足時保留部分結果及明確的 unknown；不讀 Secret payload，不開啟工作，不清理 Registry／bucket，也不修改 IAM。
 
 execution 的 start／completion、資源設定與推算的 wall-clock resource envelope **不是 Google 的 billable usage**。歷史工作不能套用目前 Job 的 CPU／記憶體反推帳單。
+
+schema v2 修正 gcloud 陣列投影，以 `containers[]`／`results.images[]` 保留容器與建置映像；
+execution 同時保留自身的映像參照。Artifact Registry 大小改以固定名稱的 repository list
+讀取，避免 describe 的顯示處理移除原始 bytes；未回傳大小時明確標為未觀察。
+資源包絡的 `coverage` 分為 complete、partial、unavailable、no_executions。
+有 execution 卻完全缺少資源欄位時，CPU／記憶體時間回傳 `null`，不能讀成零用量；
+`collection_complete` 只表示讀取成功，CLI 摘要會另列 `resource_envelope_coverage`。
+舊版檔案可繼續作為當時的執行 metadata 證據，缺少的資源欄位應以新版重新取證。
+投影回歸測試會使用已安裝的 gcloud SDK，或 `MALSCAN_GCLOUD_SDK_LIB` 指定的 SDK lib；
+只在本機格式化含私有欄位標記的 fixture，不呼叫 Google API。未安裝 SDK 時這四項測試略過。
 
 實際費用仍須在 [Google Cloud Billing Reports](https://console.cloud.google.com/billing) 選擇帳單帳戶、專案及驗收日期，檢查 Cloud Run、Cloud Build、Artifact Registry、Secret Manager、Logging 與 Storage 的費用／抵用／幣別。Cloudflare Workers／DO／R2 用量另由該帳戶 Dashboard 核對。報價、免費額度、啟動秒數、預算告警都不能代替帳單；帳單也可能延遲入帳。
 

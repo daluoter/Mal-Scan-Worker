@@ -169,6 +169,30 @@ def sanitize_dispatcher(data: Any) -> dict[str, Any]:
     }
 
 
+def sanitize_repository(rows: Any) -> dict[str, Any]:
+    expected = f"projects/{PROJECT}/locations/{REGION}/repositories/{REPOSITORY}"
+    if (
+        not isinstance(rows, list)
+        or len(rows) != 1
+        or not isinstance(rows[0], dict)
+        or rows[0].get("name") != expected
+    ):
+        raise ValueError("Expected exactly the configured Artifact Registry repository")
+    row = rows[0]
+    result = {
+        key: row[key]
+        for key in ("name", "format", "cleanupPolicies", "cleanupPolicyDryRun")
+        if key in row
+    }
+    size = row.get("sizeBytes")
+    result["size_bytes_observed"] = (
+        isinstance(size, int) and not isinstance(size, bool) and size >= 0
+    ) or (isinstance(size, str) and re.fullmatch(r"[0-9]+", size) is not None)
+    if result["size_bytes_observed"]:
+        result["sizeBytes"] = size
+    return result
+
+
 def quantity(value: Any, kind: str) -> Decimal | None:
     if not isinstance(value, (str, int, float)) or isinstance(value, bool):
         return None
@@ -259,8 +283,17 @@ def summarize_executions(data: Any, limit: int) -> dict[str, Any]:
         "resource_time_envelope": {
             "included_completed_executions": envelopes,
             "excluded_executions": len(data) - envelopes,
-            "vcpu_seconds": float(cpu_seconds),
-            "gib_seconds": float(gib_seconds),
+            "vcpu_seconds": float(cpu_seconds) if envelopes or not data else None,
+            "gib_seconds": float(gib_seconds) if envelopes or not data else None,
+            "coverage": (
+                "no_executions"
+                if not data
+                else "complete"
+                if envelopes == len(data)
+                else "partial"
+                if envelopes
+                else "unavailable"
+            ),
             "is_billable_usage": False,
             "method": "Execution start-to-completion wall time multiplied by task count and that execution's resource limits. Includes platform waiting; does not model attempts, billing minimums, or service/build usage. Not an invoice or free-tier calculation.",
         },
@@ -268,8 +301,8 @@ def summarize_executions(data: Any, limit: int) -> dict[str, Any]:
 
 
 def validate_job_ids(values: list[str]) -> list[str]:
-    if len(values) > 3:
-        raise ValueError("Use at most three --job-id arguments")
+    if len(values) > 4:
+        raise ValueError("Use at most four --job-id arguments")
     for value in values:
         try:
             parsed = uuid.UUID(value)
@@ -417,7 +450,7 @@ def collect(
             "describe",
             JOB,
             f"--region={REGION}",
-            "--format=json(metadata.name,spec.template.spec.taskCount,spec.template.spec.parallelism,spec.template.spec.template.spec.serviceAccountName,spec.template.spec.template.spec.timeoutSeconds,spec.template.spec.template.spec.maxRetries,spec.template.spec.template.spec.containers.image,spec.template.spec.template.spec.containers.resources,status.conditions)",
+            "--format=json(metadata.name,spec.template.spec.taskCount,spec.template.spec.parallelism,spec.template.spec.template.spec.serviceAccountName,spec.template.spec.template.spec.timeoutSeconds,spec.template.spec.template.spec.maxRetries,spec.template.spec.template.spec.containers[].image,spec.template.spec.template.spec.containers[].resources,status.conditions)",
         ],
         sanitize_job,
     )
@@ -429,7 +462,7 @@ def collect(
             "describe",
             DISPATCHER,
             f"--region={REGION}",
-            "--format=json(metadata.name,spec.template.spec.serviceAccountName,spec.template.spec.containerConcurrency,spec.template.spec.timeoutSeconds,spec.template.spec.containers.image,spec.template.spec.containers.resources,spec.template.metadata.annotations,status.conditions)",
+            "--format=json(metadata.name,spec.template.spec.serviceAccountName,spec.template.spec.containerConcurrency,spec.template.spec.timeoutSeconds,spec.template.spec.containers[].image,spec.template.spec.containers[].resources,spec.template.metadata.annotations,status.conditions)",
         ],
         sanitize_dispatcher,
     )
@@ -445,7 +478,7 @@ def collect(
             f"--filter=metadata.creationTimestamp>={cutoff}",
             f"--limit={limit}",
             "--sort-by=~metadata.creationTimestamp",
-            "--format=json(metadata.name,metadata.creationTimestamp,status.startTime,status.completionTime,status.conditions,status.succeededCount,status.failedCount,status.cancelledCount,spec.taskCount,spec.template.spec.containers.resources)",
+            "--format=json(metadata.name,metadata.creationTimestamp,status.startTime,status.completionTime,status.conditions,status.succeededCount,status.failedCount,status.cancelledCount,spec.taskCount,spec.template.spec.containers[].image,spec.template.spec.containers[].resources)",
         ],
         lambda rows: summarize_executions(rows, limit),
     )
@@ -458,7 +491,7 @@ def collect(
             f"--filter=createTime>={cutoff}",
             f"--limit={limit}",
             "--sort-by=~createTime",
-            "--format=json(id,status,createTime,startTime,finishTime,options.machineType,results.images.name,results.images.digest)",
+            "--format=json(id,status,createTime,startTime,finishTime,options.machineType,results.images[].name,results.images[].digest)",
         ],
         lambda rows: {
             "returned_count": len(rows),
@@ -491,22 +524,16 @@ def collect(
         [
             "artifacts",
             "repositories",
-            "describe",
-            REPOSITORY,
+            "list",
             f"--location={REGION}",
+            f'--filter=name="projects/{PROJECT}/locations/{REGION}/repositories/{REPOSITORY}"',
+            "--limit=2",
             "--format=json(name,format,sizeBytes,cleanupPolicies,cleanupPolicyDryRun)",
         ],
-        lambda row: {
-            k: row[k]
-            for k in (
-                "name",
-                "format",
-                "sizeBytes",
-                "cleanupPolicies",
-                "cleanupPolicyDryRun",
-            )
-            if k in row
-        },
+        # The gcloud describe command's presentation hook clears sizeBytes.
+        # A fixed, exact-name list retains the API's byte value without parsing
+        # rounded human-readable messages or reading another repository.
+        sanitize_repository,
     )
     read(
         "registry_image_versions",
@@ -597,7 +624,7 @@ def collect(
             lambda rows: summarize_job_logs(rows, job_ids, limit, cutoff, stamp(now)),
         )
     return {
-        "schema_version": 1,
+        "schema_version": 2,
         "scope": "read_only_cloud_demo_inventory",
         "collected_at_utc": stamp(now),
         "project_id": PROJECT,
@@ -655,7 +682,7 @@ def main() -> None:
         "--job-id",
         action="append",
         default=[],
-        help="Optional canonical UUID4 to correlate structured success logs; repeat up to three times",
+        help="Optional canonical UUID4 to correlate structured success logs; repeat up to four times",
     )
     args = parser.parse_args()
     if not 1 <= args.days <= 90 or not 1 <= args.limit <= 1000:
@@ -676,6 +703,11 @@ def main() -> None:
                 "scope": report["scope"],
                 "report_file": str(output),
                 "collection_complete": report["collection_complete"],
+                "resource_envelope_coverage": report["observations"]
+                .get("runner_executions", {})
+                .get("data", {})
+                .get("resource_time_envelope", {})
+                .get("coverage", "not_observed"),
                 "acceptance_complete": False,
                 "actual_cost_verified": False,
                 "remote_mutations": False,
