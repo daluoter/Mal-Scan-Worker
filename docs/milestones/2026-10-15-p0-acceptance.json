@@ -461,12 +461,10 @@
     "actual_cloud_rollback_verified": false
   },
   "pending_evidence": [
-    "Refresh resource/image fields with schema v2 collector; reviewed snapshot predates maintenance and49byte smoke",
     "Actual billed cost, credits and Cloudflare usage",
     "Post-promotion smoke physical R2 absence after2026-10-16T15:36+08:00; original three cases verified",
     "Durable Object row deletion and bucket lifecycle configuration",
-    "Actual guarded rollback in GCP; build controls and image-only promotion are complete",
-    "Exact post-promotion smoke execution-image binding from GCP control-plane evidence"
+    "Actual guarded rollback in GCP; build controls and image-only promotion are complete"
   ],
   "post_promotion_smoke": {
     "evidence_source": "One production v2 upload followed by read-only job/report retrieval and strict offline report verification after operator-confirmed promotion.",
@@ -508,9 +506,12 @@
       "sandbox": "skipped"
     },
     "analysis_total_ms": 25333,
-    "execution_image_digest_independently_verified": false,
+    "execution_image_digest_independently_verified": true,
     "cost_verified": false,
-    "physical_cleanup_verified": false
+    "physical_cleanup_verified": false,
+    "cloud_run_execution_name": "malscan-v2-static-demo-dm5pr",
+    "execution_image_verification_source": "user_uploaded_schema_v2_authenticated_cloud_shell_inventory",
+    "execution_image_inventory_collected_at": "2026-10-16T03:51:06.295076Z"
   },
   "retention_summary": {
     "original_case_count": 3,
@@ -605,5 +606,227 @@
     "no_extra_execution_proven": false,
     "count_verification_scope": "Six distinct successful acceptance executions also present in the captured Job execution list; does not prove absence of extra unlisted executions."
   },
-  "correlated_positive_execution_count_verified": true
+  "correlated_positive_execution_count_verified": true,
+  "gcp_inventory_v2_review": {
+    "evidence_source": "user_uploaded_schema_v2_authenticated_cloud_shell_inventory",
+    "source_file_sha256": "35186051ffaa7d1214d6a142bcef1604655f9363e99ee1a07e8cc1c62b51daab",
+    "collected_at_utc": "2026-10-16T03:51:06.295076Z",
+    "collected_at_taipei": "2026-10-16T11:51:06.295076+08:00",
+    "collector_schema_version": 2,
+    "observed_reads": 13,
+    "failed_reads": [],
+    "original_acceptance_positive_execution_count": 6,
+    "all_four_roots_correlated_execution_count": 7,
+    "correlation_roots": [
+      {
+        "job_id": "6a0910bf-ed13-4de9-b6bf-e0d7ff9cd2a0",
+        "successful_entrypoint_log_count": 1,
+        "execution_names": [
+          "malscan-v2-static-demo-xg4b5"
+        ],
+        "dispatch_ids": [
+          "937acda5-4619-429d-8ed6-aad5817596e7"
+        ],
+        "batch_analysis_statuses": [
+          "complete"
+        ],
+        "records_without_execution_name": 0,
+        "observed_unique_execution_count": 1,
+        "first_success_log_at": "2026-10-15T01:42:40.027932Z",
+        "last_success_log_at": "2026-10-15T01:42:40.027932Z"
+      },
+      {
+        "job_id": "04cfe4ec-4f30-4ad9-9b1b-d2dc8f0f3687",
+        "successful_entrypoint_log_count": 4,
+        "execution_names": [
+          "malscan-v2-static-demo-2h248",
+          "malscan-v2-static-demo-64jg5",
+          "malscan-v2-static-demo-cp8dn",
+          "malscan-v2-static-demo-dnr8c"
+        ],
+        "dispatch_ids": [
+          "33fe6f3d-31f1-4960-9409-80c323cf4e9d",
+          "85769416-8b30-4737-9843-6929bd64c63b",
+          "c4720a03-512e-49e4-ad2e-91325ba6d9ed",
+          "e96076cb-a295-4333-b6b5-eabafc9f9ce8"
+        ],
+        "batch_analysis_statuses": [
+          "complete",
+          "partial"
+        ],
+        "records_without_execution_name": 0,
+        "observed_unique_execution_count": 4,
+        "first_success_log_at": "2026-10-15T01:40:06.971139Z",
+        "last_success_log_at": "2026-10-15T01:50:22.736796Z"
+      },
+      {
+        "job_id": "192e3653-2995-4b10-b9fe-e34a1d453dfe",
+        "successful_entrypoint_log_count": 1,
+        "execution_names": [
+          "malscan-v2-static-demo-kzrpn"
+        ],
+        "dispatch_ids": [
+          "14f0064b-8154-4286-aa81-61a21d8412f8"
+        ],
+        "batch_analysis_statuses": [
+          "partial"
+        ],
+        "records_without_execution_name": 0,
+        "observed_unique_execution_count": 1,
+        "first_success_log_at": "2026-10-15T01:40:17.370714Z",
+        "last_success_log_at": "2026-10-15T01:40:17.370714Z"
+      },
+      {
+        "job_id": "1975bcf6-2e5b-41dd-a1c0-ca6b2e026e30",
+        "successful_entrypoint_log_count": 1,
+        "execution_names": [
+          "malscan-v2-static-demo-dm5pr"
+        ],
+        "dispatch_ids": [
+          "8ccdecab-af3c-43b6-97c4-242518ca652a"
+        ],
+        "batch_analysis_statuses": [
+          "complete"
+        ],
+        "records_without_execution_name": 0,
+        "observed_unique_execution_count": 1,
+        "first_success_log_at": "2026-10-15T07:18:32.707774Z",
+        "last_success_log_at": "2026-10-15T07:18:32.707774Z"
+      }
+    ],
+    "listed_execution_count": 8,
+    "other_listed_execution_names": [
+      "malscan-v2-static-demo-hrcmh"
+    ],
+    "listed_executions_all_successful": true,
+    "resource_time_envelope": {
+      "included_completed_executions": 8,
+      "excluded_executions": 0,
+      "vcpu_seconds": 2853.325398,
+      "gib_seconds": 5706.650796,
+      "coverage": "complete",
+      "is_billable_usage": false,
+      "method": "Execution start-to-completion wall time multiplied by task count and that execution's resource limits. Includes platform waiting; does not model attempts, billing minimums, or service/build usage. Not an invoice or free-tier calculation."
+    },
+    "runner_job": {
+      "name": "malscan-v2-static-demo",
+      "task_count": 1,
+      "parallelism": 1,
+      "service_account": "malscan-v2-static-demo@malscan-v2-poc.iam.gserviceaccount.com",
+      "timeout_seconds": "900",
+      "max_retries": 0,
+      "containers": [
+        {
+          "image": "us-central1-docker.pkg.dev/malscan-v2-poc/malscan-v2-poc/full-worker@sha256:361ce60bfeb1e285471ee3e8dbaba9d458f4d5e5f15297d9058a73c1d5fd57f6",
+          "limits": {
+            "cpu": "2",
+            "memory": "4Gi"
+          }
+        }
+      ],
+      "conditions": [
+        {
+          "type": "Ready",
+          "status": "True"
+        }
+      ]
+    },
+    "dispatcher_service": {
+      "name": "malscan-v2-dispatcher",
+      "service_account": "malscan-v2-demo-invoker@malscan-v2-poc.iam.gserviceaccount.com",
+      "concurrency": 1,
+      "timeout_seconds": 60,
+      "containers": [
+        {
+          "image": "us-central1-docker.pkg.dev/malscan-v2-poc/malscan-v2-poc/demo-dispatcher@sha256:db0a81ba06f943a9d8bd56df06bc842c158f73932090900a956dfcc1812382f8",
+          "limits": {
+            "cpu": "1",
+            "memory": "256Mi"
+          }
+        }
+      ],
+      "scaling": {
+        "autoscaling.knative.dev/maxScale": "1",
+        "run.googleapis.com/cpu-throttling": "true"
+      },
+      "conditions": [
+        {
+          "type": "Ready",
+          "status": "True",
+          "lastTransitionTime": "2026-10-14T15:06:16.415362Z"
+        },
+        {
+          "type": "ConfigurationsReady",
+          "status": "True",
+          "lastTransitionTime": "2026-10-14T15:06:15.059405Z"
+        },
+        {
+          "type": "RoutesReady",
+          "status": "True",
+          "lastTransitionTime": "2026-10-14T15:06:16.343176Z"
+        }
+      ]
+    },
+    "smoke_execution": {
+      "name": "malscan-v2-static-demo-dm5pr",
+      "created_at": "2026-10-15T07:15:46.530760Z",
+      "start_time": "2026-10-15T07:16:14.825417Z",
+      "completion_time": "2026-10-15T07:18:37.126654Z",
+      "elapsed_start_to_completion_seconds": 142.301237,
+      "elapsed_created_to_completion_seconds": 170.595894,
+      "task_count": 1,
+      "succeeded_count": 1,
+      "failed_count": 0,
+      "cancelled_count": 0,
+      "conditions": [
+        {
+          "type": "Completed",
+          "status": "True",
+          "lastTransitionTime": "2026-10-15T07:18:37.126654Z"
+        },
+        {
+          "type": "ResourcesAvailable",
+          "status": "True",
+          "lastTransitionTime": "2026-10-15T07:15:55.952848Z"
+        },
+        {
+          "type": "Started",
+          "status": "True",
+          "lastTransitionTime": "2026-10-15T07:17:45.920632Z"
+        },
+        {
+          "type": "ContainerReady",
+          "status": "True",
+          "lastTransitionTime": "2026-10-15T07:15:55.816465Z"
+        }
+      ],
+      "containers": [
+        {
+          "image": "us-central1-docker.pkg.dev/malscan-v2-poc/malscan-v2-poc/full-worker@sha256:361ce60bfeb1e285471ee3e8dbaba9d458f4d5e5f15297d9058a73c1d5fd57f6",
+          "limits": {
+            "cpu": "2",
+            "memory": "4Gi"
+          }
+        }
+      ]
+    },
+    "smoke_execution_image_matches_promoted": true,
+    "repository_size_bytes": 1671658885,
+    "repository_size_gib": 1.5568536566570401,
+    "registry_returned_version_count": 8,
+    "repository_cleanup_policies_returned": false,
+    "source_bucket_lifecycle_returned": false,
+    "source_bucket_soft_delete_retention_seconds": 604800,
+    "maintenance_build_included": true,
+    "billing_enabled": true,
+    "actual_cost_verified": false,
+    "no_extra_execution_proven": false,
+    "pricing_reference": {
+      "source": "https://cloud.google.com/artifact-registry/pricing",
+      "checked_date_taipei": "2026-10-16",
+      "free_storage_allowance_gib_month": 0.5,
+      "paid_storage_usd_per_gib_month": 0.1,
+      "scope": "Billing account across attached projects; instantaneous repository bytes are not monthly billed usage or invoice cost."
+    }
+  }
 }

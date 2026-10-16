@@ -63,7 +63,7 @@ Client 共建立 3 個工作，取得 6 次原始上傳／密碼續跑的接受�
 透過正式 API 驗證為 done／report complete／static complete。檔案大小、SHA256、
 單一節點、提取預算及必要階段皆通過；ClamAV 未偵測感染、YARA 無命中，工具及規則版本
 與建置控制報告一致，動態分析 disabled。這是新的一筆上傳與執行意圖，獨立於前述三案例計數。
-公開報告不含執行映像 digest，該次 execution 與映像的控制面對應仍待 GCP 證據。
+公開報告不含執行映像 digest；後續新版 GCP 取證已補齊該次 execution 與映像的對應，見下方。
 此工作的 R2 清理應在 **2026-10-16 15:36（Asia/Taipei）之後**另行核對。
 
 ## 原三個驗收工作的保留期驗證
@@ -95,13 +95,27 @@ DO 資料列刪除、bucket lifecycle 設定及費用仍未觀察，也不包含
 資源包絡計算。當中的 vCPU／GiB 秒數為 0 代表缺少計算資料，不能解讀為零用量或免費。
 schema v2 修正陣列投影，完全缺少資源時改回傳 null／unavailable，另保留 execution 自身映像；
 Artifact Registry 大小則避開 describe 的顯示處理，改用固定名稱 list。
-修正以真實 Google SDK formatter 離線測試驗證，仍待已登入 Cloud Shell 重新取證。
+修正以真實 Google SDK formatter 離線測試驗證，後續已取得已登入 Cloud Shell 的新版取證。
+
+新版檔案收集於 **2026-10-16 11:51:06（Asia/Taipei）**，13 項讀取皆成功。
+四個指定工作共關聯 7 次 execution，加上先前瀏覽器驗收，清單共 8 次成功執行。
+全部取得各自的容器資源與映像；資源包絡 coverage 為 complete、排除筆數為 0。
+其中 49-byte 工作對應 `malscan-v2-static-demo-dm5pr`，執行映像確為已切換的
+`sha256:361ce60bfeb1e285471ee3e8dbaba9d458f4d5e5f15297d9058a73c1d5fd57f6`。
+現行 Job 也為該映像並 Ready，使用 1 task／parallelism 1／2 CPU／4 GiB／900 秒／重試 0。
+
+這 8 次 start-to-completion 的資源時間包絡為 2,853.325398 vCPU-seconds、
+5,706.650796 GiB-seconds，包含平台等待，仍不等於 billable usage。
+映像倉庫回傳 1,671,658,885 bytes（約 1.67 GB／1.56 GiB），共 8 個版本；
+此為當時儲存快照，不是每月儲存用量或帳單。官方[Artifact Registry 定價](https://cloud.google.com/artifact-registry/pricing)
+的免費儲存級距為每帳單帳戶 0.5 GiB-month，以上部分為 US$0.10／GiB-month；
+仍須核對實際入帳期間、其他專案共用額度及抵用額，未宣稱零費用。
 
 ## 尚待遠端完成
 
-1. 原三個工作的 6 筆正向 execution 已核對；用新版取證工具補齊資源／映像欄位及較晚的維護、49-byte 工作。成功 log 缺席不能證明沒有執行。
-2. 雲端建置、控制報告、Registry digest 及 image-only promotion 已完成；原映像 digest 保留於檢查點。受保護回退流程有離線回歸測試，實際 GCP 回退尚未驗證，也未建立自動更新排程。
-3. 核對 Billing／抵用／幣別及 Cloudflare 用量；尚不宣稱零費用。
-4. 原三個工作的 R2 前綴清理與到期撤權已驗證；49-byte 工作仍待 **2026-10-16 15:36（Asia/Taipei）之後**核對。DO row 實體刪除與 lifecycle 設定仍需獨立管理端證據。
+1. 核對 Billing／抵用／幣別及 Cloudflare 用量；資源快照與成功紀錄不能代替帳單，也不證明絕無額外 execution。
+2. 原三個工作的 R2 前綴清理與到期撤權已驗證；49-byte 工作仍待 **2026-10-16 15:36（Asia/Taipei）之後**核對。
+3. DO row 實體刪除與 lifecycle 設定仍需獨立管理端證據；GCP 來源 bucket 與映像倉庫的保留／清理設定也須分開檢視。
+4. 原映像 digest 保留於檢查點；受保護回退流程有離線回歸測試，實際 GCP 回退尚未驗證，也未建立自動更新排程。
 
 精確命令與斷線恢復方式見[操作手冊](../cloud-demo-operations.md)。這一階段仍在進行，未以本機測試取代缺少的雲端身分、時間條件或帳單證據。
