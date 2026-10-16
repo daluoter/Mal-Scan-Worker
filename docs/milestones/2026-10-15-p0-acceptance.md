@@ -66,11 +66,28 @@ Client 共建立 3 個工作，取得 6 次原始上傳／密碼續跑的接受�
 公開報告不含執行映像 digest，該次 execution 與映像的控制面對應仍待 GCP 證據。
 此工作的 R2 清理應在 **2026-10-16 15:36（Asia/Taipei）之後**另行核對。
 
+## 原三個驗收工作的保留期驗證
+
+2026-10-16 已由使用者在已登入原專案的 Cloud Shell 執行唯讀 R2 prefix verifier，
+原三個工作在到期加二十分鐘後，七個指定前綴各自取得有效 HTTP 200 空清單：
+
+| 案例 | 觀察時間（Asia/Taipei） | R2 結果 |
+| --- | --- | --- |
+| 巢狀 ZIP | 10:10:22 | 7 個前綴皆空，verified absent |
+| 密碼 ZIP／7z | 10:14:10 | 7 個前綴皆空，verified absent |
+| 20 MB | 10:14:13 | 7 個前綴皆空，verified absent |
+
+合計 21 個前綴的相關物件已確認不存在；此結果限定於列出的 root 前綴與觀察時點，
+不推論整個 bucket 為空或精確刪除時間。另以原 owner capability 查詢正式 API，
+三個工作的 jobs／reports 路由皆取得 404／`job_not_found`，確認到期撤權；
+這六次公開 API 查詢與上述 R2 管理端證據分開記錄。
+DO 資料列刪除、bucket lifecycle 設定及費用仍未觀察，也不包含較晚到期的 49-byte 工作。
+
 ## 尚待遠端完成
 
 1. 取得並審查已收集的完整 GCP metadata JSON、關聯這三個工作及核對實際執行清單；目前已收到讀取全部成功的摘要。成功 log 缺席不能證明沒有執行。
 2. 雲端建置、控制報告、Registry digest 及 image-only promotion 已完成；原映像 digest 保留於檢查點。受保護回退流程有離線回歸測試，實際 GCP 回退尚未驗證，也未建立自動更新排程。
 3. 核對 Billing／抵用／幣別及 Cloudflare 用量；尚不宣稱零費用。
-4. 三個工作的 R2 實體清理最早應在 **2026-10-16 09:58（Asia/Taipei）之後**核對。公開 404 只驗證撤權；DO row 實體刪除與 lifecycle 設定仍需獨立管理端證據。
+4. 原三個工作的 R2 前綴清理與到期撤權已驗證；49-byte 工作仍待 **2026-10-16 15:36（Asia/Taipei）之後**核對。DO row 實體刪除與 lifecycle 設定仍需獨立管理端證據。
 
 精確命令與斷線恢復方式見[操作手冊](../cloud-demo-operations.md)。這一階段仍在進行，未以本機測試取代缺少的雲端身分、時間條件或帳單證據。

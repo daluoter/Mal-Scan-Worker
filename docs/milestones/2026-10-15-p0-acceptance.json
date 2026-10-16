@@ -47,12 +47,95 @@
         "report_sha256": "5d36d6f296060eae579fd642e6b3b37868256bb358d8562ef395d0b291c2041e",
         "execution_intents": 7,
         "job_intents": 3,
-        "r2_cleanup_verified": false,
+        "r2_cleanup_verified": true,
         "cost_verified": false,
         "verification_scope": "upload_integrity_and_declared_scan_coverage",
         "analysis_static_status": "complete",
         "full_static_analysis_verified": true,
-        "known_limitations": []
+        "known_limitations": [],
+        "r2_cleanup_verified_at": "2026-10-16T02:10:22.474990Z",
+        "r2_cleanup_evidence_source": "user_supplied_authenticated_cloud_shell_retention_output"
+      },
+      "retention_verification": {
+        "evidence_source": "user_supplied_authenticated_cloud_shell_retention_output",
+        "schema_version": 1,
+        "scope": "r2_prefix_retention_verification",
+        "read_only": true,
+        "metadata_only": true,
+        "job_id": "6a0910bf-ed13-4de9-b6bf-e0d7ff9cd2a0",
+        "observed_at": "2026-10-16T02:10:22.474990Z",
+        "retention_expires_at": "2026-10-16T01:36:33.112000Z",
+        "verification_due_at": "2026-10-16T01:56:33.112000Z",
+        "grace_seconds": 1200,
+        "verification_due": true,
+        "status": "verified_absent",
+        "r2_absence_confirmed": true,
+        "prefixes": [
+          {
+            "bucket": "malscan-v2-upload-poc",
+            "prefix": "uploads/6a0910bf-ed13-4de9-b6bf-e0d7ff9cd2a0/",
+            "observed": true,
+            "http_status": 200,
+            "objects_present": false
+          },
+          {
+            "bucket": "malscan-v2-upload-poc",
+            "prefix": "manifests/6a0910bf-ed13-4de9-b6bf-e0d7ff9cd2a0/",
+            "observed": true,
+            "http_status": 200,
+            "objects_present": false
+          },
+          {
+            "bucket": "malscan-v2-analysis-results",
+            "prefix": "controls/6a0910bf-ed13-4de9-b6bf-e0d7ff9cd2a0/",
+            "observed": true,
+            "http_status": 200,
+            "objects_present": false
+          },
+          {
+            "bucket": "malscan-v2-analysis-results",
+            "prefix": "statuses/6a0910bf-ed13-4de9-b6bf-e0d7ff9cd2a0/",
+            "observed": true,
+            "http_status": 200,
+            "objects_present": false
+          },
+          {
+            "bucket": "malscan-v2-analysis-results",
+            "prefix": "reports/6a0910bf-ed13-4de9-b6bf-e0d7ff9cd2a0/",
+            "observed": true,
+            "http_status": 200,
+            "objects_present": false
+          },
+          {
+            "bucket": "malscan-v2-analysis-results",
+            "prefix": "checkpoints/6a0910bf-ed13-4de9-b6bf-e0d7ff9cd2a0/",
+            "observed": true,
+            "http_status": 200,
+            "objects_present": false
+          },
+          {
+            "bucket": "malscan-v2-analysis-results",
+            "prefix": "artifacts/6a0910bf-ed13-4de9-b6bf-e0d7ff9cd2a0/",
+            "observed": true,
+            "http_status": 200,
+            "objects_present": false
+          }
+        ],
+        "durable_object_row_deletion": "not_observed",
+        "bucket_lifecycle_configuration": "not_observed",
+        "billed_usage": "not_observed",
+        "public_api_withdrawal_is_physical_deletion_proof": false
+      },
+      "public_access_withdrawal_verification": {
+        "evidence_source": "Direct production API owner-authenticated GET responses; credentials omitted",
+        "scope": "owner_access_withdrawal_only",
+        "checks": {
+          "jobs": 404,
+          "reports": 404
+        },
+        "checked_at": "2026-10-16T02:16:02.029330+00:00",
+        "public_access_withdrawn": true,
+        "proves_physical_deletion": false
       }
     },
     {
@@ -122,12 +205,95 @@
         "report_sha256": "92028b46f876abd30749651e31ba41541c45cc0a450bb4979b3e2246f8a0813b",
         "execution_intents": 7,
         "job_intents": 3,
-        "r2_cleanup_verified": false,
+        "r2_cleanup_verified": true,
         "cost_verified": false,
         "verification_scope": "upload_integrity_and_declared_scan_coverage",
         "analysis_static_status": "complete",
         "full_static_analysis_verified": true,
-        "known_limitations": []
+        "known_limitations": [],
+        "r2_cleanup_verified_at": "2026-10-16T02:14:10.539171Z",
+        "r2_cleanup_evidence_source": "user_supplied_authenticated_cloud_shell_retention_output"
+      },
+      "retention_verification": {
+        "evidence_source": "user_supplied_authenticated_cloud_shell_retention_output",
+        "schema_version": 1,
+        "scope": "r2_prefix_retention_verification",
+        "read_only": true,
+        "metadata_only": true,
+        "job_id": "04cfe4ec-4f30-4ad9-9b1b-d2dc8f0f3687",
+        "observed_at": "2026-10-16T02:14:10.539171Z",
+        "retention_expires_at": "2026-10-16T01:37:02.955000Z",
+        "verification_due_at": "2026-10-16T01:57:02.955000Z",
+        "grace_seconds": 1200,
+        "verification_due": true,
+        "status": "verified_absent",
+        "r2_absence_confirmed": true,
+        "prefixes": [
+          {
+            "bucket": "malscan-v2-upload-poc",
+            "prefix": "uploads/04cfe4ec-4f30-4ad9-9b1b-d2dc8f0f3687/",
+            "observed": true,
+            "http_status": 200,
+            "objects_present": false
+          },
+          {
+            "bucket": "malscan-v2-upload-poc",
+            "prefix": "manifests/04cfe4ec-4f30-4ad9-9b1b-d2dc8f0f3687/",
+            "observed": true,
+            "http_status": 200,
+            "objects_present": false
+          },
+          {
+            "bucket": "malscan-v2-analysis-results",
+            "prefix": "controls/04cfe4ec-4f30-4ad9-9b1b-d2dc8f0f3687/",
+            "observed": true,
+            "http_status": 200,
+            "objects_present": false
+          },
+          {
+            "bucket": "malscan-v2-analysis-results",
+            "prefix": "statuses/04cfe4ec-4f30-4ad9-9b1b-d2dc8f0f3687/",
+            "observed": true,
+            "http_status": 200,
+            "objects_present": false
+          },
+          {
+            "bucket": "malscan-v2-analysis-results",
+            "prefix": "reports/04cfe4ec-4f30-4ad9-9b1b-d2dc8f0f3687/",
+            "observed": true,
+            "http_status": 200,
+            "objects_present": false
+          },
+          {
+            "bucket": "malscan-v2-analysis-results",
+            "prefix": "checkpoints/04cfe4ec-4f30-4ad9-9b1b-d2dc8f0f3687/",
+            "observed": true,
+            "http_status": 200,
+            "objects_present": false
+          },
+          {
+            "bucket": "malscan-v2-analysis-results",
+            "prefix": "artifacts/04cfe4ec-4f30-4ad9-9b1b-d2dc8f0f3687/",
+            "observed": true,
+            "http_status": 200,
+            "objects_present": false
+          }
+        ],
+        "durable_object_row_deletion": "not_observed",
+        "bucket_lifecycle_configuration": "not_observed",
+        "billed_usage": "not_observed",
+        "public_api_withdrawal_is_physical_deletion_proof": false
+      },
+      "public_access_withdrawal_verification": {
+        "evidence_source": "Direct production API owner-authenticated GET responses; credentials omitted",
+        "scope": "owner_access_withdrawal_only",
+        "checks": {
+          "jobs": 404,
+          "reports": 404
+        },
+        "checked_at": "2026-10-16T02:16:02.730698+00:00",
+        "public_access_withdrawn": true,
+        "proves_physical_deletion": false
       }
     },
     {
@@ -169,14 +335,97 @@
         "report_sha256": "e55e960c4d523e19eda38f7d3813eea0d89ba8738d9315505baba982cc6315f5",
         "execution_intents": 7,
         "job_intents": 3,
-        "r2_cleanup_verified": false,
+        "r2_cleanup_verified": true,
         "cost_verified": false,
         "verification_scope": "upload_integrity_and_declared_scan_coverage",
         "analysis_static_status": "partial",
         "full_static_analysis_verified": false,
         "known_limitations": [
           "deobfuscation_skipped_size_limit"
-        ]
+        ],
+        "r2_cleanup_verified_at": "2026-10-16T02:14:13.972852Z",
+        "r2_cleanup_evidence_source": "user_supplied_authenticated_cloud_shell_retention_output"
+      },
+      "retention_verification": {
+        "evidence_source": "user_supplied_authenticated_cloud_shell_retention_output",
+        "schema_version": 1,
+        "scope": "r2_prefix_retention_verification",
+        "read_only": true,
+        "metadata_only": true,
+        "job_id": "192e3653-2995-4b10-b9fe-e34a1d453dfe",
+        "observed_at": "2026-10-16T02:14:13.972852Z",
+        "retention_expires_at": "2026-10-16T01:37:54.586000Z",
+        "verification_due_at": "2026-10-16T01:57:54.586000Z",
+        "grace_seconds": 1200,
+        "verification_due": true,
+        "status": "verified_absent",
+        "r2_absence_confirmed": true,
+        "prefixes": [
+          {
+            "bucket": "malscan-v2-upload-poc",
+            "prefix": "uploads/192e3653-2995-4b10-b9fe-e34a1d453dfe/",
+            "observed": true,
+            "http_status": 200,
+            "objects_present": false
+          },
+          {
+            "bucket": "malscan-v2-upload-poc",
+            "prefix": "manifests/192e3653-2995-4b10-b9fe-e34a1d453dfe/",
+            "observed": true,
+            "http_status": 200,
+            "objects_present": false
+          },
+          {
+            "bucket": "malscan-v2-analysis-results",
+            "prefix": "controls/192e3653-2995-4b10-b9fe-e34a1d453dfe/",
+            "observed": true,
+            "http_status": 200,
+            "objects_present": false
+          },
+          {
+            "bucket": "malscan-v2-analysis-results",
+            "prefix": "statuses/192e3653-2995-4b10-b9fe-e34a1d453dfe/",
+            "observed": true,
+            "http_status": 200,
+            "objects_present": false
+          },
+          {
+            "bucket": "malscan-v2-analysis-results",
+            "prefix": "reports/192e3653-2995-4b10-b9fe-e34a1d453dfe/",
+            "observed": true,
+            "http_status": 200,
+            "objects_present": false
+          },
+          {
+            "bucket": "malscan-v2-analysis-results",
+            "prefix": "checkpoints/192e3653-2995-4b10-b9fe-e34a1d453dfe/",
+            "observed": true,
+            "http_status": 200,
+            "objects_present": false
+          },
+          {
+            "bucket": "malscan-v2-analysis-results",
+            "prefix": "artifacts/192e3653-2995-4b10-b9fe-e34a1d453dfe/",
+            "observed": true,
+            "http_status": 200,
+            "objects_present": false
+          }
+        ],
+        "durable_object_row_deletion": "not_observed",
+        "bucket_lifecycle_configuration": "not_observed",
+        "billed_usage": "not_observed",
+        "public_api_withdrawal_is_physical_deletion_proof": false
+      },
+      "public_access_withdrawal_verification": {
+        "evidence_source": "Direct production API owner-authenticated GET responses; credentials omitted",
+        "scope": "owner_access_withdrawal_only",
+        "checks": {
+          "jobs": 404,
+          "reports": 404
+        },
+        "checked_at": "2026-10-16T02:16:03.233461+00:00",
+        "public_access_withdrawn": true,
+        "proves_physical_deletion": false
       }
     }
   ],
@@ -212,11 +461,12 @@
     "actual_cloud_rollback_verified": false
   },
   "pending_evidence": [
-    "Owner-authenticated GCP execution inventory and usage records",
+    "Review full owner-authenticated GCP execution inventory JSON and usage records; successful collection summary received",
     "Actual billed cost, credits and Cloudflare usage",
-    "Physical R2 absence after expiry plus20minutes",
-    "Durable Object row deletion",
-    "Actual guarded rollback in GCP; build controls and image-only promotion are complete"
+    "Post-promotion smoke physical R2 absence after2026-10-16T15:36+08:00; original three cases verified",
+    "Durable Object row deletion and bucket lifecycle configuration",
+    "Actual guarded rollback in GCP; build controls and image-only promotion are complete",
+    "Exact post-promotion smoke execution-image binding from GCP control-plane evidence"
   ],
   "post_promotion_smoke": {
     "evidence_source": "One production v2 upload followed by read-only job/report retrieval and strict offline report verification after operator-confirmed promotion.",
@@ -261,5 +511,16 @@
     "execution_image_digest_independently_verified": false,
     "cost_verified": false,
     "physical_cleanup_verified": false
+  },
+  "retention_summary": {
+    "original_case_count": 3,
+    "original_case_r2_absence_verified_count": 3,
+    "original_case_prefixes_verified_empty": 21,
+    "original_case_public_access_withdrawn_count": 3,
+    "observations_date_taipei": "2026-10-16",
+    "scope": "Only the listed root prefixes at their recorded observation times; not a bucket-wide inventory or exact deletion-time proof",
+    "durable_object_row_deletion": "not_observed",
+    "bucket_lifecycle_configuration": "not_observed",
+    "post_promotion_smoke_cleanup_verified": false
   }
 }
