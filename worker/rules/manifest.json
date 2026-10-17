@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "ruleset_id": "malscan-bundled-basic",
-  "ruleset_version": "1.0.0",
+  "ruleset_version": "1.1.0",
   "verification_scope": "Local file hashes and native rule inventory only; this unsigned manifest does not authenticate authorship, grant license permission or establish detection accuracy.",
   "source": {
     "type": "repository-maintained",
@@ -55,7 +55,7 @@
     {
       "path": "network.yar",
       "namespace": "network",
-      "sha256": "75c2acf5be5600d09fc552434054839bdfe5011206f65d9d013732f2551d45cd",
+      "sha256": "dcf8218ce7f4070712ce1b8095cbb103eb3b0ac9ea0e613d0fa48f009b64877b",
       "rules": [
         {
           "name": "base64_url",
@@ -64,8 +64,8 @@
         },
         {
           "name": "network_iocs",
-          "category": "heuristic",
-          "limitations": "Any literal HTTP/HTTPS URL matches, including ordinary benign HTML and documentation. This is contextual evidence, not a malicious network verdict."
+          "category": "context",
+          "limitations": "Any literal HTTP/HTTPS URL matches, including ordinary benign HTML and documentation. Informational observation only, with no malware-risk contribution; no destination reputation is checked."
         },
         {
           "name": "suspicious_network_patterns",
@@ -104,7 +104,7 @@
     {
       "path": "webshells.yar",
       "namespace": "webshells",
-      "sha256": "5c31589540a803dd7c802824f62f09f17759b272ad9b8db054e9f9e3c0c412b4",
+      "sha256": "b23deb3c1beeb9aed02dbe2865f337fa4e77a9ff5ee59a0daa5fc88dd0cb1cab",
       "rules": [
         {
           "name": "asp_webshell",
@@ -119,7 +119,7 @@
         {
           "name": "jsp_webshell",
           "category": "heuristic",
-          "limitations": "ProcessBuilder( and getInputStream() are common benign Java APIs and also match this rule; a hit alone does not establish a webshell."
+          "limitations": "Process execution and web request input strings must occur within 4096 bytes. The ProcessBuilder branch also requires a following process-start string. This is bounded co-occurrence, not Java parsing, taint flow or execution proof; examples can still match and alternate syntax can be missed."
         },
         {
           "name": "php_webshell",
@@ -127,6 +127,18 @@
           "limitations": "Patterns such as passthru(), shell_exec() and create_function() can occur in legitimate PHP utilities or examples; no taint flow or malicious intent is established."
         }
       ]
+    }
+  ],
+  "changes": [
+    {
+      "ruleset_version": "1.1.0",
+      "date": "2026-10-17",
+      "reason": "Address measured benign URL and Java API false positives in the versioned local quality corpus.",
+      "changes": [
+        "network_iocs remains a native match and is informational context without malware-risk contribution.",
+        "jsp_webshell now requires process execution and request.getParameter strings within 4096 bytes; the ProcessBuilder branch also requires a following process-start string."
+      ],
+      "limitations": "The JSP rule tests bounded string co-occurrence, not parsed Java, taint flow or runtime behavior; clean controls are a small synthetic regression set, not detection-accuracy validation."
     }
   ]
 }

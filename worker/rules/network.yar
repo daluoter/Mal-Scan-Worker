@@ -1,8 +1,9 @@
 rule network_iocs {
     meta:
-        description = "Network behavior indicators"
+        description = "Observed HTTP/HTTPS URL; no destination reputation or malicious behavior verdict"
         author = "MalScan"
-        severity = "low"
+        classification = "informational"
+        severity = "info"
     strings:
         $http = "http://" ascii
         $https = "https://" ascii

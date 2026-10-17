@@ -153,7 +153,10 @@ class ArchiveExtractStage(Stage):
         # --- Zip bomb check -------------------------------------------------
         if result.malicious:
             return self._malicious_result(
-                started_at, result.reason or "Malicious archive", handler.name
+                started_at,
+                result.reason or "Unsafe archive extraction aborted",
+                handler.name,
+                limit_reason=result.limit_reason,
             )
 
         # Local extractor limits also make coverage incomplete, even when the
@@ -361,19 +364,41 @@ class ArchiveExtractStage(Stage):
         )
 
     def _malicious_result(
-        self, started_at: datetime, reason: str, archive_type: str
+        self,
+        started_at: datetime,
+        reason: str,
+        archive_type: str,
+        *,
+        limit_reason: str | None = None,
     ) -> StageResult:
+        # An extractor safety signal is separate from analysis coverage. No child
+        # output from an aborted extraction is submitted or claimed as analyzed.
+        if limit_reason is None:
+            lowered = reason.lower()
+            if "expansion ratio" in lowered:
+                limit_reason = "expansion_ratio_limit"
+            elif "single file bytes" in lowered:
+                limit_reason = "single_file_bytes_limit"
+            elif "total extracted bytes" in lowered:
+                limit_reason = "extraction_bytes_limit"
         ended_at = datetime.now(timezone.utc)
         return StageResult(
             stage_name=self.name,
-            status="malicious",
+            status="partial",
             started_at=started_at,
             ended_at=ended_at,
             duration_ms=int((ended_at - started_at).total_seconds() * 1000),
             findings={
                 "malicious": True,
+                "extraction_aborted": True,
+                "coverage_incomplete": True,
+                "resource_limited": limit_reason is not None,
+                "limit_reason": limit_reason,
                 "reason": reason,
                 "archive_type": archive_type,
+                "extracted_count": 0,
+                "sub_jobs_created": 0,
+                "artifacts_created": 0,
             },
             artifacts=[],
         )

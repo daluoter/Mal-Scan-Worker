@@ -1,33 +1,77 @@
 # 靜態分析品質基準
 
-2026-10-16：P1 第一批實作。目標是讓偵測結果、分析範圍與子檔案證據可以重現及核對。
+2026-10-17：P1 第二批實作。目標是讓偵測結果、分析範圍與子檔案證據可以重現及核對。
 這份基準使用合成資料與標準 EICAR 測試字串，不是實際惡意程式樣本庫，也不能據此估計真實世界的偵測率。
 
-本批實測：真實引擎完整流程 18／18 通過；worker 618 passed／3 skipped、backend 160 passed／1 skipped、
-frontend 28 passed。四個 skip 均為 PostgreSQL opt-in。Ruff、strict mypy 與前端 typecheck／lint／
-cloud-demo build 通過。完整案例使用斷網、唯讀、非 root 容器及現行來源／規則掛載，
-ClamAV 1.4.3／DB 28152、YARA 4.5.4；時間、雜湊與逐案例結果見[允許欄位紀錄](milestones/2026-10-16-static-quality.json)。
-此批未部署到正式 GCP／Cloudflare，既有雲端驗收另見 [P0 紀錄](milestones/2026-10-15-p0-acceptance.md)。
+本批 32／32 真實引擎案例通過，共 28 個固定 fixture。worker 717 passed／3 skipped、
+backend 203 passed／1 skipped、frontend 34 passed；四個 skip 均為 PostgreSQL opt-in。
+Ruff、strict mypy、前端 typecheck／lint／cloud-demo build 通過。
+完整報告另以加強後的 parent 圖與編碼 URL 驗收器重新核對 32 案，沒有重跑偵測器；
+原始與最終 manifest 雜湊、工具版本、逐案結果見
+[2026-10-17 紀錄](milestones/2026-10-17-static-quality.json)。
+歷史第一批 18／18 真實引擎完整流程及一般測試結果見
+[2026-10-16 紀錄](milestones/2026-10-16-static-quality.json)，不能沿用為第二批的通過證據。
+正式 GCP／Cloudflare 尚未部署這兩批品質變更；合併更新方式見
+[worker／Pages 部署手冊](deploy-static-quality-v2.md)，既有雲端驗收另見
+[P0 紀錄](milestones/2026-10-15-p0-acceptance.md)。
 
 ## 版本化樣本與驗收
 
-[`worker/quality/corpus-v1.json`](../worker/quality/corpus-v1.json) 保存版本、每個 fixture 的 SHA-256、
-生成方法與案例預期。ZIP 的時間、來源權限、壓縮方法及 entry 順序固定；gzip 不寫入當前時間。
+[`worker/quality/corpus-v2.json`](../worker/quality/corpus-v2.json) 保存版本、每個 fixture 的 SHA-256、
+生成方法、目前規則內容雜湊與案例預期。ZIP 的時間、來源權限、壓縮方法及 entry 順序固定；gzip 不寫入當前時間。
+PE 與文件採有版本的生成配方，包含固定 headers、ZIP/XML 或 PDF 結構，不下載外部樣本。
 fixture 的 bytes 或預期需要改變時，必須審查 diff 及更新版本，執行器不會自動接受新的雜湊。
 
-第一批有 18 個案例：
+第二批保留第一批 18 個案例並更新已變更的規則／評分預期，再新增 14 個案例：
 
 | 類型 | 範圍 | 主要驗收 |
 | --- | --- | --- |
-| 正常內容 | 純文字、JSON 設定、一般網址、Java API 文件 | 成功的掃描與零命中分開檢查；記錄已知寬鬆規則命中 |
+| 正常內容 | 純文字、JSON 設定、一般網址、Java API 文件及合法程序 API 文件 | 成功的掃描、context 命中與風險命中分開檢查 |
 | 測試／指標 | EICAR、PHP 字串指標、編碼 URL | 真實引擎命中、規則身份、來源與解碼證據；不執行樣本 |
 | 子檔案 | 巢狀 ZIP、相同內容不同位置、ZIP／gzip 內的 EICAR | 每個 occurrence 保留身份；子檔案命中可回溯，繼承風險欄位一致 |
+| PE 新增 3 案例 | 正常只讀結構、匯入／section／overlay 指標、截斷檔 | 核對 imports、headers、overlay、啟發式與 partial 原因；entry point 為零且沒有 executable section |
+| 文件新增 9 案例 | 5 個 OOXML：正常、外部參照、VBA project 但無可解析來源、損壞、metadata 限制；4 個 PDF：正常、active actions、損壞、需密碼 | 核對實際頁數、XML target、巨集來源狀態、解析錯誤及受限原因 |
+| Java 新增 2 案例 | 正常程序 API 文件、request＋程序執行指標 | 正常對照零 JSP 命中，指標對照保留 `jsp_webshell` 命中 |
 | 失敗／限制 | 損壞 ZIP／PDF、ClamAV 缺失、YARA 空目錄／無效規則、去混淆檔案大小／候選數、深度限制 | 明確 partial、階段原因與保留證據，不能因 `infected=false` 或空命中就判定掃描成功 |
 
-正常樣本仍可能觸發啟發式規則。第一版特別保留兩筆可重現的寬鬆命中：
-一般 HTTPS 網址觸發 `network_iocs`；Java `getInputStream()` 文件觸發 `jsp_webshell`。
-品質摘要將它們列在 `benign_cases_with_rule_hits`，不把它們算成成功識別惡意程式。
-基準通過代表目前宣告的行為與證據契約通過，不代表誤報問題已全部解決。
+原始 [`corpus-v1.json`](../worker/quality/corpus-v1.json) 保留為歷史基準：固定輸入仍可重現，
+舊規則／評分預期則需配合原版本使用，不應要求它在目前規則下原樣通過。
+正常樣本仍可能觸發啟發式規則；基準通過代表宣告的行為與證據契約通過，沒有全面準確率保證。
+
+## 本批修正的品質問題
+
+第一批一般 HTTPS 網址命中 `network_iocs`，Java `getInputStream()` 文件命中 `jsp_webshell`。
+規則集 `1.1.0` 保留前者的 native match 與位置，分類改為 context，不貢獻惡意風險；
+後者需要 request 輸入與程序執行字串在 4,096 bytes 內共同出現，`ProcessBuilder` 分支也需要後續 start 字串。
+這是有界字串共現，沒有 Java parser、taint flow 或執行證據；文件範例仍可能命中，其他語法也可能漏判。
+
+新增正常 OOXML 對照曾只因內部 XML 的網址／domain 觀察累計到 31 分。
+評分政策 `msrs-v1.1` 因此將原始 URL／domain／IP 及多類型 IOC 觀察維持零風險權重，
+保留值、來源及 offset；具有額外結構或偵測證據的 findings 仍依其政策評分。
+品質摘要分開列 `benign_cases_with_rule_hits`、`benign_cases_with_context_rule_hits` 與
+`benign_cases_with_risk_rule_hits`，不把一般網址的 context 當作成功識別惡意程式。
+
+真實正常 PE 對照揭露 `pefile.get_overlay()` 在沒有 overlay 時回傳 `None`，先前會使分析失敗；
+目前正規化為零 bytes，正常結構保留 imports 與 headers，且不憑空產生 overlay 指標。
+另外核對實際 100 MiB 大小限制的 sparse-file 測試；巨大輸入不放入小型 corpus。
+
+文件對照修正 OOXML ZIP／XML 解析與範圍呈現：ZIP MIME 的 OOXML 仍交給 Office 分析，
+relationship 依 XML 結構讀取，不把註解內範例當成外部 target；ZIP／XML 損壞、metadata 限制、
+存在 VBA project 卻無可解析來源時，保留 partial 與原因。PDF 需非空密碼而無法存取內容時也為 partial，
+保留 `encrypted`／`content_access=password_required`，本批沒有新增 PDF 密碼解鎖或附件提取能力。
+
+## 已量測的前後差異
+
+| 對照 | 修正前 | 本批結果 |
+| --- | --- | --- |
+| 一般網址文件 | 28 分／suspicious，`network_iocs` 加分 | 0 分／clean，規則仍命中，列為 context |
+| Java API 文件 | 29 分／suspicious，`jsp_webshell` 命中 | 4 分／clean，不再命中 JSP 規則 |
+| 正常 OOXML | 整合探測中為 31 分／suspicious | 4 分／clean，5 個 artifact 皆完整分析 |
+
+前兩筆修正前值來自第一批紀錄；OOXML 的 31 分是本批調整 YARA 後、調整 IOC 計分前的本機整合探測，
+不是先前雲端量測。PE 程序注入結構對照、Office 外部參照及 PDF active actions 仍為 84 分／suspicious，
+直接 EICAR 為 100 分／malicious，ZIP／gzip 子檔命中仍繼承風險。
+加密 PDF 即使無命中且分數為零，靜態範圍仍為 partial，保留未取得內容的限制。
 
 ## 執行完整本機基準
 
@@ -40,7 +84,8 @@ CLAMAV_MODE=cli \
 CLAMAV_DATABASE_PATH=/absolute/path/to/verified-clamav-databases \
 SANDBOX_ENABLED=false \
 poetry run python -m malscan_worker.quality \
-  --manifest quality/corpus-v1.json \
+  --manifest quality/corpus-v2.json \
+  --jobs 1 \
   --output-dir /absolute/path/to/new-quality-run
 ```
 
@@ -48,10 +93,13 @@ poetry run python -m malscan_worker.quality \
 失敗控制案例則實際使用不存在的執行檔、空規則目錄或語法錯誤規則，不以 mock 代替偵測器。
 每個案例使用獨立 Python process、原檔及 checkpoint，避免故障控制汙染其他案例。
 `--case CASE_ID` 可重複使用以定位失敗；部分選取不等於完整基準通過。
+`--jobs 1` 為預設；`--jobs 2` 最多同時執行兩個獨立案例，可依 ClamAV 資料庫載入的記憶體需要選擇。
 
 輸出目錄必須是新路徑。每個案例保留完整 report 與 runner log，根目錄的
 `quality-report.json` 保存 corpus 版本、manifest／fixture／report 雜湊、耗時、
-各案例 coverage／命中／失敗、已知限制與總結果。程序退出碼 0 才表示所選案例皆通過。
+各案例 coverage／命中／失敗、已知限制與總結果。v2 核對 manifest 固定的規則內容雜湊，
+並檢查報告中的指定結構欄位，不能以 parser 程序退出成功取代證據。
+執行器核對執行前後的 manifest 身分與分析後原檔雜湊；程序退出碼 0 才表示所選案例皆通過。
 這些案例只使用本機 stores，不呼叫 Cloud Run 或外部沙箱。
 
 一般 worker CI 的 pytest 另外驗證固定樣本雜湊、原生 YARA 命中，以及能否拒絕
@@ -84,16 +132,18 @@ YARA 的引擎版本、規則集版本、規則內容 SHA-256 分開記錄。
 來源 commit、逐檔雜湊、規則分類及限制。`verified` 的範圍僅是本機檔案與原生解析出的
 規則清單一致，不是作者身份簽章或準確率保證。
 
-目前 repository 未提供可確認的規則授權，清單如實標為 `NOASSERTION`，不是授權許可。
+目前規則集版本為 `1.1.0`。repository 未提供可確認的規則授權，清單如實標為 `NOASSERTION`，不是授權許可。
 外部規則來源、授權及更新／停用政策仍需在擴充規則前確認。
 自訂規則目錄沒有 manifest 時仍會掃描，並明確顯示 unverified；規則語法錯誤或命名空間衝突則失敗。
-EICAR 規則標為 test，其餘現有規則為 heuristic，不將「高嚴重度」直接等同已確認惡意。
+EICAR 規則標為 test，`network_iocs` 為 context，其餘現有規則為 heuristic，
+不將「高嚴重度」直接等同已確認惡意。
 
 ClamAV 報告另外提供 `engine_version`、`database_version` 與 `database_timestamp`，
 保留舊 `tool_version` 以相容既有報告。病毒庫所載時間不是線上更新檢查，也不保證當下最新。
 
 ## 後續擴充
 
-接續優先處理有量測證據的寬鬆規則誤報，再增加具有來源與預期的 PE、Office、PDF、LNK
-結構樣本，以及更廣泛的密碼、附件及損壞變種。增加規則或 parser 前，都應同時增加正常對照與失敗案例。
-真實惡意樣本偵測率、所有格式相容性與動態沙箱仍需要各自的驗收，不包含在這批 18 案例的結論內。
+本批先完成原生引擎回歸與新舊品質比較，再合併部署 worker 與 Pages；病毒庫新鮮度維護持續獨立追蹤。
+後續增加具有來源與預期的 LNK、更多 Office／PDF 變種、密碼與附件，以及更大正常對照集。
+增加規則或 parser 前，都應同時增加正常對照與失敗案例。
+真實惡意樣本偵測率、所有格式相容性與動態沙箱仍需要各自的驗收，不包含在本批合成案例的結論內。

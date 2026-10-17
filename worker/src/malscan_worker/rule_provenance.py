@@ -105,7 +105,7 @@ def _verify_manifest(
                 name = entry.get("name")
                 if not isinstance(name, str) or not name or name in names:
                     raise ValueError("manifest rule name")
-                if entry.get("category") not in {"test", "heuristic"}:
+                if entry.get("category") not in {"test", "heuristic", "context"}:
                     raise ValueError("manifest rule category")
                 limitations = entry.get("limitations")
                 if not isinstance(limitations, str) or not limitations:

@@ -31,8 +31,9 @@ class OfficeAnalyzerAdapter(FormatAnalyzer):
         doc_type = detect_document_type(file_path, mime)
         if doc_type is None:
             return False
-        if doc_type == "ooxml" and mime.lower() == "application/zip":
-            return False
+        # libmagic can report a valid OOXML package as application/zip. The
+        # document detector already requires an Office extension or package parts;
+        # a generic ZIP alone does not satisfy that identification.
         return True
 
     async def analyze(self, file_path: Path, ctx: StageContext) -> AnalyzerResult:

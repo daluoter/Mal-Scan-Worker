@@ -23,6 +23,7 @@ const CoveragePanel = require('../src/components/report/AnalysisCoveragePanel.ts
 const DynamicPanel = require('../src/components/report/DynamicAnalysisPanel.tsx').default
 const ArtifactTreePanel = require('../src/components/report/ArtifactTreePanel.tsx').default
 const YaraRulesPanel = require('../src/components/report/YaraRulesPanel.tsx').default
+const TopFindingsSummary = require('../src/components/report/TopFindingsSummary.tsx').default
 const AntivirusPanel = require('../src/components/report/AntivirusPanel.tsx').default
 const PasswordForm = require('../src/components/PasswordForm.tsx').default
 
@@ -190,6 +191,115 @@ test('unverified rule metadata is not promoted to checked source or test classif
     assert.match(html, /規則檔案雜湊不一致/)
     assert.match(html, /規則分類未驗證/)
     assert.doesNotMatch(html, /untrusted-source|InventedLicense|此命中用於測試偵測流程/)
+})
+
+test('verified context-only YARA hits remain visible without a warning color or malware implication', () => {
+    const provenance = { status: 'verified', category: 'context', limitations: 'URLs are present in normal documentation.' }
+    const html = render(YaraRulesPanel, { completed: true, provenance, hits: [{
+        rule: 'network_iocs', namespace: 'network', classification: 'informational', severity: 'info',
+        description: 'Observed URL https://example.test/readme', provenance,
+    }] })
+    assert.match(html, /network_iocs/)
+    assert.match(html, /https:\/\/example.test\/readme/)
+    assert.match(html, /資訊觀察／不計入風險/)
+    assert.match(html, /資訊觀察 1 筆/)
+    assert.match(html, /規則嚴重度 資訊/)
+    assert.match(html, /不代表檔案安全或惡意/)
+    assert.match(html, /作者身分、授權許可與偵測準確率仍需另行確認/)
+    assert.doesNotMatch(html, /text-caution-yellow|text-alert-red|其他規則命中|href=/)
+})
+
+test('mixed YARA hits distinguish contextual observations from heuristic and test matches', () => {
+    const verified = { status: 'verified' }
+    const html = render(YaraRulesPanel, { completed: true, provenance: verified, hits: [
+        { rule: 'network_iocs', namespace: 'network', classification: 'informational', severity: 'info', provenance: { ...verified, category: 'context' } },
+        { rule: 'jsp_execution', namespace: 'webshells', classification: 'suspicious', severity: 'medium', provenance: { ...verified, category: 'heuristic' } },
+        { rule: 'eicar', namespace: 'tests', classification: 'test', severity: 'high', provenance: { ...verified, category: 'test' } },
+    ] })
+    assert.match(html, /資訊觀察 1 筆/)
+    assert.match(html, /其他規則命中 2 筆/)
+    assert.match(html, /資訊觀察／不計入風險/)
+    assert.match(html, /啟發式／脈絡線索/)
+    assert.match(html, /測試標記/)
+    assert.match(html, /此命中用於測試偵測流程，不等同真實惡意程式/)
+    assert.match(html, /text-neon-cyan font-bold break-all">network_iocs/)
+    assert.match(html, /text-caution-yellow font-bold break-all">jsp_execution/)
+})
+
+test('unverified informational metadata and inconsistent context metadata never imply unscored hits', () => {
+    for (const hit of [
+        { classification: 'informational', severity: 'info', provenance: { status: 'unverified', category: 'context' } },
+        { classification: 'informational', severity: 'info' },
+        { classification: 'malicious', severity: 'high', provenance: { status: 'verified', category: 'context' } },
+    ]) {
+        const html = render(YaraRulesPanel, { completed: true, hits: [{ rule: 'custom', namespace: 'custom', ...hit }] })
+        assert.match(html, /其他規則命中 1 筆/)
+        assert.match(html, /text-caution-yellow font-bold break-all">custom/)
+        assert.doesNotMatch(html, /資訊觀察／不計入風險|這些命中不增加/)
+    }
+})
+
+function findingsBlock(items) {
+    return {
+        summary: { headline: 'Analysis observations', top_findings: items.map((item) => ({
+            finding_id: item.id, artifact_id: 'root', artifact_path: 'readme.txt', archive_layer: 0,
+            title: item.reason || item.kind, why_flagged: item.reason || item.kind, score_impact: item.points,
+        })) },
+        findings: items.map((item) => ({ finding_id: item.id, kind: item.kind, severity: item.severity,
+            score_impact: item.points, evidence_ids: [`evidence-${item.id}`],
+        })),
+        evidence: items.map((item) => ({ ...item, id: `evidence-${item.id}` })),
+    }
+}
+
+test('contextual findings preserve linked benign evidence and use neutral zero-contribution presentation', () => {
+    const context = { id: 'context', kind: 'yara_context_observation', tier: 'benign_context', points: 0,
+        severity: 'info', reason: 'YARA classification informational matched rule network_iocs' }
+    const html = render(TopFindingsSummary, { explainability: findingsBlock([context]) })
+    assert.match(html, /YARA 資訊觀察/)
+    assert.match(html, /資訊觀察／不計入風險/)
+    assert.match(html, /嚴重度 資訊/)
+    assert.match(html, /YARA 以 資訊性 分類命中規則：network_iocs/)
+    assert.doesNotMatch(html, /caution-yellow|text-alert-red|\+0/)
+
+    const mixed = render(TopFindingsSummary, { explainability: findingsBlock([context,
+        { id: 'suspicious', kind: 'yara_suspicious', tier: 'medium', severity: 'medium', points: 45 },
+    ]) })
+    assert.match(mixed, /資訊觀察／不計入風險/)
+    assert.match(mixed, /嚴重度 中/)
+    assert.match(mixed, /caution-yellow/)
+    assert.match(mixed, /\+45/)
+})
+
+test('unattributed network indicator observations stay visible without a risk contribution', () => {
+    const observations = ['raw_url_ioc', 'raw_domain_ioc', 'raw_ip_ioc', 'ioc_multiple_types_observation']
+        .map((kind) => ({ id: kind, kind, tier: 'benign_context', points: 0, severity: 'info' }))
+    const html = render(TopFindingsSummary, { explainability: findingsBlock(observations) })
+    assert.match(html, /URL IOC/)
+    assert.match(html, /網域 IOC/)
+    assert.match(html, /IP IOC/)
+    assert.match(html, /多類型網路指標觀察/)
+    assert.equal((html.match(/資訊觀察／不計入風險/g) ?? []).length, 4)
+    assert.doesNotMatch(html, /caution-yellow|text-alert-red|\+0/)
+})
+
+test('zero-impact legacy and unknown findings are not silently reclassified as benign context', () => {
+    for (const item of [
+        { id: 'unknown', kind: 'future_context_kind', tier: 'benign_context', severity: 'info', points: 0 },
+        { id: 'inconsistent', kind: 'yara_context_observation', tier: 'weak', severity: 'info', points: 0 },
+        { id: 'legacy', kind: 'raw_url_ioc', tier: 'weak', severity: 'low', points: 8 },
+    ]) {
+        const html = render(TopFindingsSummary, { explainability: findingsBlock([item]) })
+        assert.match(html, /caution-yellow/)
+        assert.match(html, new RegExp(`\\+${item.points}`))
+        assert.doesNotMatch(html, /不計入風險/)
+    }
+    const legacy = render(TopFindingsSummary, { explainability: { summary: {
+        headline: 'Legacy', top_findings: [{ finding_id: 'legacy', title: 'Legacy match', score_impact: 0 }],
+    } } })
+    assert.match(legacy, /Legacy match/)
+    assert.match(legacy, /\+0/)
+    assert.doesNotMatch(legacy, /不計入風險/)
 })
 
 test('failed and unsupported YARA scans remain distinct from successful empty scans', () => {

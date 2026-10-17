@@ -1,0 +1,1757 @@
+{
+  "schema_version": 1,
+  "corpus_version": "static-quality-v2.0.0",
+  "scope": "Synthetic benign, indicator and failure controls; not a malware collection or real-world accuracy estimate.",
+  "fixtures": {
+    "clean": {
+      "kind": "text",
+      "text": "Hello MalScan quality baseline.\n",
+      "sha256": "ad5ca9fc7f00f85a021fe057c63e1832329f5b942aaf239e450d70ab5557a814"
+    },
+    "config": {
+      "kind": "text",
+      "text": "{\"name\":\"normal-configuration\",\"enabled\":true,\"count\":4}\n",
+      "sha256": "121bb6c5444adcc0aebb792a96b8e6a8b8248bbfadaa02a64b1d7407254a09f0"
+    },
+    "benign-url": {
+      "kind": "text",
+      "text": "Documentation: https://example.com/manual\n",
+      "sha256": "da4a3c3495fd9623d968a66b1a451313f384bcb545358624c22657f2b4459f65"
+    },
+    "benign-java": {
+      "kind": "text",
+      "text": "// Harmless Java API documentation, not executable content.\nInputStream in = socket.getInputStream();\n",
+      "sha256": "36c5806478f1b93a1457339916b6a5b960054c49d7fb4f459ce5c28dd9e25a11"
+    },
+    "eicar": {
+      "kind": "eicar",
+      "sha256": "275a021bbfb6489e54d471899f7db9d1663fc695ec2fe2a2c4538aabf651fd0f"
+    },
+    "php-indicator": {
+      "kind": "text",
+      "text": "Synthetic detector marker (plain text, never executed): eval($_POST[\n",
+      "sha256": "3abff8a3f8cfb1aef06bca5d7088f43d4fd1c45dc488ceae2cf3581ed653d48f"
+    },
+    "encoded-url": {
+      "kind": "text",
+      "text": "aHR0cHM6Ly9leGFtcGxlLmNvbS9xdWFsaXR5\n",
+      "sha256": "4ab647116fe114e82b3974eef05df354af64715fcb9ab768dcf86bb57b4ca476"
+    },
+    "two-encoded-urls": {
+      "kind": "text",
+      "text": "aHR0cHM6Ly9leGFtcGxlLmNvbS9maXJzdA==\naHR0cHM6Ly9leGFtcGxlLm9yZy9zZWNvbmQ=\n",
+      "sha256": "4f1352e35dad853bdcce6cf60bbac9ea954189517ec36438541f18e1d99c23c7"
+    },
+    "corrupt-zip": {
+      "kind": "text",
+      "text": "PK\u0003\u0004truncated quality fixture\n",
+      "sha256": "bceeffaa7ed2a06f758165844386d5feca4884f9b0b8e3ef84e61ada24a21231"
+    },
+    "corrupt-pdf": {
+      "kind": "text",
+      "text": "%PDF-1.7\nTruncated quality fixture, no object table.\n",
+      "sha256": "cbbac1fb8af6f1974f557ce5d3663791c9fa6f952018110567a3d46b6310e406"
+    },
+    "inner-zip": {
+      "kind": "zip",
+      "entries": [
+        {
+          "name": "payload.txt",
+          "fixture": "clean"
+        }
+      ],
+      "sha256": "786e464cf54e65d8dda2621bd9bda7dd4a27d1fc3271547a07b3303be61b7654"
+    },
+    "nested-duplicates": {
+      "kind": "zip",
+      "entries": [
+        {
+          "name": "one/inner.zip",
+          "fixture": "inner-zip"
+        },
+        {
+          "name": "two/inner.zip",
+          "fixture": "inner-zip"
+        }
+      ],
+      "sha256": "9a48373900c8d0933665e60e9b1ec3737a819e8faf7a036898342ddf99ae1e64"
+    },
+    "eicar-zip": {
+      "kind": "zip",
+      "deflated": true,
+      "entries": [
+        {
+          "name": "test-signature.com",
+          "fixture": "eicar"
+        }
+      ],
+      "sha256": "0bcf2a4f69bb07f7b7b4b5254a585df23bccd78b9bf932de0e5489c660916e94"
+    },
+    "eicar-gzip": {
+      "kind": "gzip",
+      "fixture": "eicar",
+      "sha256": "d89ebd0cf36657104773359aad152bb4cf1a0bef52246f0e679e9c89702b719a"
+    },
+    "pe-benign": {
+      "kind": "pe",
+      "profile": "benign",
+      "recipe_version": 1,
+      "sha256": "bf726088669d975c1b057c39b57a4a533592f2dee576221fb55c5b74500b465d"
+    },
+    "pe-suspicious": {
+      "kind": "pe",
+      "profile": "suspicious",
+      "recipe_version": 1,
+      "sha256": "24330cc942afffef3cb1e392ea91348041aa5cc784f75eb2efa605a1bf33adf0"
+    },
+    "pe-truncated": {
+      "kind": "pe",
+      "profile": "truncated",
+      "recipe_version": 1,
+      "sha256": "d05415154be7a960dc77a0844a97d131d8e6e65dcf2c0f3a17371ca194bdc14b"
+    },
+    "office-normal": {
+      "kind": "document",
+      "profile": "office-normal",
+      "recipe_version": 1,
+      "sha256": "110c70e2b485144ee5941197e4773a64c45c2400754c1da8d2e798a7988f3e03"
+    },
+    "office-external-references": {
+      "kind": "document",
+      "profile": "office-external-references",
+      "recipe_version": 1,
+      "sha256": "8d9af4f5f324360f2bb68c72bdddc950c7080fa1a8334d184add45c5d28f09da"
+    },
+    "office-macro-flag": {
+      "kind": "document",
+      "profile": "office-macro-flag",
+      "recipe_version": 1,
+      "sha256": "d8960cec626502168aeda9d36cb02f943d070bc1f0900c6c94ad9e2dd70539fb"
+    },
+    "office-malformed": {
+      "kind": "document",
+      "profile": "office-malformed",
+      "recipe_version": 1,
+      "sha256": "2a60a859dcd50c3577afd9897dc749f98b3a3a81e16e9cf7a41436a8a7602a95"
+    },
+    "office-metadata-limit": {
+      "kind": "document",
+      "profile": "office-metadata-limit",
+      "recipe_version": 1,
+      "sha256": "e6e802ce2577194761f1d13aa3780d0548f839cd609b8180975a8ac68b2ba78a"
+    },
+    "pdf-normal": {
+      "kind": "document",
+      "profile": "pdf-normal",
+      "recipe_version": 1,
+      "sha256": "d93949d0eff53eb91a3cd28d5d52f3efbb0caca2e876f9c56c1a934a3be46f1b"
+    },
+    "pdf-active-actions": {
+      "kind": "document",
+      "profile": "pdf-active-actions",
+      "recipe_version": 1,
+      "sha256": "a4e757baf0605cdd63fe30fa27c00869e03a2797ba1380f44650c5b600accff2"
+    },
+    "pdf-malformed": {
+      "kind": "document",
+      "profile": "pdf-malformed",
+      "recipe_version": 1,
+      "sha256": "9cd7cf199d804501d42bdac4121fab7239452011cc3d994be69cf5078218cad1"
+    },
+    "pdf-encrypted": {
+      "kind": "document",
+      "profile": "pdf-encrypted",
+      "recipe_version": 1,
+      "sha256": "fa0bf7e45e78acd212e7d3269468474e47cbea1f52546894de7d4a744f203d1b"
+    },
+    "benign-java-process": {
+      "kind": "text",
+      "text": "ProcessBuilder worker = new ProcessBuilder(\"echo\", \"quality\"); worker.start();\n",
+      "sha256": "7fe47e079292712dc423ca61c3f8881ad81e92a879872299fb3efc1329477444"
+    },
+    "jsp-request-process": {
+      "kind": "text",
+      "text": "Runtime.getRuntime().exec(request.getParameter(\"cmd\"));\n",
+      "sha256": "c46abf53333610ced9234a33a202d8b7507ba2c338b25286d9a98cf1475007ff"
+    }
+  },
+  "cases": [
+    {
+      "id": "clean-text",
+      "fixture": "clean",
+      "filename": "hello.txt",
+      "label": "benign",
+      "scenario": "normal",
+      "expect": {
+        "static_status": "complete",
+        "artifact_count": 1,
+        "yara_rules": [],
+        "infected_artifacts": 0,
+        "risk_score_min": 0,
+        "risk_score_max": 9,
+        "verdicts": [
+          "clean"
+        ],
+        "yara_risk_rules": [],
+        "yara_context_rules": [],
+        "checks": [
+          {
+            "path": [
+              "risk",
+              "policy_version"
+            ],
+            "equals": "msrs-v1.1"
+          }
+        ]
+      }
+    },
+    {
+      "id": "clean-configuration",
+      "fixture": "config",
+      "filename": "settings.json",
+      "label": "benign",
+      "scenario": "normal",
+      "expect": {
+        "static_status": "complete",
+        "artifact_count": 1,
+        "yara_rules": [],
+        "infected_artifacts": 0,
+        "risk_score_min": 0,
+        "risk_score_max": 9,
+        "verdicts": [
+          "clean"
+        ],
+        "yara_risk_rules": [],
+        "yara_context_rules": [],
+        "checks": [
+          {
+            "path": [
+              "risk",
+              "policy_version"
+            ],
+            "equals": "msrs-v1.1"
+          }
+        ]
+      }
+    },
+    {
+      "id": "benign-documentation-url",
+      "fixture": "benign-url",
+      "filename": "manual.txt",
+      "label": "benign",
+      "scenario": "normal",
+      "expect": {
+        "static_status": "complete",
+        "artifact_count": 1,
+        "yara_rules": [
+          "network_iocs"
+        ],
+        "infected_artifacts": 0,
+        "risk_score_min": 0,
+        "risk_score_max": 9,
+        "verdicts": [
+          "clean"
+        ],
+        "yara_risk_rules": [],
+        "yara_context_rules": [
+          "network_iocs"
+        ],
+        "checks": [
+          {
+            "path": [
+              "risk",
+              "policy_version"
+            ],
+            "equals": "msrs-v1.1"
+          }
+        ]
+      },
+      "known_limitations": [
+        "The literal URL remains visible as context with zero YARA risk points; IOC observations remain separate."
+      ]
+    },
+    {
+      "id": "benign-java-api",
+      "fixture": "benign-java",
+      "filename": "example.java",
+      "label": "benign",
+      "scenario": "normal",
+      "expect": {
+        "static_status": "complete",
+        "artifact_count": 1,
+        "yara_rules": [],
+        "infected_artifacts": 0,
+        "risk_score_min": 0,
+        "risk_score_max": 9,
+        "verdicts": [
+          "clean"
+        ],
+        "yara_risk_rules": [],
+        "yara_context_rules": [],
+        "checks": [
+          {
+            "path": [
+              "risk",
+              "policy_version"
+            ],
+            "equals": "msrs-v1.1"
+          }
+        ]
+      }
+    },
+    {
+      "id": "eicar-direct",
+      "fixture": "eicar",
+      "filename": "eicar.com",
+      "label": "test_signature",
+      "scenario": "normal",
+      "expect": {
+        "static_status": "complete",
+        "artifact_count": 1,
+        "yara_rules": [
+          "eicar"
+        ],
+        "infected_artifacts": 1,
+        "risk_score_min": 85,
+        "risk_score_max": 100,
+        "verdicts": [
+          "malicious"
+        ],
+        "yara_risk_rules": [
+          "eicar"
+        ],
+        "yara_context_rules": [],
+        "checks": [
+          {
+            "path": [
+              "risk",
+              "policy_version"
+            ],
+            "equals": "msrs-v1.1"
+          }
+        ]
+      }
+    },
+    {
+      "id": "synthetic-php-indicator",
+      "fixture": "php-indicator",
+      "filename": "marker.txt",
+      "label": "synthetic_indicator",
+      "scenario": "normal",
+      "expect": {
+        "static_status": "complete",
+        "artifact_count": 1,
+        "yara_rules": [
+          "php_webshell"
+        ],
+        "yara_risk_rules": [
+          "php_webshell"
+        ],
+        "yara_context_rules": [],
+        "checks": [
+          {
+            "path": [
+              "risk",
+              "policy_version"
+            ],
+            "equals": "msrs-v1.1"
+          }
+        ],
+        "risk_score_min": 25,
+        "risk_score_max": 100,
+        "verdicts": [
+          "suspicious",
+          "malicious"
+        ]
+      }
+    },
+    {
+      "id": "encoded-url",
+      "fixture": "encoded-url",
+      "filename": "encoded.txt",
+      "label": "synthetic_indicator",
+      "scenario": "normal",
+      "expect": {
+        "static_status": "complete",
+        "artifact_count": 1,
+        "yara_rules": [
+          "base64_url"
+        ],
+        "infected_artifacts": 0,
+        "yara_risk_rules": [
+          "base64_url"
+        ],
+        "yara_context_rules": [],
+        "checks": [
+          {
+            "path": [
+              "risk",
+              "policy_version"
+            ],
+            "equals": "msrs-v1.1"
+          }
+        ],
+        "risk_score_min": 25,
+        "risk_score_max": 49,
+        "verdicts": [
+          "suspicious"
+        ]
+      }
+    },
+    {
+      "id": "nested-duplicate-occurrences",
+      "fixture": "nested-duplicates",
+      "filename": "nested.zip",
+      "label": "benign",
+      "scenario": "normal",
+      "expect": {
+        "static_status": "complete",
+        "artifact_count": 5,
+        "yara_rules": [],
+        "infected_artifacts": 0,
+        "risk_score_min": 0,
+        "risk_score_max": 9,
+        "verdicts": [
+          "clean"
+        ],
+        "yara_risk_rules": [],
+        "yara_context_rules": [],
+        "checks": [
+          {
+            "path": [
+              "risk",
+              "policy_version"
+            ],
+            "equals": "msrs-v1.1"
+          }
+        ]
+      }
+    },
+    {
+      "id": "eicar-in-zip",
+      "fixture": "eicar-zip",
+      "filename": "eicar.zip",
+      "label": "test_signature",
+      "scenario": "normal",
+      "expect": {
+        "static_status": "complete",
+        "artifact_count": 2,
+        "yara_rules": [
+          "eicar"
+        ],
+        "infected_artifacts": 1,
+        "inherited_risk": true,
+        "risk_score_min": 60,
+        "risk_score_max": 100,
+        "verdicts": [
+          "suspicious",
+          "malicious"
+        ],
+        "yara_risk_rules": [
+          "eicar"
+        ],
+        "yara_context_rules": [],
+        "checks": [
+          {
+            "path": [
+              "risk",
+              "policy_version"
+            ],
+            "equals": "msrs-v1.1"
+          }
+        ]
+      }
+    },
+    {
+      "id": "eicar-in-gzip",
+      "fixture": "eicar-gzip",
+      "filename": "eicar.com.gz",
+      "label": "test_signature",
+      "scenario": "normal",
+      "expect": {
+        "static_status": "complete",
+        "artifact_count": 2,
+        "yara_rules": [
+          "eicar"
+        ],
+        "infected_artifacts": 1,
+        "inherited_risk": true,
+        "risk_score_min": 60,
+        "risk_score_max": 100,
+        "verdicts": [
+          "suspicious",
+          "malicious"
+        ],
+        "yara_risk_rules": [
+          "eicar"
+        ],
+        "yara_context_rules": [],
+        "checks": [
+          {
+            "path": [
+              "risk",
+              "policy_version"
+            ],
+            "equals": "msrs-v1.1"
+          }
+        ]
+      }
+    },
+    {
+      "id": "corrupt-archive",
+      "fixture": "corrupt-zip",
+      "filename": "broken.zip",
+      "label": "failure",
+      "scenario": "normal",
+      "expect": {
+        "static_status": "partial",
+        "artifact_count": 1,
+        "yara_rules": [],
+        "infected_artifacts": 0,
+        "root_stages": {
+          "archive-extract": "partial"
+        },
+        "risk_score_min": 0,
+        "risk_score_max": 59,
+        "verdicts": [
+          "clean",
+          "suspicious"
+        ],
+        "yara_risk_rules": [],
+        "yara_context_rules": [],
+        "checks": [
+          {
+            "path": [
+              "risk",
+              "policy_version"
+            ],
+            "equals": "msrs-v1.1"
+          }
+        ]
+      }
+    },
+    {
+      "id": "corrupt-document",
+      "fixture": "corrupt-pdf",
+      "filename": "broken.pdf",
+      "label": "failure",
+      "scenario": "normal",
+      "expect": {
+        "static_status": "partial",
+        "artifact_count": 1,
+        "yara_rules": [],
+        "infected_artifacts": 0,
+        "root_stages": {
+          "format-analysis": "partial"
+        },
+        "risk_score_min": 0,
+        "risk_score_max": 59,
+        "verdicts": [
+          "clean",
+          "suspicious"
+        ],
+        "yara_risk_rules": [],
+        "yara_context_rules": [],
+        "checks": [
+          {
+            "path": [
+              "risk",
+              "policy_version"
+            ],
+            "equals": "msrs-v1.1"
+          }
+        ]
+      }
+    },
+    {
+      "id": "missing-antivirus",
+      "fixture": "clean",
+      "filename": "hello.txt",
+      "label": "failure",
+      "scenario": "missing_av",
+      "expect": {
+        "static_status": "partial",
+        "artifact_count": 1,
+        "yara_rules": [],
+        "infected_artifacts": 0,
+        "root_stages": {
+          "clamav": "failed"
+        },
+        "risk_score_min": 0,
+        "risk_score_max": 59,
+        "verdicts": [
+          "clean",
+          "suspicious"
+        ],
+        "yara_risk_rules": [],
+        "yara_context_rules": [],
+        "checks": [
+          {
+            "path": [
+              "risk",
+              "policy_version"
+            ],
+            "equals": "msrs-v1.1"
+          }
+        ]
+      }
+    },
+    {
+      "id": "missing-yara-rules",
+      "fixture": "clean",
+      "filename": "hello.txt",
+      "label": "failure",
+      "scenario": "missing_rules",
+      "expect": {
+        "static_status": "partial",
+        "artifact_count": 1,
+        "yara_rules": [],
+        "infected_artifacts": 0,
+        "root_stages": {
+          "yara": "skipped"
+        },
+        "risk_score_min": 0,
+        "risk_score_max": 59,
+        "verdicts": [
+          "clean",
+          "suspicious"
+        ],
+        "yara_risk_rules": [],
+        "yara_context_rules": [],
+        "checks": [
+          {
+            "path": [
+              "risk",
+              "policy_version"
+            ],
+            "equals": "msrs-v1.1"
+          }
+        ]
+      }
+    },
+    {
+      "id": "invalid-yara-rules",
+      "fixture": "clean",
+      "filename": "hello.txt",
+      "label": "failure",
+      "scenario": "invalid_rules",
+      "expect": {
+        "static_status": "partial",
+        "artifact_count": 1,
+        "yara_rules": [],
+        "infected_artifacts": 0,
+        "root_stages": {
+          "yara": "failed"
+        },
+        "risk_score_min": 0,
+        "risk_score_max": 59,
+        "verdicts": [
+          "clean",
+          "suspicious"
+        ],
+        "yara_risk_rules": [],
+        "yara_context_rules": [],
+        "checks": [
+          {
+            "path": [
+              "risk",
+              "policy_version"
+            ],
+            "equals": "msrs-v1.1"
+          }
+        ]
+      }
+    },
+    {
+      "id": "deobfuscation-candidate-limit",
+      "fixture": "two-encoded-urls",
+      "filename": "encoded.txt",
+      "label": "failure",
+      "scenario": "candidate_cap",
+      "expect": {
+        "static_status": "partial",
+        "artifact_count": 1,
+        "yara_rules": [
+          "base64_url"
+        ],
+        "infected_artifacts": 0,
+        "root_stages": {
+          "deobfuscation": "partial"
+        },
+        "risk_score_min": 0,
+        "risk_score_max": 59,
+        "verdicts": [
+          "clean",
+          "suspicious"
+        ],
+        "yara_risk_rules": [
+          "base64_url"
+        ],
+        "yara_context_rules": [],
+        "checks": [
+          {
+            "path": [
+              "risk",
+              "policy_version"
+            ],
+            "equals": "msrs-v1.1"
+          }
+        ]
+      }
+    },
+    {
+      "id": "deobfuscation-size-limit",
+      "fixture": "clean",
+      "filename": "hello.txt",
+      "label": "failure",
+      "scenario": "deob_size_limit",
+      "expect": {
+        "static_status": "partial",
+        "artifact_count": 1,
+        "yara_rules": [],
+        "infected_artifacts": 0,
+        "root_stages": {
+          "deobfuscation": "skipped"
+        },
+        "risk_score_min": 0,
+        "risk_score_max": 59,
+        "verdicts": [
+          "clean",
+          "suspicious"
+        ],
+        "yara_risk_rules": [],
+        "yara_context_rules": [],
+        "checks": [
+          {
+            "path": [
+              "risk",
+              "policy_version"
+            ],
+            "equals": "msrs-v1.1"
+          }
+        ]
+      }
+    },
+    {
+      "id": "archive-depth-limit",
+      "fixture": "nested-duplicates",
+      "filename": "nested.zip",
+      "label": "failure",
+      "scenario": "depth_limit",
+      "expect": {
+        "static_status": "partial",
+        "artifact_count": 3,
+        "yara_rules": [],
+        "infected_artifacts": 0,
+        "risk_score_min": 0,
+        "risk_score_max": 59,
+        "verdicts": [
+          "clean",
+          "suspicious"
+        ],
+        "partial_stages": [
+          "archive-extract"
+        ],
+        "yara_risk_rules": [],
+        "yara_context_rules": [],
+        "checks": [
+          {
+            "path": [
+              "risk",
+              "policy_version"
+            ],
+            "equals": "msrs-v1.1"
+          }
+        ]
+      }
+    },
+    {
+      "id": "pe-benign",
+      "fixture": "pe-benign",
+      "filename": "pe-benign.exe",
+      "label": "benign",
+      "scenario": "normal",
+      "expect": {
+        "static_status": "complete",
+        "artifact_count": 1,
+        "yara_rules": [],
+        "yara_context_rules": [],
+        "yara_risk_rules": [],
+        "infected_artifacts": 0,
+        "checks": [
+          {
+            "path": [
+              "results",
+              "format_analysis",
+              "analyzer"
+            ],
+            "equals": "pe"
+          },
+          {
+            "path": [
+              "results",
+              "format_analysis",
+              "format_type"
+            ],
+            "equals": "PE"
+          },
+          {
+            "path": [
+              "results",
+              "format_analysis",
+              "features",
+              "sections",
+              0,
+              "name"
+            ],
+            "equals": ".rdata"
+          },
+          {
+            "path": [
+              "results",
+              "format_analysis",
+              "features",
+              "overlay",
+              "present"
+            ],
+            "equals": false
+          },
+          {
+            "path": [
+              "results",
+              "format_analysis",
+              "risk_factors"
+            ],
+            "equals": []
+          },
+          {
+            "path": [
+              "results",
+              "format_analysis",
+              "errors"
+            ],
+            "equals": []
+          },
+          {
+            "path": [
+              "risk",
+              "policy_version"
+            ],
+            "equals": "msrs-v1.1"
+          }
+        ],
+        "risk_score_min": 0,
+        "risk_score_max": 9,
+        "verdicts": [
+          "clean"
+        ]
+      }
+    },
+    {
+      "id": "pe-suspicious",
+      "fixture": "pe-suspicious",
+      "filename": "pe-suspicious.exe",
+      "label": "synthetic_indicator",
+      "scenario": "normal",
+      "expect": {
+        "static_status": "complete",
+        "artifact_count": 1,
+        "yara_rules": [
+          "suspicious_api_calls"
+        ],
+        "yara_context_rules": [],
+        "yara_risk_rules": [
+          "suspicious_api_calls"
+        ],
+        "infected_artifacts": 0,
+        "checks": [
+          {
+            "path": [
+              "results",
+              "format_analysis",
+              "analyzer"
+            ],
+            "equals": "pe"
+          },
+          {
+            "path": [
+              "results",
+              "format_analysis",
+              "format_type"
+            ],
+            "equals": "PE"
+          },
+          {
+            "path": [
+              "results",
+              "format_analysis",
+              "features",
+              "sections",
+              0,
+              "name"
+            ],
+            "equals": "UPX1"
+          },
+          {
+            "path": [
+              "results",
+              "format_analysis",
+              "features",
+              "overlay",
+              "size"
+            ],
+            "equals": 1360
+          },
+          {
+            "path": [
+              "results",
+              "format_analysis",
+              "risk_factors"
+            ],
+            "includes": "suspicious_imports"
+          },
+          {
+            "path": [
+              "results",
+              "format_analysis",
+              "risk_factors"
+            ],
+            "includes": "packer_detected"
+          },
+          {
+            "path": [
+              "results",
+              "format_analysis",
+              "errors"
+            ],
+            "equals": []
+          },
+          {
+            "path": [
+              "risk",
+              "policy_version"
+            ],
+            "equals": "msrs-v1.1"
+          }
+        ],
+        "risk_score_min": 30,
+        "risk_score_max": 100,
+        "verdicts": [
+          "suspicious",
+          "malicious"
+        ]
+      }
+    },
+    {
+      "id": "pe-truncated",
+      "fixture": "pe-truncated",
+      "filename": "pe-truncated.exe",
+      "label": "failure",
+      "scenario": "normal",
+      "expect": {
+        "static_status": "partial",
+        "artifact_count": 1,
+        "yara_rules": [],
+        "yara_context_rules": [],
+        "yara_risk_rules": [],
+        "infected_artifacts": 0,
+        "checks": [
+          {
+            "path": [
+              "results",
+              "format_analysis",
+              "analyzer"
+            ],
+            "equals": "pe"
+          },
+          {
+            "path": [
+              "results",
+              "format_analysis",
+              "format_type"
+            ],
+            "equals": "PE"
+          },
+          {
+            "path": [
+              "results",
+              "format_analysis",
+              "errors"
+            ],
+            "text_contains": "failed to parse PE file"
+          },
+          {
+            "path": [
+              "results",
+              "format_analysis",
+              "features"
+            ],
+            "equals": {}
+          },
+          {
+            "path": [
+              "risk",
+              "policy_version"
+            ],
+            "equals": "msrs-v1.1"
+          }
+        ],
+        "risk_score_min": 0,
+        "risk_score_max": 100,
+        "verdicts": [
+          "clean",
+          "suspicious",
+          "malicious"
+        ],
+        "root_stages": {
+          "format-analysis": "partial"
+        }
+      }
+    },
+    {
+      "id": "office-normal",
+      "fixture": "office-normal",
+      "filename": "office-normal.docx",
+      "label": "benign",
+      "scenario": "normal",
+      "expect": {
+        "static_status": "complete",
+        "artifact_count": 5,
+        "yara_rules": [
+          "network_iocs"
+        ],
+        "yara_context_rules": [
+          "network_iocs"
+        ],
+        "yara_risk_rules": [],
+        "infected_artifacts": 0,
+        "checks": [
+          {
+            "path": [
+              "results",
+              "format_analysis",
+              "analyzer"
+            ],
+            "equals": "office"
+          },
+          {
+            "path": [
+              "results",
+              "format_analysis",
+              "format_type"
+            ],
+            "equals": "OOXML"
+          },
+          {
+            "path": [
+              "results",
+              "format_analysis",
+              "features",
+              "macros",
+              "found"
+            ],
+            "equals": false
+          },
+          {
+            "path": [
+              "results",
+              "format_analysis",
+              "risk_factors"
+            ],
+            "equals": []
+          },
+          {
+            "path": [
+              "results",
+              "format_analysis",
+              "errors"
+            ],
+            "equals": []
+          },
+          {
+            "path": [
+              "risk",
+              "policy_version"
+            ],
+            "equals": "msrs-v1.1"
+          }
+        ],
+        "risk_score_min": 0,
+        "risk_score_max": 9,
+        "verdicts": [
+          "clean"
+        ]
+      }
+    },
+    {
+      "id": "office-external-references",
+      "fixture": "office-external-references",
+      "filename": "office-external-references.docx",
+      "label": "synthetic_indicator",
+      "scenario": "normal",
+      "expect": {
+        "static_status": "complete",
+        "artifact_count": 5,
+        "yara_rules": [
+          "network_iocs"
+        ],
+        "yara_context_rules": [
+          "network_iocs"
+        ],
+        "yara_risk_rules": [],
+        "infected_artifacts": 0,
+        "checks": [
+          {
+            "path": [
+              "results",
+              "format_analysis",
+              "analyzer"
+            ],
+            "equals": "office"
+          },
+          {
+            "path": [
+              "results",
+              "format_analysis",
+              "format_type"
+            ],
+            "equals": "OOXML"
+          },
+          {
+            "path": [
+              "results",
+              "format_analysis",
+              "risk_factors"
+            ],
+            "includes": "external_relationship"
+          },
+          {
+            "path": [
+              "results",
+              "format_analysis",
+              "features",
+              "parser_findings",
+              2,
+              "type"
+            ],
+            "equals": "dangerous_relationships"
+          },
+          {
+            "path": [
+              "results",
+              "format_analysis",
+              "features",
+              "parser_findings",
+              2,
+              "items",
+              0,
+              "target"
+            ],
+            "equals": "https://quality.invalid/inert-template.dotx"
+          },
+          {
+            "path": [
+              "risk",
+              "policy_version"
+            ],
+            "equals": "msrs-v1.1"
+          }
+        ],
+        "risk_score_min": 30,
+        "risk_score_max": 100,
+        "verdicts": [
+          "suspicious",
+          "malicious"
+        ]
+      }
+    },
+    {
+      "id": "office-macro-flag",
+      "fixture": "office-macro-flag",
+      "filename": "office-macro-flag.docm",
+      "label": "failure",
+      "scenario": "normal",
+      "expect": {
+        "static_status": "partial",
+        "artifact_count": 6,
+        "yara_rules": [
+          "network_iocs"
+        ],
+        "yara_context_rules": [
+          "network_iocs"
+        ],
+        "yara_risk_rules": [],
+        "infected_artifacts": 0,
+        "checks": [
+          {
+            "path": [
+              "results",
+              "format_analysis",
+              "analyzer"
+            ],
+            "equals": "office"
+          },
+          {
+            "path": [
+              "results",
+              "format_analysis",
+              "format_type"
+            ],
+            "equals": "OOXML"
+          },
+          {
+            "path": [
+              "results",
+              "format_analysis",
+              "features",
+              "macros",
+              "project_present"
+            ],
+            "equals": true
+          },
+          {
+            "path": [
+              "results",
+              "format_analysis",
+              "features",
+              "macros",
+              "source_status"
+            ],
+            "equals": "unavailable"
+          },
+          {
+            "path": [
+              "results",
+              "format_analysis",
+              "errors"
+            ],
+            "text_contains": "VBA"
+          },
+          {
+            "path": [
+              "risk",
+              "policy_version"
+            ],
+            "equals": "msrs-v1.1"
+          }
+        ],
+        "risk_score_min": 0,
+        "risk_score_max": 100,
+        "verdicts": [
+          "clean",
+          "suspicious",
+          "malicious"
+        ],
+        "root_stages": {
+          "format-analysis": "partial",
+          "document-analysis": "partial"
+        },
+        "partial_stages": [
+          "format-analysis",
+          "document-analysis"
+        ]
+      }
+    },
+    {
+      "id": "office-malformed",
+      "fixture": "office-malformed",
+      "filename": "office-malformed.docx",
+      "label": "failure",
+      "scenario": "normal",
+      "expect": {
+        "static_status": "partial",
+        "artifact_count": 1,
+        "yara_rules": [],
+        "yara_context_rules": [],
+        "yara_risk_rules": [],
+        "infected_artifacts": 0,
+        "checks": [
+          {
+            "path": [
+              "results",
+              "format_analysis",
+              "analyzer"
+            ],
+            "equals": "office"
+          },
+          {
+            "path": [
+              "results",
+              "format_analysis",
+              "format_type"
+            ],
+            "equals": "OOXML"
+          },
+          {
+            "path": [
+              "results",
+              "format_analysis",
+              "errors"
+            ],
+            "text_contains": "OOXML file failed ZIP validation"
+          },
+          {
+            "path": [
+              "risk",
+              "policy_version"
+            ],
+            "equals": "msrs-v1.1"
+          }
+        ],
+        "risk_score_min": 0,
+        "risk_score_max": 100,
+        "verdicts": [
+          "clean",
+          "suspicious",
+          "malicious"
+        ],
+        "root_stages": {
+          "format-analysis": "partial",
+          "document-analysis": "partial",
+          "archive-extract": "partial"
+        }
+      }
+    },
+    {
+      "id": "office-metadata-limit",
+      "fixture": "office-metadata-limit",
+      "filename": "office-metadata-limit.docx",
+      "label": "failure",
+      "scenario": "normal",
+      "expect": {
+        "static_status": "partial",
+        "artifact_count": 1,
+        "yara_rules": [],
+        "yara_context_rules": [],
+        "yara_risk_rules": [],
+        "infected_artifacts": 0,
+        "checks": [
+          {
+            "path": [
+              "results",
+              "format_analysis",
+              "analyzer"
+            ],
+            "equals": "office"
+          },
+          {
+            "path": [
+              "results",
+              "format_analysis",
+              "format_type"
+            ],
+            "equals": "OOXML"
+          },
+          {
+            "path": [
+              "results",
+              "format_analysis",
+              "features",
+              "resource_limited"
+            ],
+            "equals": true
+          },
+          {
+            "path": [
+              "results",
+              "format_analysis",
+              "features",
+              "limit_reason"
+            ],
+            "equals": "document_metadata_bytes_limit"
+          },
+          {
+            "path": [
+              "risk",
+              "policy_version"
+            ],
+            "equals": "msrs-v1.1"
+          }
+        ],
+        "risk_score_min": 0,
+        "risk_score_max": 100,
+        "verdicts": [
+          "clean",
+          "suspicious",
+          "malicious"
+        ],
+        "root_stages": {
+          "format-analysis": "partial",
+          "document-analysis": "partial",
+          "archive-extract": "partial"
+        }
+      }
+    },
+    {
+      "id": "pdf-normal",
+      "fixture": "pdf-normal",
+      "filename": "pdf-normal.pdf",
+      "label": "benign",
+      "scenario": "normal",
+      "expect": {
+        "static_status": "complete",
+        "artifact_count": 1,
+        "yara_rules": [],
+        "yara_context_rules": [],
+        "yara_risk_rules": [],
+        "infected_artifacts": 0,
+        "checks": [
+          {
+            "path": [
+              "results",
+              "format_analysis",
+              "analyzer"
+            ],
+            "equals": "pdf"
+          },
+          {
+            "path": [
+              "results",
+              "format_analysis",
+              "format_type"
+            ],
+            "equals": "PDF"
+          },
+          {
+            "path": [
+              "results",
+              "format_analysis",
+              "features",
+              "page_count"
+            ],
+            "equals": 1
+          },
+          {
+            "path": [
+              "results",
+              "format_analysis",
+              "features",
+              "encrypted"
+            ],
+            "equals": false
+          },
+          {
+            "path": [
+              "results",
+              "format_analysis",
+              "risk_factors"
+            ],
+            "equals": []
+          },
+          {
+            "path": [
+              "results",
+              "format_analysis",
+              "errors"
+            ],
+            "equals": []
+          },
+          {
+            "path": [
+              "risk",
+              "policy_version"
+            ],
+            "equals": "msrs-v1.1"
+          }
+        ],
+        "risk_score_min": 0,
+        "risk_score_max": 9,
+        "verdicts": [
+          "clean"
+        ]
+      }
+    },
+    {
+      "id": "pdf-active-actions",
+      "fixture": "pdf-active-actions",
+      "filename": "pdf-active-actions.pdf",
+      "label": "synthetic_indicator",
+      "scenario": "normal",
+      "expect": {
+        "static_status": "complete",
+        "artifact_count": 1,
+        "yara_rules": [],
+        "yara_context_rules": [],
+        "yara_risk_rules": [],
+        "infected_artifacts": 0,
+        "checks": [
+          {
+            "path": [
+              "results",
+              "format_analysis",
+              "analyzer"
+            ],
+            "equals": "pdf"
+          },
+          {
+            "path": [
+              "results",
+              "format_analysis",
+              "format_type"
+            ],
+            "equals": "PDF"
+          },
+          {
+            "path": [
+              "results",
+              "format_analysis",
+              "features",
+              "page_count"
+            ],
+            "equals": 1
+          },
+          {
+            "path": [
+              "results",
+              "format_analysis",
+              "risk_factors"
+            ],
+            "includes": "embedded_javascript"
+          },
+          {
+            "path": [
+              "results",
+              "format_analysis",
+              "risk_factors"
+            ],
+            "includes": "launch_action"
+          },
+          {
+            "path": [
+              "results",
+              "format_analysis",
+              "features",
+              "js_code"
+            ],
+            "equals": [
+              "void 0;"
+            ]
+          },
+          {
+            "path": [
+              "results",
+              "format_analysis",
+              "features",
+              "launch_actions"
+            ],
+            "equals": [
+              "quality-fixture-never-execute.txt"
+            ]
+          },
+          {
+            "path": [
+              "risk",
+              "policy_version"
+            ],
+            "equals": "msrs-v1.1"
+          }
+        ],
+        "risk_score_min": 30,
+        "risk_score_max": 100,
+        "verdicts": [
+          "suspicious",
+          "malicious"
+        ]
+      }
+    },
+    {
+      "id": "pdf-malformed",
+      "fixture": "pdf-malformed",
+      "filename": "pdf-malformed.pdf",
+      "label": "failure",
+      "scenario": "normal",
+      "expect": {
+        "static_status": "partial",
+        "artifact_count": 1,
+        "yara_rules": [],
+        "yara_context_rules": [],
+        "yara_risk_rules": [],
+        "infected_artifacts": 0,
+        "checks": [
+          {
+            "path": [
+              "results",
+              "format_analysis",
+              "analyzer"
+            ],
+            "equals": "pdf"
+          },
+          {
+            "path": [
+              "results",
+              "format_analysis",
+              "format_type"
+            ],
+            "equals": "PDF"
+          },
+          {
+            "path": [
+              "results",
+              "format_analysis",
+              "errors"
+            ],
+            "text_contains": "failed to parse PDF file"
+          },
+          {
+            "path": [
+              "risk",
+              "policy_version"
+            ],
+            "equals": "msrs-v1.1"
+          }
+        ],
+        "risk_score_min": 0,
+        "risk_score_max": 100,
+        "verdicts": [
+          "clean",
+          "suspicious",
+          "malicious"
+        ],
+        "root_stages": {
+          "format-analysis": "partial"
+        }
+      }
+    },
+    {
+      "id": "pdf-encrypted",
+      "fixture": "pdf-encrypted",
+      "filename": "pdf-encrypted.pdf",
+      "label": "failure",
+      "scenario": "normal",
+      "expect": {
+        "static_status": "partial",
+        "artifact_count": 1,
+        "yara_rules": [],
+        "yara_context_rules": [],
+        "yara_risk_rules": [],
+        "infected_artifacts": 0,
+        "checks": [
+          {
+            "path": [
+              "results",
+              "format_analysis",
+              "analyzer"
+            ],
+            "equals": "pdf"
+          },
+          {
+            "path": [
+              "results",
+              "format_analysis",
+              "format_type"
+            ],
+            "equals": "PDF"
+          },
+          {
+            "path": [
+              "results",
+              "format_analysis",
+              "features",
+              "encrypted"
+            ],
+            "equals": true
+          },
+          {
+            "path": [
+              "results",
+              "format_analysis",
+              "features",
+              "content_access"
+            ],
+            "equals": "password_required"
+          },
+          {
+            "path": [
+              "results",
+              "format_analysis",
+              "errors"
+            ],
+            "text_contains": "requires a password"
+          },
+          {
+            "path": [
+              "risk",
+              "policy_version"
+            ],
+            "equals": "msrs-v1.1"
+          }
+        ],
+        "risk_score_min": 0,
+        "risk_score_max": 100,
+        "verdicts": [
+          "clean",
+          "suspicious",
+          "malicious"
+        ],
+        "root_stages": {
+          "format-analysis": "partial"
+        }
+      }
+    },
+    {
+      "id": "benign-java-process",
+      "fixture": "benign-java-process",
+      "filename": "benign-java-process.txt",
+      "label": "benign",
+      "scenario": "normal",
+      "expect": {
+        "static_status": "complete",
+        "artifact_count": 1,
+        "yara_rules": [],
+        "yara_context_rules": [],
+        "yara_risk_rules": [],
+        "infected_artifacts": 0,
+        "checks": [
+          {
+            "path": [
+              "risk",
+              "policy_version"
+            ],
+            "equals": "msrs-v1.1"
+          }
+        ],
+        "risk_score_min": 0,
+        "risk_score_max": 9,
+        "verdicts": [
+          "clean"
+        ]
+      }
+    },
+    {
+      "id": "jsp-request-process",
+      "fixture": "jsp-request-process",
+      "filename": "jsp-request-process.txt",
+      "label": "synthetic_indicator",
+      "scenario": "normal",
+      "expect": {
+        "static_status": "complete",
+        "artifact_count": 1,
+        "yara_rules": [
+          "jsp_webshell"
+        ],
+        "yara_context_rules": [],
+        "yara_risk_rules": [
+          "jsp_webshell"
+        ],
+        "checks": [
+          {
+            "path": [
+              "risk",
+              "policy_version"
+            ],
+            "equals": "msrs-v1.1"
+          }
+        ],
+        "risk_score_min": 25,
+        "risk_score_max": 100,
+        "verdicts": [
+          "clean",
+          "suspicious",
+          "malicious"
+        ]
+      }
+    }
+  ],
+  "rules_sha256": "52cc7df2f9732941bce0f079bb70b36f01f04008b0a458398ef3ee58679a7dcc",
+  "baseline_corpus_version": "static-quality-v1.0.0"
+}

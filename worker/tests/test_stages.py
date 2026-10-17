@@ -1,9 +1,10 @@
 """Unit tests for pipeline stages."""
 
 import tarfile
+import uuid
 import zipfile
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from malscan_worker.stages.archive_extract import ArchiveExtractStage
@@ -86,6 +87,82 @@ async def test_ioc_extract_stage_hashes(stage_context: StageContext):
 # ------------------------------------------------------------------
 # ArchiveExtractStage tests
 # ------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_archive_safety_abort_reports_incomplete_coverage_for_real_ooxml(tmp_path):
+    """A compressible Office metadata part triggers the real ZIP ratio guard."""
+    from malscan_worker.quality.document_fixtures import build_document_fixture
+
+    path = tmp_path / "metadata-limited.docx"
+    path.write_bytes(build_document_fixture("office-metadata-limit"))
+    context = StageContext(
+        job_id=str(uuid.uuid4()),
+        file_id="fixture",
+        storage_key="fixture",
+        sha256="0" * 64,
+        original_filename=path.name,
+        file_path=path,
+    )
+    context.previous_results = [await FileTypeStage().execute(context)]
+    result = await ArchiveExtractStage().execute(context)
+    assert result.status == "partial"
+    assert result.findings["archive_type"] == "zip"
+    assert result.findings["malicious"] is True
+    assert result.findings["resource_limited"] is True
+    assert result.findings["limit_reason"] == "expansion_ratio_limit"
+    assert "expansion ratio" in result.findings["reason"]
+    assert result.findings["extraction_aborted"] is True
+    assert result.findings["coverage_incomplete"] is True
+    assert result.findings["extracted_count"] == 0
+    assert result.findings["sub_jobs_created"] == 0
+    assert result.artifacts == []
+    assert list(Path(f"/tmp/{context.job_id}/extract").iterdir()) == []
+
+
+@pytest.mark.parametrize(
+    ("reason", "limit_reason"),
+    [
+        ("Zip bomb: single file bytes exceeded during extraction", "single_file_bytes_limit"),
+        ("Zip bomb: total extracted bytes exceeded during extraction", "extraction_bytes_limit"),
+        ("Zip bomb: expansion ratio exceeded during extraction", "expansion_ratio_limit"),
+        ("Unsafe extraction rejected", None),
+    ],
+)
+@pytest.mark.asyncio
+async def test_archive_abort_separates_coverage_and_safety(
+    tmp_path, monkeypatch, stage_context, reason, limit_reason
+):
+    from malscan_worker.extractors.base import ExtractedFile, ExtractionResult
+
+    # A streaming extractor can have already completed earlier entries. Its
+    # safety abort must prevent those outputs from entering the analysis graph.
+    previous_output = ExtractedFile(
+        path=str(tmp_path / "must-not-be-opened.bin"),
+        original_name="earlier-entry.bin",
+        size=3,
+        origin_path="earlier-entry.bin",
+    )
+    monkeypatch.setattr(
+        "malscan_worker.stages.archive_extract.extract_bounded",
+        AsyncMock(return_value=ExtractionResult([previous_output], malicious=True, reason=reason)),
+    )
+    stage_context.file_path = tmp_path / "blocked.zip"
+    stage_context.file_path.write_bytes(b"PK\x03\x04")
+    stage_context.original_filename = "blocked.zip"
+    services = MagicMock(max_depth=3)
+    services.submit_child = AsyncMock()
+    stage_context.analysis_services = services
+    result = await ArchiveExtractStage().execute(stage_context)
+    assert result.status == "partial"
+    assert result.findings["malicious"] is True
+    assert result.findings["coverage_incomplete"] is True
+    assert result.findings["resource_limited"] is (limit_reason is not None)
+    assert result.findings["limit_reason"] == limit_reason
+    assert result.findings["reason"] == reason
+    assert result.findings["sub_jobs_created"] == 0
+    assert result.artifacts == []
+    services.submit_child.assert_not_awaited()
 
 
 @pytest.mark.asyncio

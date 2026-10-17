@@ -2,6 +2,7 @@
 
 from datetime import datetime, timezone
 
+from malscan.scoring.policy import POLICY_VERSION
 from malscan_worker.pipeline import _build_analysis_result
 from malscan_worker.stages.base import StageResult
 
@@ -59,7 +60,7 @@ def test_pipeline_builds_risk_block_and_legacy_fields_from_local_scorer() -> Non
     assert report["risk_level"] == "medium"
     assert report["verdict"] == "suspicious"
     assert report["risk"]["legacy_verdict"] == "suspicious"
-    assert report["risk"]["policy_version"] == "msrs-v1"
+    assert report["risk"]["policy_version"] == POLICY_VERSION
     assert report["risk"]["evidence"]
     assert report["risk"]["top_evidence"]
     assert set(report["risk"]["evidence"][0]) >= {

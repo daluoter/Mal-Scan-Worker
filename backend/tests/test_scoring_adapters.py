@@ -63,7 +63,7 @@ def test_yara_classification_comes_from_metadata_not_rule_name() -> None:
     }
 
 
-def test_raw_iocs_are_emitted_as_weak_evidence() -> None:
+def test_raw_iocs_are_emitted_as_unscored_context() -> None:
     records = build_direct_evidence(
         artifact_id="artifact-1",
         stage_findings={
@@ -78,13 +78,16 @@ def test_raw_iocs_are_emitted_as_weak_evidence() -> None:
     ioc_records = [record for record in records if record.source == "ioc"]
 
     assert len(ioc_records) == 5
-    assert {record.tier for record in ioc_records} == {"weak"}
+    assert {record.tier for record in ioc_records} == {"benign_context"}
+    assert {record.severity for record in ioc_records} == {"info"}
+    assert {record.points for record in ioc_records} == {0}
     assert {record.scope for record in ioc_records} == {"direct"}
     assert {record.cap_group for record in ioc_records} == {"ioc_raw"}
     assert {record.kind for record in ioc_records} >= {
         "raw_url_ioc",
         "raw_domain_ioc",
         "raw_ip_ioc",
+        "ioc_multiple_types_observation",
     }
 
 

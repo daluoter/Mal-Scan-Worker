@@ -1,5 +1,8 @@
 """Tests for report explainability assembly."""
 
+from typing import Any
+
+import pytest
 from malscan.report_explainability import build_explainability, ensure_artifact_tree_root
 
 
@@ -90,6 +93,120 @@ def test_build_explainability_summary_picks_primary_artifact_and_top_finding() -
 
     assert explainability["summary"]["primary_artifact_id"] == "art-2"
     assert explainability["summary"]["top_findings"][0]["artifact_path"] == "bundle.zip!/payload.js"
+
+
+def _summary_for_observation(
+    *,
+    kind: str = "yara_context_observation",
+    severity: str = "info",
+    score: int = 0,
+    verdict: str = "clean",
+    nested: bool = True,
+) -> dict[str, Any]:
+    report = {
+        "job_id": "clean-office",
+        "file": {
+            "original_filename": "document.docx",
+            "sha256": "root-hash",
+            "size": 100,
+            "mime": "application/zip",
+        },
+        "verdict": verdict,
+        "score": score,
+        "risk": {
+            "risk_score": score,
+            "breakdown": {"inherited_score": score if nested else 0},
+            "evidence": [
+                {
+                    "id": "observed-url",
+                    "artifact_id": "child" if nested else "root",
+                    "kind": kind,
+                    "severity": severity,
+                    "points": score,
+                    "reason": "URL observed in normal document relationships",
+                }
+            ],
+        },
+        "results": {},
+    }
+    tree = {
+        "id": "root",
+        "filename": "document.docx",
+        "sha256": "root-hash",
+        "depth": 0,
+        "children": [
+            {
+                "id": "child",
+                "filename": "document.xml.rels",
+                "sha256": "child-hash",
+                "depth": 1,
+                "children": [],
+            }
+        ],
+    }
+    return build_explainability(report=report, artifact_tree=tree)["summary"]
+
+
+@pytest.mark.parametrize("nested", [False, True])
+@pytest.mark.parametrize(
+    "kind",
+    [
+        "yara_context_observation",
+        "raw_url_ioc",
+        "raw_domain_ioc",
+        "raw_ip_ioc",
+        "ioc_multiple_types_observation",
+    ],
+)
+def test_clean_context_observations_never_claim_a_nested_suspicious_verdict(
+    kind: str, nested: bool
+) -> None:
+    summary = _summary_for_observation(kind=kind, nested=nested)
+
+    assert summary["primary_artifact_id"] == ("child" if nested else "root")
+    assert summary["top_findings"][0]["score_impact"] == 0
+    assert summary["headline"] == "已記錄資訊觀察，未增加風險分數。"
+    assert "資訊觀察僅供內容參考" in summary["final_verdict_explainer"]
+    assert "可疑" not in summary["headline"]
+    assert "風險繼承所抬升" not in summary["final_verdict_explainer"]
+
+
+@pytest.mark.parametrize(
+    ("kind", "severity", "score"),
+    [
+        ("future_context_kind", "info", 0),
+        ("yara_context_observation", "high", 0),
+        ("deobfuscation_indicator", "low", 4),
+    ],
+)
+def test_clean_findings_keep_neutral_summary_without_inventing_verified_context(
+    kind: str, severity: str, score: int
+) -> None:
+    summary = _summary_for_observation(kind=kind, severity=severity, score=score)
+
+    assert summary["headline"] == "已整理目前已完成的分析成果與觀察線索。"
+    assert "不代表檔案絕對安全" in summary["final_verdict_explainer"]
+    assert "未增加風險分數" not in summary["headline"]
+    assert "可疑" not in summary["headline"]
+
+
+@pytest.mark.parametrize(("verdict", "label"), [("suspicious", "可疑"), ("malicious", "惡意")])
+def test_suspicious_or_infected_child_keeps_the_actual_verdict_and_inheritance(
+    verdict: str, label: str
+) -> None:
+    summary = _summary_for_observation(
+        kind="confirmed_malware_signature", severity="high", score=95, verdict=verdict
+    )
+
+    assert summary["headline"] == f"一個巢狀內層檔案主導了最終的{label}判定。"
+    assert summary["final_verdict_explainer"] == "最外層檔案的判定是由子層檔案風險繼承所抬升。"
+
+
+def test_unknown_verdict_never_becomes_a_confirmed_suspicious_child_summary() -> None:
+    summary = _summary_for_observation(verdict="unknown")
+
+    assert summary["headline"] == "已整理目前分析成果，尚未確認完整判定。"
+    assert "分析範圍與限制" in summary["final_verdict_explainer"]
 
 
 def test_build_explainability_diagnostics_marks_password_blocked() -> None:

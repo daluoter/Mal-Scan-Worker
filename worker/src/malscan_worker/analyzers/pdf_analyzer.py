@@ -138,9 +138,15 @@ class PDFAnalyzer(FormatAnalyzer):
         if header.startswith("%PDF-"):
             features["version"] = header.removeprefix("%PDF-")
 
+        features["encrypted"] = bool(getattr(reader, "is_encrypted", False))
+        if features["encrypted"] and not reader.decrypt(""):
+            # Accessing pages first raises before the encryption evidence is kept.
+            # Archive passwords do not currently unlock PDF content for this analyzer.
+            features["content_access"] = "password_required"
+            raise ValueError("Encrypted PDF requires a password; content analysis unavailable")
+
         pages = list(getattr(reader, "pages", []))
         features["page_count"] = len(pages)
-        features["encrypted"] = bool(getattr(reader, "is_encrypted", False))
 
         root = self._resolve_indirect(getattr(reader, "trailer", {}).get("/Root"))
         if isinstance(root, dict):

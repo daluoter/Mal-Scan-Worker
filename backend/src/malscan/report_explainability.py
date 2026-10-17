@@ -688,20 +688,58 @@ def _build_summary(
         }
         for item in findings[:10]
     ]
-    return {
-        "headline": (
-            "一個巢狀內層檔案主導了最終的可疑判定。"
-            if primary_artifact_id != artifacts[0]["artifact_id"]
+    verdict = str(report.get("verdict") or risk.get("legacy_verdict") or "unknown")
+    context_kinds = {
+        "yara_context_observation",
+        "raw_url_ioc",
+        "raw_domain_ioc",
+        "raw_ip_ioc",
+        "ioc_multiple_types_bonus",
+        "ioc_multiple_types_observation",
+    }
+    context_only = (
+        verdict == "clean"
+        and int(risk.get("risk_score", report.get("score")) or 0) == 0
+        and bool(findings)
+        and all(
+            item.get("kind") in context_kinds
+            and item.get("severity") == "info"
+            and int(item.get("score_impact") or 0) == 0
+            for item in findings
+        )
+    )
+    nested_primary = primary_artifact_id != artifacts[0]["artifact_id"]
+    if verdict == "clean":
+        headline = (
+            "已記錄資訊觀察，未增加風險分數。"
+            if context_only
+            else "已整理目前已完成的分析成果與觀察線索。"
+        )
+        final_verdict_explainer = (
+            "資訊觀察僅供內容參考，未作為惡意證據；判定仍受目前分析範圍與限制約束。"
+            if context_only
+            else "未發現威脅的判定限於目前已完成的分析範圍，不代表檔案絕對安全。"
+        )
+    elif verdict in {"suspicious", "malicious"}:
+        headline = (
+            f"一個巢狀內層檔案主導了最終的{'惡意' if verdict == 'malicious' else '可疑'}判定。"
+            if nested_primary
             else "最外層檔案主導了最終判定。"
-        ),
-        "primary_artifact_id": primary_artifact_id,
-        "primary_artifact_path": primary_artifact.get("display_path"),
-        "top_findings": top_findings,
-        "final_verdict_explainer": (
+        )
+        final_verdict_explainer = (
             "最外層檔案的判定是由子層檔案風險繼承所抬升。"
             if int(risk.get("breakdown", {}).get("inherited_score") or 0) > 0
             else "最終判定來自目前計分檔案上的直接證據。"
-        ),
+        )
+    else:
+        headline = "已整理目前分析成果，尚未確認完整判定。"
+        final_verdict_explainer = "請結合分析範圍與限制閱讀目前成果。"
+    return {
+        "headline": headline,
+        "primary_artifact_id": primary_artifact_id,
+        "primary_artifact_path": primary_artifact.get("display_path"),
+        "top_findings": top_findings,
+        "final_verdict_explainer": final_verdict_explainer,
     }
 
 

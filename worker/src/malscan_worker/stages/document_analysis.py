@@ -20,6 +20,7 @@ from dataclasses import replace
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
+from xml.etree import ElementTree
 
 import structlog
 
@@ -911,6 +912,8 @@ class DocumentAnalysisStage(Stage):
                     nl = n.lower()
                     if "vbaproject.bin" in nl:
                         findings["macros"]["found"] = True
+                        findings["macros"]["project_present"] = True
+                        findings["macros"]["source_status"] = "unavailable"
                         findings["parser_findings"].append(
                             {"type": "ooxml_macro", "detail": f"VBA project found: {n}"}
                         )
@@ -1020,13 +1023,21 @@ class DocumentAnalysisStage(Stage):
         findings: dict[str, Any],
     ) -> None:
         """Scan .rels XML for external Target URLs or dangerous types."""
-        # Look for TargetMode="External"
-        ext_pattern = re.compile(
-            r'<Relationship[^>]+Target="([^"]+)"[^>]*TargetMode="External"',
-            re.IGNORECASE,
-        )
-        for m in ext_pattern.finditer(rels_xml):
-            target = m.group(1)
+        # Relationship attributes have no defined order. Parse the already bounded
+        # XML rather than interpreting examples inside comments as active targets.
+        try:
+            relationships = ElementTree.fromstring(rels_xml)
+        except ElementTree.ParseError as exc:
+            findings["errors"].append(f"Relationship XML parse error: {exc}")
+            return
+        for relationship in relationships:
+            if relationship.tag.rsplit("}", 1)[-1] != "Relationship":
+                continue
+            if relationship.get("TargetMode", "").lower() != "external":
+                continue
+            target = relationship.get("Target", "")
+            if not target:
+                continue
             dangerous_rels.append({"target": target, "mode": "External"})
             findings["exploit_indicators"].append(
                 {
@@ -1070,6 +1081,10 @@ class DocumentAnalysisStage(Stage):
 
         try:
             if not vba.detect_vba_macros():
+                if findings["macros"].get("project_present"):
+                    findings["errors"].append(
+                        "VBA project part present but no parseable VBA source found"
+                    )
                 return
 
             findings["macros"]["found"] = True
@@ -1110,6 +1125,12 @@ class DocumentAnalysisStage(Stage):
                     source_entry["code_preview"] = vba_code_str[:MAX_MACRO_SOURCE_LEN]
 
                 findings["macros"]["sources"].append(source_entry)
+
+            if findings["macros"]["sources"]:
+                findings["macros"]["source_status"] = "parsed"
+            else:
+                findings["macros"]["source_status"] = "unavailable"
+                findings["errors"].append("VBA macros detected but no source could be extracted")
 
             if keyword_hits:
                 findings["macros"]["suspicious"] = True

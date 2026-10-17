@@ -7,9 +7,9 @@
 | 格式 | 目前分析／提取能力 | 密碼與依賴 | 主要限制 |
 | --- | --- | --- | --- |
 | 一般檔案 | 檔案型別／hash、ClamAV、YARA、IOC、去混淆候選 | 需要可用的 ClamAV 和 YARA 規則 | 沒有專用格式分析器，不代表其他階段沒有分析；無規則／工具失敗不能當成已掃描未命中 |
-| Windows PE | headers、imports／exports、sections、entropy、resources、TLS、debug、overlay、packer clues 與啟發式 | `pefile` | overlay／resources 結構偵測不等於將所有內容提取為遞迴子檔；沒有程式執行或保證完整反編譯 |
-| Office OLE／OOXML／RTF | 巨集、外部關聯、DDE／Equation Editor 等跡象、支援的嵌入物件提取及遞迴子檔 | `oletools` | 加密 Office 文件的解密與補交密碼尚未提供；parser fallback／失敗及大小限制使結果為 partial |
-| PDF | pages、metadata、actions／JavaScript、forms、嵌入檔描述及啟發式 | `pypdf` | 目前不保證提取 PDF 附件或解密加密 PDF；附件描述不等於附件已掃描 |
+| Windows PE | headers、imports／exports、sections、entropy、resources、TLS、debug、overlay、packer clues 與啟發式 | `pefile` | 100 MiB 處理上限；overlay／resources 結構偵測不等於將所有內容提取為遞迴子檔；沒有程式執行或保證完整反編譯 |
+| Office OLE／OOXML／RTF | 巨集、外部關聯、DDE／Equation Editor 等跡象、支援的嵌入物件提取及遞迴子檔 | `oletools` | 加密 Office 解密與補交密碼尚未提供；parser fallback／ZIP／XML 失敗、metadata 限制或 VBA project 存在但來源不可解析時為 partial |
+| PDF | pages、metadata、actions／JavaScript、forms、嵌入檔描述及啟發式 | `pypdf` | 需非空密碼而無法存取內容時保留 encrypted／password_required 與 partial；尚無使用者密碼補交解鎖流程，附件描述不等於附件已提取掃描 |
 | Windows LNK | 目標／參數等結構與啟發式 | `LnkParse3` | 不解析所有 shell extension，不執行捷徑 |
 | Scripts | 支援副檔名與語法模式的指標、去混淆、IOC、啟發式 | 相應 Python 分析器 | 不執行 scripts；解碼候選不代表已完整還原程式 |
 | ZIP | 逐檔 streaming 解壓、來源檔案樹、遞迴分析 | ZIP 傳統密碼；AES fallback 需要 `pyzipper` | 以實際 extractor 回應判斷加密方式可用性；不支援的方法或損壞內容要留下未完成原因 |
@@ -20,6 +20,12 @@
 | ELF、Mach-O、郵件、APK 等 | 通用階段仍可適用 | — | 尚無宣告完整的專用深度分析／子檔提取能力 |
 
 已加入的 budget 驗收包含真實 ZIP／7z 提取、7z encrypted headers 密碼恢復、同名不同內容來源保留、巢狀 ZIP 共享累計 bytes、並發 reservation、retry high-water idempotency、PostgreSQL row-lock 累計，以及 timeout／取消後 parser 和外部 helper 停止寫入。RAR 的外部工具與所有加密變種、其他格式的全面相容性，仍需各自的實際 fixture 驗收。
+
+2026-10-17 的第二批品質 corpus 新增 3 個 PE、5 個 OOXML、4 個 PDF 對照，已包含在 32／32 真實引擎通過案例中。
+正常 PE 無 overlay 的回傳值已修正；OOXML 即使被辨識成 ZIP 仍進入 Office 分析，
+外部關聯以 XML 結構解析，註解內文字不作 active target。合成 PE 沒有 executable section，
+文件的指標內容也不執行。這批樣本不能代表所有真實 PE、Office 或 PDF 版本，
+來源、預期及未完成原因見[靜態品質基準](static-quality.md)。正式雲端尚需部署新版才套用。
 
 去混淆階段預設 `DEOBFUSCATION_MAX_FILE_SIZE=10000000` bytes。大於此上限的原檔仍可完成
 ClamAV／YARA 等適用階段，但去混淆會以大小限制原因略過，static coverage 因此為 partial。
@@ -32,6 +38,10 @@ IOC 一律保留 URL／domain／IP 與可取得的 offset，不會因此下載�
 這不是從 URL 取得的遠端內容。此選項共用 portable／queue artifact ports、root 預算與深度，
 每份來源最多 50 個，遺漏／配額／派送失敗留下 partial 與原始 IOC；相同合成檔進入 ancestor
 會停止循環。動態 URL detonation 還需要已啟用且可用的 sandbox provider。
+
+評分政策 `msrs-v1.1` 不因原始 URL／domain／IP 或多種類型觀察而單獨加分；
+規則集 `1.1.0` 的 `network_iocs` 命中也保留為零風險權重的 context。
+一般網址仍可出現在報告與來源證據中；額外結構、偵測或衍生內容依各自規則判斷，沒有目的地信譽查詢。
 
 自架版同一提取內的重複內容保留獨立來源節點，但可省略重複派送。報告以 `analysis_reference`
 引用同 root、相同 SHA-256／大小且已完成必要階段及子樹的直接來源；沿用節點不宣稱重新掃描，

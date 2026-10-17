@@ -8,7 +8,7 @@ A file analysis platform built around static analysis: upload files, trace archi
 
 ## Current milestone
 
-**The first P1 static-quality batch is implemented:** 18 versioned quality cases, child-artifact evidence aggregation, explicit references for duplicate analysis, and tool/rule provenance display. It also fixes order-dependent inherited scoring and deobfuscation truncation coverage. See the [static quality baseline](docs/static-quality.md) for validation and known benign-rule hits. This is repository/local validation progress; the live cloud demo needs a new deployment to use these changes.
+**2026-10-17: the second P1 static-quality batch is validated.** The corpus now defines 32 cases / 28 pinned fixtures, including PE, Office and PDF structural and failure controls. Changes address normal PE/document parsing and measured YARA/IOC risk false positives. All 32 native-engine cases passed; see the [static quality baseline](docs/static-quality.md) for scope and limitations. Neither quality batch has reached the live demo yet. The [combined deployment guide](docs/deploy-static-quality-v2.md) will update the worker image and Pages frontend as one release.
 
 **2026-10-16 (Asia/Taipei): the current cloud acceptance batch is verified.** Production API tests covered nested archives, different ZIP/7z passwords with resume, a 20,000,000-byte file, and a 49-byte scan after image promotion. The 20 MB report correctly remains static `partial` because deobfuscation has a 10 MB limit; its required scans completed. See the [P0 acceptance record](docs/milestones/2026-10-15-p0-acceptance.md) for results and evidence boundaries.
 
@@ -155,6 +155,8 @@ Reports use `report_schema_version=mswr-report-v3` and `analysis.schema_version=
 
 The cloud image refreshes ClamAV signatures **at build time**, not during each scan. A seven-day freshness guard reports an antivirus-stage failure when the database is too old. **Automatic daily rebuilding/refresh is not implemented yet.** Compose uses a separate ClamAV service with its updater enabled by default. Expanding YARA also requires license/source tracking, versioning, false-positive evaluation and performance checks, beyond rule counts.
 
+Current source uses ruleset `1.1.0` and scoring policy `msrs-v1.1`. Ordinary URL matches from `network_iocs` remain visible as context with zero risk weight. Raw URL/domain/IP observations also retain evidence without contributing risk by themselves. The JSP rule requires nearby request-input and process-execution strings; this is a bounded heuristic, without URL reputation or Java data-flow analysis. Rule licensing remains `NOASSERTION`, which does not grant permission.
+
 ## Development, validation and next steps
 
 | Location | Purpose |
@@ -167,4 +169,4 @@ The cloud image refreshes ClamAV signatures **at build time**, not during each s
 
 Local validation covers backend/worker/frontend tests, real PostgreSQL budgets and attempts, real ZIP/7z different-password recovery, full-container/S3 checkpoints and Worker-to-Python-dispatcher HTTP integration. Consult the [validation record](docs/v2-validation.md) for counts, commands and evidence boundaries. These tests do not replace live-provider or billing acceptance.
 
-The first P1 static evidence and rule-quality baseline is in place. Next, use the observed benign-rule hits and more format-specific structural samples to improve false-positive and missed-detection measurements, followed by deeper format analysis and password/attachment handling. Remaining cloud maintenance and cost observations continue alongside that work. Measured performance improvements follow those static foundations; live CAPE acceptance depends on available infrastructure. The [project roadmap](docs/roadmap.md) defines the order and acceptance criteria.
+The immediate priority is the second batch's full regression and before/after quality comparison, followed by one worker/frontend cloud release. Further work expands normal, anomalous and limited-format controls before document password/attachment support and measured performance improvements. Cloud maintenance and cost observations continue alongside this work; live CAPE acceptance depends on available infrastructure. The [project roadmap](docs/roadmap.md) defines the order and acceptance criteria.

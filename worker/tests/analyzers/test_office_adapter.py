@@ -76,6 +76,14 @@ def test_can_handle_rejects_non_office_and_plain_zip(
     assert analyzer.can_handle(file_path, mime, data[:32]) is False
 
 
+@pytest.mark.parametrize("suffix", [".docx", ".docm", ".xlsx", ".xlsm", ".pptx", ".pptm"])
+def test_can_handle_office_extension_when_libmagic_returns_zip(tmp_path: Path, suffix: str) -> None:
+    path = tmp_path / ("claimed-office" + suffix)
+    path.write_bytes(b"PK\x03\x04broken-package")
+    # A claimed Office package still needs the analyzer to report parse errors.
+    assert OfficeAnalyzerAdapter().can_handle(path, "application/zip", b"PK\x03\x04")
+
+
 @pytest.mark.asyncio
 async def test_analyze_rtf_returns_structured_result(
     tmp_path: Path,

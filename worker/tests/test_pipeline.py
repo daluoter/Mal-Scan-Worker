@@ -311,7 +311,7 @@ def test_build_analysis_result_applies_format_scoring_and_reporting():
     assert report["verdict"] == "suspicious"
     assert report["risk_level"] == "high"
     assert report["score"] == 84
-    assert report["risk"]["policy_version"] == "msrs-v1"
+    assert report["risk"]["policy_version"] == POLICY_VERSION
     assert report["risk"]["breakdown"]["local_score"] >= 0
 
     format_report = report["results"]["format_analysis"]

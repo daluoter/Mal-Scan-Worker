@@ -376,7 +376,7 @@ class TestOOXMLAnalysis:
 
     @pytest.mark.asyncio
     async def test_ooxml_vbaproject_detection(self, tmp_path):
-        """OOXML with vbaProject.bin → macros found."""
+        """A VBA part proves presence; an unreadable project remains partial."""
         p = tmp_path / "test.docm"
         with zipfile.ZipFile(p, "w") as zf:
             zf.writestr("[Content_Types].xml", "<Types></Types>")
@@ -387,8 +387,11 @@ class TestOOXMLAnalysis:
         stage = DocumentAnalysisStage()
         result = await stage.execute(ctx)
 
-        assert result.status == "ok"
+        assert result.status == "partial"
         assert result.findings["macros"]["found"] is True
+        assert result.findings["macros"]["project_present"] is True
+        assert result.findings["macros"]["source_status"] == "unavailable"
+        assert result.findings["errors"]
 
     @pytest.mark.asyncio
     async def test_ooxml_embedded_ole_object(self, tmp_path):

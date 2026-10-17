@@ -46,6 +46,14 @@ def fixture_bytes(definitions: dict[str, Any], name: str, stack: tuple[str, ...]
         payload = spec["text"].encode("utf-8")
     elif kind == "eicar":
         payload = EICAR
+    elif kind == "pe":
+        from malscan_worker.quality.pe_fixtures import build_pe_fixture
+
+        payload = build_pe_fixture(spec["profile"], recipe_version=spec["recipe_version"])
+    elif kind == "document":
+        from malscan_worker.quality.document_fixtures import build_document_fixture
+
+        payload = build_document_fixture(spec["profile"], recipe_version=spec["recipe_version"])
     elif kind == "zip":
         output = io.BytesIO()
         compression = zipfile.ZIP_DEFLATED if spec.get("deflated") else zipfile.ZIP_STORED
@@ -79,6 +87,11 @@ def load_corpus(path: Path) -> dict[str, Any]:
         raise ValueError("Invalid corpus definitions")
     if not 1 <= len(data["cases"]) <= 100:
         raise ValueError("Invalid corpus case count")
+    rules_hash = data.get("rules_sha256")
+    if rules_hash is not None and (
+        not isinstance(rules_hash, str) or re.fullmatch(r"[a-f0-9]{64}", rules_hash) is None
+    ):
+        raise ValueError("Invalid corpus rules fingerprint")
     for name in data["fixtures"]:
         fixture_bytes(data["fixtures"], name)
     identifiers: set[str] = set()
@@ -96,11 +109,46 @@ def load_corpus(path: Path) -> dict[str, Any]:
             raise ValueError("Unknown sample label")
         if case.get("fixture") not in data["fixtures"] or not isinstance(case.get("expect"), dict):
             raise ValueError("Missing quality expectation")
+        checks = case["expect"].get("checks", [])
+        if not isinstance(checks, list) or len(checks) > 100:
+            raise ValueError("Invalid format evidence checks")
+        for check in checks:
+            if not isinstance(check, dict):
+                raise ValueError("Invalid format evidence check")
+            operators = set(check) - {"path"}
+            if len(operators) != 1 or not operators <= {
+                "equals",
+                "includes",
+                "text_contains",
+                "min_length",
+            }:
+                raise ValueError("Unknown format evidence check")
+            path_components = check.get("path")
+            if not isinstance(path_components, list) or not 1 <= len(path_components) <= 20:
+                raise ValueError("Invalid format evidence path")
+            if any(
+                not isinstance(part, (str, int)) or isinstance(part, bool)
+                for part in path_components
+            ):
+                raise ValueError("Invalid format evidence path")
+            if "text_contains" in check and not isinstance(check["text_contains"], str):
+                raise ValueError("Invalid evidence text check")
+            if "min_length" in check and (
+                not isinstance(check["min_length"], int)
+                or isinstance(check["min_length"], bool)
+                or check["min_length"] < 0
+            ):
+                raise ValueError("Invalid evidence length check")
     return cast(dict[str, Any], data)
 
 
 def evaluate_report(
-    case: dict[str, Any], report: dict[str, Any], *, source_sha256: str, source_size: int
+    case: dict[str, Any],
+    report: dict[str, Any],
+    *,
+    source_sha256: str,
+    source_size: int,
+    rules_sha256: str | None = None,
 ) -> dict[str, Any]:
     """Check coverage and evidence independently from clean/empty legacy fields."""
     errors: list[str] = []
@@ -130,12 +178,28 @@ def evaluate_report(
         "root identity is not a root occurrence",
     )
     require(report.get("job_id") == root_id, "report job and root identity differ")
+    parents = {node["artifact_id"]: node.get("parent_id") for node in nodes}
+    for identifier in identifiers:
+        visited: set[str] = set()
+        current = identifier
+        while current != root_id:
+            if current in visited:
+                require(False, "artifact parent graph contains a cycle")
+                break
+            visited.add(current)
+            parent = parents.get(current)
+            if parent is None or parent not in parents:
+                require(False, "artifact occurrence cannot reach the root")
+                break
+            current = parent
     require(
         report.get("file", {}).get("sha256") == source_sha256
         and report.get("file", {}).get("size") == source_size,
         "root report is not bound to the pinned fixture",
     )
     all_hits: set[str] = set()
+    risk_rule_hits: set[str] = set()
+    context_rule_hits: set[str] = set()
     infected = 0
     detector_failures: list[dict[str, Any]] = []
     observed_coverage: dict[str, str] = {}
@@ -195,9 +259,24 @@ def evaluate_report(
             infected += av.get("infected") is True
         hits = results.get("yara_hits", [])
         all_hits.update(hit["rule"] for hit in hits)
+        for evidence in child.get("risk", {}).get("evidence", []):
+            if evidence.get("source") != "yara":
+                continue
+            rule_name = evidence.get("raw", {}).get("rule")
+            if not isinstance(rule_name, str):
+                continue
+            if evidence.get("tier") == "benign_context" and evidence.get("points") == 0:
+                context_rule_hits.add(rule_name)
+            else:
+                risk_rule_hits.add(rule_name)
         if stages.get("yara", {}).get("status") == "ok":
             require(bool(stages["yara"].get("rules_version")), "YARA lacks a rule fingerprint")
             require(bool(stages["yara"].get("tool_version")), "YARA lacks an engine version")
+            if rules_sha256:
+                require(
+                    stages["yara"].get("rules_version") == rules_sha256,
+                    "YARA rules differ from the versioned corpus",
+                )
         if node["parent_id"] is not None and (av.get("infected") is True or hits):
             explain = report.get("explainability", {})
             evidence = explain.get("evidence", [])
@@ -211,6 +290,12 @@ def evaluate_report(
                 "child finding lacks a resolvable artifact-scoped evidence reference",
             )
     require(sorted(all_hits) == sorted(expected["yara_rules"]), "YARA match inventory differs")
+    for key, observed in (
+        ("yara_risk_rules", risk_rule_hits),
+        ("yara_context_rules", context_rule_hits),
+    ):
+        if key in expected:
+            require(sorted(observed) == sorted(expected[key]), f"{key} differs")
     if "infected_artifacts" in expected:
         require(infected == expected["infected_artifacts"], "AV detection count differs")
     risk = report.get("risk", {})
@@ -253,12 +338,36 @@ def evaluate_report(
         == static.get("status"),
         "root coverage contradicts artifact stage results",
     )
+    for check in expected.get("checks", []):
+        value: Any = report
+        path = check["path"]
+        try:
+            for component in path:
+                value = value[component]
+        except (IndexError, KeyError, TypeError):
+            require(False, f"required format evidence is missing: {path}")
+            continue
+        if "equals" in check:
+            valid = value == check["equals"]
+        elif "includes" in check:
+            valid = isinstance(value, list) and check["includes"] in value
+        elif "text_contains" in check:
+            text = check["text_contains"]
+            valid = (isinstance(value, str) and text in value) or (
+                isinstance(value, list)
+                and any(isinstance(item, str) and text in item for item in value)
+            )
+        else:
+            valid = isinstance(value, (list, dict, str)) and len(value) >= check["min_length"]
+        require(valid, f"format evidence differs: {path}")
     return {
         "passed": not errors,
         "errors": errors,
         "static_status": static.get("status"),
         "artifact_count": len(nodes),
         "yara_rules": sorted(all_hits),
+        "yara_risk_rules": sorted(risk_rule_hits),
+        "yara_context_rules": sorted(context_rule_hits),
         "infected_artifacts": infected,
         "detector_failures": detector_failures,
         "verdict": report.get("verdict"),

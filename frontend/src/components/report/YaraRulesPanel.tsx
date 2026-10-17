@@ -1,5 +1,5 @@
 import type { StageCoverage, YaraHit, YaraRuleProvenance } from '../../api/types'
-import { localizeReportText, localizeStatus } from './reportText'
+import { localizeReportText, localizeSeverity, localizeStatus } from './reportText'
 
 interface YaraRulesPanelProps {
     hits?: YaraHit[]
@@ -50,24 +50,36 @@ function hitCategory(hit: YaraHit): string {
     if (hit.provenance?.status !== 'verified') return '規則分類未驗證'
     if (hit.provenance.category === 'test') return '測試標記'
     if (hit.provenance.category === 'heuristic') return '啟發式／脈絡線索'
+    if (isContextObservation(hit)) return '資訊觀察／不計入風險'
     return '規則分類未提供'
 }
 
+function isContextObservation(hit: YaraHit): boolean {
+    return hit.provenance?.status === 'verified'
+        && hit.provenance.category === 'context'
+        && hit.classification === 'informational'
+        && hit.severity === 'info'
+}
+
 export default function YaraRulesPanel({ hits = [], coverage, completed = false, provenance }: YaraRulesPanelProps) {
+    const contextCount = hits.filter(isContextObservation).length
+    const otherCount = hits.length - contextCount
+
     return (
         <section className="glass-card p-6 mb-4">
             <h2 className="text-lg font-bold mb-3 text-neon-cyan">🎯 YARA 規則比對</h2>
             <p className="mb-3 text-sm text-slate-300">比對引擎：{coverage?.tool_version ? `YARA ${coverage.tool_version}` : '版本未提供'}。引擎版本與規則集版本分別記錄。</p>
             <ProvenanceDetails provenance={provenance} rulesHash={coverage?.rules_version} />
             {hits.length === 0 && <p className={`text-sm ${completed ? 'text-slate-300' : 'text-caution-yellow'}`}>{completed ? '已比對，未命中本次配置的規則。' : `${coverage ? `比對狀態：${localizeStatus(coverage.status)}。` : ''}尚未完成有效規則比對：${localizeReportText(coverage?.reason) || '請查看分析範圍與限制'}`}</p>}
-            {hits.length > 0 && <p className="mb-3 text-sm text-caution-yellow">規則命中需結合檔案內容與其他證據；測試標記、啟發式規則與嚴重度標示本身皆不代表已確認惡意。</p>}
+            {contextCount > 0 && <p className="mb-3 text-sm text-slate-300">資訊觀察 {contextCount} 筆：保留內容線索，這些命中不增加 YARA 風險分數，也不代表檔案安全或惡意。</p>}
+            {otherCount > 0 && <p className="mb-3 text-sm text-caution-yellow">其他規則命中 {otherCount} 筆：需結合檔案內容與其他證據；測試標記、啟發式規則與嚴重度標示本身皆不代表已確認惡意。</p>}
             <div className="space-y-3">
                 {hits.map((hit, index) => (
                     <div key={`${hit.namespace}-${hit.rule}-${index}`} className="stage-item flex-col items-start">
                         <div className="flex flex-wrap items-center gap-3 w-full">
-                            <span className="font-mono text-caution-yellow font-bold break-all">{hit.rule}</span>
-                            <span className="text-xs rounded border border-white/10 px-2 py-0.5 text-slate-300">{hitCategory(hit)}</span>
-                            {hit.severity && <span className="text-xs font-mono text-slate-400">規則嚴重度 {hit.severity.toUpperCase()}</span>}
+                            <span className={`font-mono ${isContextObservation(hit) ? 'text-neon-cyan' : 'text-caution-yellow'} font-bold break-all`}>{hit.rule}</span>
+                            <span className={`text-xs rounded border border-white/10 px-2 py-0.5 ${isContextObservation(hit) ? 'text-neon-cyan' : 'text-slate-300'}`}>{hitCategory(hit)}</span>
+                            {hit.severity && <span className="text-xs font-mono text-slate-400">規則嚴重度 {localizeSeverity(hit.severity)}</span>}
                         </div>
                         {hit.description && <p className="text-sm text-slate-400 mt-1">{hit.description}</p>}
                         {hit.provenance?.status === 'verified' && hit.provenance.category === 'test' && <p className="mt-2 text-sm text-slate-300">此命中用於測試偵測流程，不等同真實惡意程式。</p>}

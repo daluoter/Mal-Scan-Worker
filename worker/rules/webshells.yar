@@ -41,19 +41,31 @@ rule asp_webshell {
 
 rule jsp_webshell {
     meta:
-        description = "Detects common JSP webshell patterns"
+        description = "Heuristic: Java process execution and web request input within 4096 bytes"
         author = "MalScan"
         severity = "high"
     strings:
-        $runtime1 = "Runtime.getRuntime().exec(" ascii
-        $runtime2 = "getRuntime().exec(" ascii
-        $processbuilder = "ProcessBuilder(" ascii
-        $jscript = "<%@ Page Language=\"Jscript\"" ascii nocase
-        $cmd1 = "request.getParameter(\"cmd\")" ascii nocase
-        $cmd2 = "request.getParameter(\"command\")" ascii nocase
-        $inputstream = "getInputStream()" ascii
+        $exec_runtime = "getRuntime().exec(" ascii
+        $exec_processbuilder = "ProcessBuilder(" ascii
+        $process_start = ".start(" ascii
+        $request_parameter = "request.getParameter(" ascii
     condition:
-        any of them
+        // Bounded string co-occurrence only: no Java parsing, taint flow or execution proof.
+        for any r in (1..#request_parameter) : (
+            for any p in (1..#exec_runtime) : (
+                (@exec_runtime[p] >= @request_parameter[r] and
+                    @exec_runtime[p] - @request_parameter[r] <= 4096) or
+                (@request_parameter[r] >= @exec_runtime[p] and
+                    @request_parameter[r] - @exec_runtime[p] <= 4096)
+            ) or
+            for any p in (1..#exec_processbuilder) : (
+                ((@exec_processbuilder[p] >= @request_parameter[r] and
+                    @exec_processbuilder[p] - @request_parameter[r] <= 4096) or
+                (@request_parameter[r] >= @exec_processbuilder[p] and
+                    @request_parameter[r] - @exec_processbuilder[p] <= 4096)) and
+                $process_start in (@exec_processbuilder[p]..@exec_processbuilder[p] + 4096)
+            )
+        )
 }
 
 rule generic_webshell {

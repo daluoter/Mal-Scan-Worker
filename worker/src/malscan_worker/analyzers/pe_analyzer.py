@@ -411,7 +411,8 @@ class PEAnalyzer(FormatAnalyzer):
         }
 
     def _extract_overlay(self, pe: Any, file_size: int) -> dict[str, JsonValue]:
-        overlay_bytes = getattr(pe, "get_overlay", lambda: b"")()
+        # pefile returns None for the ordinary case with no trailing overlay.
+        overlay_bytes = getattr(pe, "get_overlay", lambda: b"")() or b""
         overlay_offset = getattr(pe, "get_overlay_data_start_offset", lambda: None)()
         return {
             "present": bool(overlay_bytes),

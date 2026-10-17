@@ -192,7 +192,8 @@ def test_pure_deobfuscation_with_raw_ioc_stays_low_risk() -> None:
         ]
     )
 
-    assert report["score"] == 19
+    # The decoded execution marker still contributes; its raw URL is context.
+    assert report["score"] == 16
     assert report["risk_level"] == "low"
     assert report["verdict"] == "suspicious"
 
@@ -313,7 +314,7 @@ def test_none_ioc_fields_are_treated_as_empty_lists() -> None:
     assert report["results"]["iocs"]["ips"] == []
 
 
-def test_ip_addresses_alias_contributes_to_local_score_when_ips_is_none() -> None:
+def test_ip_addresses_alias_is_preserved_as_context_when_ips_is_none() -> None:
     report = _build_report(
         [
             _stage_result("file-type", {"mime_type": "application/octet-stream", "file_size": 123}),
@@ -332,9 +333,12 @@ def test_ip_addresses_alias_contributes_to_local_score_when_ips_is_none() -> Non
     )
 
     assert report["results"]["iocs"]["ips"] == ["1.1.1.1", "2.2.2.2", "3.3.3.3"]
-    assert report["score"] == 12
-    assert report["risk_level"] == "low"
-    assert report["verdict"] == "suspicious"
+    assert report["score"] == 0
+    assert report["risk_level"] == "clean"
+    assert report["verdict"] == "clean"
+    ip_evidence = [item for item in report["risk"]["evidence"] if item["kind"] == "raw_ip_ioc"]
+    assert len(ip_evidence) == 3
+    assert all(item["tier"] == "benign_context" and item["points"] == 0 for item in ip_evidence)
 
 
 def test_mixed_ips_and_ip_addresses_fields_are_merged_correctly() -> None:

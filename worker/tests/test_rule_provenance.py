@@ -59,7 +59,7 @@ def test_bundled_manifest_native_rule_inventory_and_legacy_digest():
     assert bundle.provenance["rule_count"] == 15
     assert len(bundle.rule_metadata) == 15
     assert bundle.rules_sha256 == (
-        "3f7fa8d5c76e4b5532848d70797adf93841aabce288401fcd10446141c199091"
+        "52cc7df2f9732941bce0f079bb70b36f01f04008b0a458398ef3ee58679a7dcc"
     )
     assert bundle.provenance["license"]["spdx_expression"] == "NOASSERTION"
     assert bundle.provenance["license"]["permission_verified"] is False
@@ -72,19 +72,65 @@ def test_bundled_manifest_native_rule_inventory_and_legacy_digest():
     assert bundle.match_provenance("eicar", "eicar")["category"] == "test"
 
 
-def test_benign_broad_string_hits_are_explicitly_heuristic_not_changed():
+def test_network_url_remains_observed_but_is_explicit_context():
     bundle = load_rule_bundle(BUNDLED_RULES)
-    for payload, name in (
-        (b'<a href="https://example.org/">Documentation</a>', "network_iocs"),
-        (b"// Java documentation: getInputStream()", "jsp_webshell"),
-        (b"// PHP passthru() reference", "php_webshell"),
-    ):
-        matches = [match for match in bundle.rules.match(data=payload) if match.rule == name]
-        assert len(matches) == 1
-        provenance = bundle.match_provenance(matches[0].namespace, matches[0].rule)
-        assert provenance["status"] == "verified"
-        assert provenance["category"] == "heuristic"
-        assert provenance["limitations"]
+    matches = bundle.rules.match(data=b'<a href="https://example.org/">Documentation</a>')
+    assert [match.rule for match in matches] == ["network_iocs"]
+    match = matches[0]
+    assert match.meta["classification"] == "informational"
+    assert match.meta["severity"] == "info"
+    provenance = bundle.match_provenance(match.namespace, match.rule)
+    assert provenance["status"] == "verified"
+    assert provenance["category"] == "context"
+    assert provenance["limitations"]
+    assert bundle.provenance["ruleset_version"] == "1.1.0"
+    assert bundle.provenance["source"]["introduced_commit"] == (
+        "874bd482afe1cc779afe63f00a1005e6eb19ac23"
+    )
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        b"// Java documentation: getInputStream()",
+        b'new ProcessBuilder("echo", "hello").start();',
+        b'Runtime.getRuntime().exec("echo hello");',
+        b'String value = request.getParameter("cmd");',
+        b'new ProcessBuilder(request.getParameter("cmd")); // never started',
+        # A request reference in another large region is not nearby process context.
+        b'request.getParameter("cmd")' + b" " * 4097 + b"getRuntime().exec(value)",
+        b"getRuntime().exec(value)" + b" " * 4097 + b'request.getParameter("cmd")',
+    ],
+)
+def test_benign_java_api_or_unrelated_strings_do_not_match_jsp(payload):
+    bundle = load_rule_bundle(BUNDLED_RULES)
+    assert "jsp_webshell" not in [match.rule for match in bundle.rules.match(data=payload)]
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        b'Runtime.getRuntime().exec(request.getParameter("cmd"));',
+        b'String cmd = request.getParameter("command"); Runtime.getRuntime().exec(cmd);',
+        b'new ProcessBuilder(request.getParameter("cmd")).start();',
+        b"ProcessBuilder pb = new ProcessBuilder(command); pb.start();"
+        b' String command = request.getParameter("cmd");',
+    ],
+)
+def test_jsp_request_and_process_context_controls_still_match(payload):
+    bundle = load_rule_bundle(BUNDLED_RULES)
+    assert [match.rule for match in bundle.rules.match(data=payload)] == ["jsp_webshell"]
+    provenance = bundle.match_provenance("webshells", "jsp_webshell")
+    assert provenance["category"] == "heuristic"
+    assert "taint flow" in provenance["limitations"]
+
+
+def test_php_and_eicar_native_controls_unchanged():
+    bundle = load_rule_bundle(BUNDLED_RULES)
+    assert [match.rule for match in bundle.rules.match(data=b"// PHP passthru() reference")] == [
+        "php_webshell"
+    ]
+    assert [match.rule for match in bundle.rules.match(data=EICAR)] == ["eicar"]
 
 
 def test_custom_unmanifested_rules_scan_without_claiming_provenance(tmp_path):
@@ -287,3 +333,50 @@ async def test_stage_without_actual_native_rules_has_partial_coverage(tmp_path, 
         job_status="done",
     )
     assert coverage["static"]["status"] == "partial"
+
+
+@pytest.mark.asyncio
+async def test_real_url_match_stage_and_scoring_are_context_only(tmp_path, stage):
+    from malscan.scoring.adapters import build_direct_evidence
+    from malscan.scoring.engine import score_direct_evidence
+
+    sample = tmp_path / "documentation.html"
+    sample.write_bytes(b'<a href="https://example.org/">Documentation</a>')
+    result = await stage(BUNDLED_RULES).execute(context(sample))
+    assert result.status == "ok"
+    assert [match["rule"] for match in result.findings["matches"]] == ["network_iocs"]
+    match = result.findings["matches"][0]
+    assert match["classification"] == "informational"
+    assert match["severity"] == "info"
+    assert match["provenance"]["category"] == "context"
+    evidence = build_direct_evidence(artifact_id="root", stage_findings={"yara": result.findings})
+    decision = score_direct_evidence(direct_evidence=evidence)
+    assert len(decision.evidence) == 1
+    assert decision.evidence[0].kind == "yara_context_observation"
+    assert decision.risk_score == 0
+    assert decision.breakdown.independent_source_count == 0
+
+
+@pytest.mark.parametrize("category", ["confirmed", "malicious_family", "invented_category"])
+def test_manifest_category_cannot_claim_detection_strength(rules_copy, category):
+    manifest_path = rules_copy / "manifest.json"
+    manifest = json.loads(manifest_path.read_text())
+    manifest["files"][0]["rules"][0]["category"] = category
+    manifest_path.write_text(json.dumps(manifest))
+    bundle = load_rule_bundle(rules_copy)
+    assert bundle.provenance == {"status": "unverified", "reason": "manifest_invalid"}
+    assert [match.rule for match in bundle.rules.match(data=EICAR)] == ["eicar"]
+
+
+@pytest.mark.parametrize("distance, expected", [(4096, True), (4097, False)])
+@pytest.mark.parametrize("request_first", [False, True])
+def test_jsp_context_window_boundary_is_measured_from_string_offsets(
+    distance, expected, request_first
+):
+    request = b'request.getParameter("cmd")'
+    process = b"getRuntime().exec(command)"
+    first, last = (request, process) if request_first else (process, request)
+    payload = first + b" " * (distance - len(first)) + last
+    bundle = load_rule_bundle(BUNDLED_RULES)
+    matches = [match.rule for match in bundle.rules.match(data=payload)]
+    assert ("jsp_webshell" in matches) is expected

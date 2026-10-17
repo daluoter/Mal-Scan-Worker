@@ -61,6 +61,8 @@ const analyzerMap: Record<string, string> = {
 }
 
 const severityMap: Record<string, string> = {
+    info: '資訊',
+    informational: '資訊',
     critical: '嚴重',
     high: '高',
     medium: '中',
@@ -129,11 +131,14 @@ const scoreComponentTypeMap: Record<string, string> = {
 }
 
 const labelMap: Record<string, string> = {
+    yara_context_observation: 'YARA 資訊觀察',
+    benign_context: '資訊觀察／不計入風險',
     confirmed_malware_signature: '惡意特徵命中',
     raw_url_ioc: 'URL IOC',
     raw_domain_ioc: '網域 IOC',
     raw_ip_ioc: 'IP IOC',
     ioc_multiple_types_bonus: '多類型 IOC 交叉佐證',
+    ioc_multiple_types_observation: '多類型網路指標觀察',
     'script.encoded_command_execution': '編碼指令執行行為',
     deobfuscated_payload_execution: '解碼後顯示執行型載荷',
     sandbox_confirmed_malicious_behavior: '沙箱確認惡意行為',
@@ -273,7 +278,8 @@ export function localizeReportText(value: string | null | undefined): string {
 
     const yaraMatch = trimmed.match(/^YARA classification (.+) matched rule (.+)$/)
     if (yaraMatch) {
-        return `YARA 以 ${localizeReportText(yaraMatch[1].toLowerCase())} 分類命中規則：${yaraMatch[2]}`
+        const classification = yaraMatch[1].toLowerCase()
+        return `YARA 以 ${classification === 'informational' ? '資訊性' : localizeReportText(classification)} 分類命中規則：${yaraMatch[2]}`
     }
 
     const deobPrefix = 'Deobfuscation detected technique '

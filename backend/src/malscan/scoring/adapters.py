@@ -5,6 +5,7 @@ from typing import Any
 from malscan.scoring.models import EvidenceRecord
 
 YARA_CLASSIFICATION_MAP = {
+    "informational": ("yara_context_observation", "benign_context", 0),
     "malicious_family": ("yara_malicious_family", "confirmed", 85),
     "exploit": ("yara_exploit_rule", "strong", 75),
     "suspicious": ("yara_suspicious_behavior", "strong", 55),
@@ -116,6 +117,15 @@ def _append_yara(
 ) -> None:
     for match in finding.get("matches", []):
         classification = str(match.get("classification", "generic") or "generic").lower()
+        # A local provenance check only verifies bytes/inventory, never detection
+        # accuracy. Its context category can reduce risk, not promote a claim.
+        provenance = match.get("provenance")
+        if (
+            isinstance(provenance, dict)
+            and provenance.get("status") == "verified"
+            and provenance.get("category") == "context"
+        ):
+            classification = "informational"
         confidence_name = str(match.get("confidence", "medium") or "medium").lower()
         kind, tier, points = YARA_CLASSIFICATION_MAP.get(
             classification,
@@ -126,7 +136,9 @@ def _append_yara(
             source="yara",
             kind=kind,
             tier=tier,
-            severity=str(match.get("severity", "medium")).lower(),
+            severity=(
+                "info" if tier == "benign_context" else str(match.get("severity", "medium")).lower()
+            ),
             confidence=YARA_CONFIDENCE_MAP.get(confidence_name, 0.7),
             points=points,
             cap_group="yara",
@@ -143,6 +155,9 @@ def _append_iocs(
     artifact_id: str | None,
     finding: dict[str, Any],
 ) -> None:
+    # Extracted strings have neither destination reputation nor behavior context.
+    # Keep their observed values in reports without treating lexical matches as
+    # malicious evidence; independently established findings are scored elsewhere.
     urls = _string_list(finding.get("urls"))
     domains = _string_list(finding.get("domains"))
     ips: list[str] = []
@@ -158,10 +173,10 @@ def _append_iocs(
             records,
             source="ioc",
             kind="raw_url_ioc",
-            tier="weak",
-            severity="low",
+            tier="benign_context",
+            severity="info",
             confidence=0.6,
-            points=3,
+            points=0,
             cap_group="ioc_raw",
             artifact_id=artifact_id,
             reason=f"Observed URL IOC {url}",
@@ -173,10 +188,10 @@ def _append_iocs(
             records,
             source="ioc",
             kind="raw_domain_ioc",
-            tier="weak",
-            severity="low",
+            tier="benign_context",
+            severity="info",
             confidence=0.6,
-            points=3,
+            points=0,
             cap_group="ioc_raw",
             artifact_id=artifact_id,
             reason=f"Observed domain IOC {domain}",
@@ -188,10 +203,10 @@ def _append_iocs(
             records,
             source="ioc",
             kind="raw_ip_ioc",
-            tier="weak",
-            severity="low",
+            tier="benign_context",
+            severity="info",
             confidence=0.6,
-            points=4,
+            points=0,
             cap_group="ioc_raw",
             artifact_id=artifact_id,
             reason=f"Observed IP IOC {ip}",
@@ -203,14 +218,14 @@ def _append_iocs(
         _append(
             records,
             source="ioc",
-            kind="ioc_multiple_types_bonus",
-            tier="weak",
-            severity="low",
+            kind="ioc_multiple_types_observation",
+            tier="benign_context",
+            severity="info",
             confidence=0.7,
-            points=5,
+            points=0,
             cap_group="ioc_raw",
             artifact_id=artifact_id,
-            reason="Observed multiple IOC types in the same artifact",
+            reason="Observed multiple raw network indicator types; reputation is not assessed",
             raw={"types_present": non_empty_types},
         )
 
@@ -394,9 +409,18 @@ def _append_sandbox(
         or finding.get("synthetic")
         or finding.get("provider") == "mock"
         or finding.get("executed") is False
-        or finding.get("status") in {
-            "synthetic", "mock", "disabled", "not_requested", "deferred", "queued",
-            "unavailable", "failed", "timeout", "unsupported",
+        or finding.get("status")
+        in {
+            "synthetic",
+            "mock",
+            "disabled",
+            "not_requested",
+            "deferred",
+            "queued",
+            "unavailable",
+            "failed",
+            "timeout",
+            "unsupported",
         }
     ):
         return
