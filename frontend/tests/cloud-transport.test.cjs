@@ -130,6 +130,55 @@ test('root signed password IDs authorize child polling and child password POST w
     assert.equal(calls.length, 3)
 })
 
+test('encrypted PDF password retries use the existing target route and original root ownership', async (t) => {
+    const client = new CloudTransport(BASE, ownedStorage())
+    let attempts = 1
+    let active = false
+    let submitted
+    const calls = []
+    const encrypted = report({
+        child_jobs: [{ job_id: CHILD, filename: 'locked.pdf', status: 'password_required' }],
+        artifacts: [{ artifact_id: CHILD, status: 'password_required', reason: 'wrong_password', report: {
+            job_id: CHILD, file: { original_filename: 'locked.pdf', mime: 'application/pdf' },
+            results: { format_analysis: { analyzer: 'pdf', features: { encrypted: true, content_access: 'wrong_password' } } },
+        } }],
+    })
+    t.mock.method(global, 'fetch', async (url, options) => {
+        calls.push(url)
+        assert.equal(options.headers.Authorization, `Bearer ${CAP}`)
+        assert.equal(options.redirect, 'error')
+        assert.equal(url.includes(CAP), false)
+        if (options.method === 'POST') {
+            assert.equal(url, `${BASE}/api/v1/jobs/${CHILD}/password`)
+            assert.equal(options.headers['Content-Type'], 'application/json')
+            submitted = JSON.parse(options.body)
+            assert.deepEqual(submitted, { password: 'PDF user password' })
+            attempts++
+            active = true
+            return json({ job_id: CHILD, status: 'queued', password_attempts: attempts, password_attempts_remaining: 3 - attempts })
+        }
+        if (url.includes('/reports/')) {
+            assert.equal(url, `${BASE}/api/v1/reports/${ROOT}`)
+            return json(encrypted)
+        }
+        assert.equal(url, `${BASE}/api/v1/jobs/${ROOT}`)
+        return json(status({ status: active ? 'queued' : 'password_required', password_attempts: attempts, password_attempts_remaining: 3 - attempts }))
+    })
+    await client.getReport(ROOT)
+    const child = await client.getReport(CHILD)
+    assert.equal(child.file.original_filename, 'locked.pdf')
+    assert.equal(child.job_status, 'password_required')
+    assert.equal(child.parent_job_id, ROOT)
+    assert.equal(child.results.format_analysis.features.content_access, 'wrong_password')
+    assert.equal((await client.getJobStatus(CHILD)).password_attempts_remaining, 2)
+    assert.equal((await client.submitPassword(CHILD, 'PDF user password')).password_attempts_remaining, 1)
+    const queued = await client.getReport(CHILD)
+    assert.equal(queued.job_status, 'queued')
+    assert.deepEqual(queued.password_required_artifacts, [])
+    assert.equal(queued.results.format_analysis.features.content_access, 'wrong_password')
+    assert.equal(calls.filter((url) => url.endsWith('/password')).length, 1)
+})
+
 test('a child reload fetches the root snapshot rather than a nonexistent child GET route', async (t) => {
     const saved = ownedStorage()
     saved.setItem(`malscan:cloud:${BASE}:${OTHER}`, saved.getItem(`malscan:cloud:${BASE}:${ROOT}`))

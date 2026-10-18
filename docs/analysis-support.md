@@ -9,7 +9,7 @@
 | 一般檔案 | 檔案型別／hash、ClamAV、YARA、IOC、去混淆候選 | 需要可用的 ClamAV 和 YARA 規則 | 沒有專用格式分析器，不代表其他階段沒有分析；無規則／工具失敗不能當成已掃描未命中 |
 | Windows PE | headers、imports／exports、sections、entropy、resources、TLS、debug、overlay、packer clues 與啟發式 | `pefile` | 100 MiB 處理上限；overlay／resources 結構偵測不等於將所有內容提取為遞迴子檔；沒有程式執行或保證完整反編譯 |
 | Office OLE／OOXML／RTF | 巨集、外部關聯、DDE／Equation Editor 等跡象、支援的嵌入物件提取及遞迴子檔 | `oletools` | 加密 Office 解密與補交密碼尚未提供；parser fallback／ZIP／XML 失敗、metadata 限制或 VBA project 存在但來源不可解析時為 partial |
-| PDF | pages、metadata、actions／JavaScript、forms、嵌入檔描述及啟發式 | `pypdf` | 需非空密碼而無法存取內容時保留 encrypted／password_required 與 partial；尚無使用者密碼補交解鎖流程，附件描述不等於附件已提取掃描 |
+| PDF | pages、metadata、actions／JavaScript、forms、嵌入檔描述及啟發式；解密後衍生子檔重新掃描 | `pypdf`／AES crypto backend；使用者提供的密碼可補交並從 checkpoint 續跑；RC4-40、AES-128、AES-256 R5／R6 有固定 fixture | 輸入上限 50 MiB；等待密碼、不支援加密、解析／資源限制保留未完成原因。`EFF != StmF`、stream 的 `/Filter /Crypt` override（含 `/Name /Identity`）或 `/EncryptMetadata=false` 目前不支援；建立明文子檔前回報 unavailable／partial，不建立子檔或反覆要求錯誤密碼。原始加密檔與解密子檔分開；PDF 附件尚未提取掃描。詳見 [PDF 密碼流程](pdf-password.md) |
 | Windows LNK | 目標／參數等結構與啟發式 | `LnkParse3` | 不解析所有 shell extension，不執行捷徑 |
 | Scripts | 支援副檔名與語法模式的指標、去混淆、IOC、啟發式 | 相應 Python 分析器 | 不執行 scripts；解碼候選不代表已完整還原程式 |
 | ZIP | 逐檔 streaming 解壓、來源檔案樹、遞迴分析 | ZIP 傳統密碼；AES fallback 需要 `pyzipper` | 以實際 extractor 回應判斷加密方式可用性；不支援的方法或損壞內容要留下未完成原因 |
@@ -25,7 +25,15 @@
 正常 PE 無 overlay 的回傳值已修正；OOXML 即使被辨識成 ZIP 仍進入 Office 分析，
 外部關聯以 XML 結構解析，註解內文字不作 active target。合成 PE 沒有 executable section，
 文件的指標內容也不執行。這批樣本不能代表所有真實 PE、Office 或 PDF 版本，
-來源、預期及未完成原因見[靜態品質基準](static-quality.md)。正式雲端尚需部署新版才套用。
+來源、預期及未完成原因見[靜態品質基準](static-quality.md)。這兩批的正式 worker／Pages 部署與三份 demo 報告已核對。
+
+2026-10-18 的 PDF 密碼恢復程式與本機驗證已完成，一般原生基準 32／32 與獨立密碼案例 12／12 通過；
+本批正式 demo 尚未更新。
+正確密碼產生獨立的解密 PDF 子檔，原檔 hash 不變，子檔重新執行實際 ClamAV／YARA 與適用靜態階段。
+解密保留可讀的 active xref 物件，包括 catalog 無法到達的物件；不可讀物件、超限或派送失敗不能顯示內容已完成分析。
+不支援的 `EFF != StmF` 與 `/EncryptMetadata=false` 在要求密碼前檢查；stream 的明確 `/Crypt` override
+則在成功解鎖後、clone 前檢查。支援方式與限制見 [PDF 密碼說明](pdf-password.md)，
+本機結果見 [2026-10-18 紀錄](milestones/2026-10-18-pdf-password.json)，正式部署／smoke 另列為進度清單 F-08。
 
 去混淆階段預設 `DEOBFUSCATION_MAX_FILE_SIZE=10000000` bytes。大於此上限的原檔仍可完成
 ClamAV／YARA 等適用階段，但去混淆會以大小限制原因略過，static coverage 因此為 partial。
@@ -61,7 +69,7 @@ deadline 是**每次 execution attempt 的共用時間窗**：該 attempt 所有
 
 ## 提取邊界與未完成報告
 
-archive 與 Office／RTF 提取在 Linux 的獨立 process group 中執行。parent 在寫出前接收 reservation，原子更新 root budget；已預扣的大小涵蓋後續 streaming chunks。超出 deadline 或外層 stage 被取消時，parent 終止 parser 及同一 process group 的外部 decoder helpers。這個邊界可以停止提取，不依賴 `wait_for(to_thread(...))` 的表面 timeout。
+archive、Office／RTF 提取與 PDF 解密在 Linux 的獨立 process group 中執行。parent 在寫出前接收 reservation，原子更新 root budget；已預扣的大小涵蓋後續 streaming chunks。超出 deadline 或外層 stage 被取消時，parent 終止 parser 及同一 process group 的外部 decoder helpers。這個邊界可以停止提取，不依賴 `wait_for(to_thread(...))` 的表面 timeout。
 
 OOXML 嵌入檔先保留宣告大小，再以限制讀取；關聯 XML 有獨立 parse cap。第三方 parser 的 internal allocations、metadata 解析和其他分析器的記憶體，仍需 worker／container 的記憶體上限；提取 bytes budget 不是 parser heap 上限。Linux process boundary 是目前支援的執行環境，未提供 Windows／其他平台相同的強制終止能力。Stage／budget checkpoint 可以恢復持久化成果，但終止時尚未完成的 output 不會被誤稱已分析。
 

@@ -4,11 +4,13 @@
 
 以靜態分析為核心的檔案分析平台：上傳檔案，追蹤壓縮檔與嵌入子檔，取得包含偵測證據、來源關係、分析範圍與未完成原因的報告。自架部署可另外啟用 CAPE 動態分析；雲端 demo 使用相同靜態核心，以有限額度展示產品。
 
-**[開啟雲端 demo](https://malscan-v2-demo.pages.dev)** · [支援格式](docs/analysis-support.md) · [v2 架構](docs/v2-architecture.md) · [驗收與維護](docs/cloud-demo-operations.md) · [後續進度](docs/roadmap.md)
+**[開啟雲端 demo](https://malscan-v2-demo.pages.dev)** · [支援格式](docs/analysis-support.md) · [v2 架構](docs/v2-architecture.md) · [驗收與維護](docs/cloud-demo-operations.md) · [進度清單](docs/project-status.md) · [路線圖](docs/roadmap.md)
 
 ## 目前里程碑
 
-**2026-10-17：P1 靜態品質第二批已驗證**：品質 corpus 擴充為 32 個案例／28 個固定 fixture，新增 PE、Office、PDF 結構與失敗對照；修正正常 PE、文件解析及已量測的 YARA／IOC 風險誤報。32／32 真實引擎案例通過；驗收方式與限制見[靜態品質基準](docs/static-quality.md)。正式雲端 demo 尚未套用這兩批變更，預計依[合併部署手冊](docs/deploy-static-quality-v2.md)一次更新 worker 映像與 Pages 前端。
+**2026-10-18：PDF 密碼恢復程式與本機驗證完成。** 支援需密碼的 PDF 等待、錯誤後補交正確密碼、不同密碼 ZIP→PDF，以及 checkpoint 續跑。解密內容成為獨立子檔，重新執行 ClamAV／YARA 與適用靜態分析，原檔不改寫；一般原生基準 32／32、獨立 PDF 密碼案例 12／12 通過；worker 839、backend 203、frontend 39 項測試通過，另有四項 PostgreSQL opt-in skip。正式 demo 尚未部署這批；結果見 [本批紀錄](docs/milestones/2026-10-18-pdf-password.json)。見 [PDF 密碼流程](docs/pdf-password.md)及[部署手冊](docs/deploy-pdf-password.md)。[進度清單](docs/project-status.md)逐項追蹤 43 個 ID，包含仍待辦的 DO 清理、長期成本、真實回退及自動病毒庫更新。
+
+**2026-10-17：P1 靜態品質第二批已驗證**：品質 corpus 擴充為 32 個案例／28 個固定 fixture，新增 PE、Office、PDF 結構與失敗對照；32／32 真實引擎案例通過。兩批變更的 worker／Pages 部署結果與三份正式 demo 報告已核對；PDF 密碼恢復為下一個獨立批次。驗收範圍見[靜態品質基準](docs/static-quality.md)，所有完成／待辦項目及條件見[進度清單](docs/project-status.md)。
 
 **2026-10-16（Asia/Taipei）：本輪雲端核心流程與四筆 R2 保留期驗證完成，持續維護項目追蹤中。** 正式 API 已驗證巢狀 ZIP、不同密碼 ZIP／7z、20 MB 上傳及宣告的掃描範圍、檔案大小超限與已用票證拒絕；人工病毒庫映像更新及切換後的執行映像也已核對。四個工作共 28 個指定 R2 前綴確認為空，到期後工作／報告存取已撤回。目前 TWD 專案月內費用已核對為極低，並非精確零費用。詳見[P0 驗收紀錄](docs/milestones/2026-10-15-p0-acceptance.md)。
 
@@ -25,13 +27,13 @@
 | 通用靜態分析 | 檔案型別與 hash、ClamAV、YARA、IOC、去混淆候選與啟發式證據 |
 | 格式分析 | Windows PE、Office OLE／OOXML／RTF、PDF、LNK、支援的 scripts；各格式深度不同 |
 | 遞迴子檔 | ZIP、7z、RAR、TAR、gzip、bzip2，以及支援的文件嵌入物件；保留原檔到子檔的來源樹 |
-| 密碼與續跑 | 支援封存格式的密碼補交、巢狀不同密碼、已完成 stage checkpoint 與累計提取預算 |
+| 密碼與續跑 | 支援封存格式與 PDF 的密碼補交、巢狀不同密碼、已完成 stage checkpoint 與累計提取預算；PDF 本批程式／本機驗證完成，正式 demo 待更新 |
 | 可解釋報告 | 各階段狀態、工具／規則版本、直接與子檔風險來源、部分成果及未完成原因 |
 | 選用動態分析 | 自架串接真實 CAPEv2，將可取得的 process／file／registry／network 等證據補入報告 |
 
 報告將「已分析但未命中」、「工具失敗」、「無規則」、「等待密碼」、「超出預算」與「格式不支援」分開呈現。`complete` 表示該次宣告範圍已完成，沒有命中也不表示保證安全。
 
-加密 Office／PDF 解密、ISO 提取、ELF／Mach-O／郵件／APK 的專用深度分析尚未提供。RAR 能力取決於可用的外部解壓器；PDF 附件描述不代表附件已提取掃描。完整能力以[支援矩陣](docs/analysis-support.md)及每份報告的 coverage 為準。
+加密 Office 解密、ISO 提取、ELF／Mach-O／郵件／APK 的專用深度分析尚未提供；PDF 密碼恢復程式／本機驗證已完成，正式部署狀態見 F-08。RAR 能力取決於可用的外部解壓器；PDF 附件描述不代表附件已提取掃描。完整能力以[支援矩陣](docs/analysis-support.md)及每份報告的 coverage 為準。
 
 ## 選擇執行方式
 
@@ -113,7 +115,7 @@ export YARA_RULES_PATH="$PWD/rules"
 poetry run python -m malscan_worker.runtime --file /path/sample.zip --output-dir /path/analysis
 # 中斷後沿用來源、output-dir 與保留的 checkpoint
 poetry run python -m malscan_worker.runtime --file /path/sample.zip --output-dir /path/analysis --resume
-# 根壓縮檔密碼透過隱藏提示輸入
+# 根壓縮檔或 PDF 密碼透過隱藏提示輸入
 poetry run python -m malscan_worker.runtime --file /path/sample.zip --output-dir /path/analysis --resume --ask-password
 ```
 
@@ -167,4 +169,4 @@ scripts/enable-sandbox.sh
 
 本機已驗證 backend／worker／frontend 測試、真 PostgreSQL 預算與 attempt、真 ZIP／7z 不同密碼恢復、完整容器／S3 checkpoint，以及 Worker 與 Python dispatcher 的 HTTP 串接。測試數量、命令與證據邊界見[驗證紀錄](docs/v2-validation.md)；它們不取代 live provider 或實際帳單驗收。
 
-目前優先完成第二批的全套回歸與新舊品質比較，再以同一版本更新雲端 worker 及前端。後續擴充更多正常、異常與受限格式對照，再處理文件密碼／附件與可量測的效能瓶頸。P0 的持續維護與成本觀察並行追蹤，真實 CAPE 驗收則待可用基礎設施。各階段的交付條件與排序見[專案進度規劃](docs/roadmap.md)。
+目前下一步為 PDF 密碼恢復的正式部署與 smoke，再依序擴充 Office 密碼、文件附件、格式品質與可量測的效能改善。DO 清理、長期成本、真實雲端回退及自動簽章病毒庫更新持續列為獨立待辦；真實 CAPE 驗收待可用基礎設施。每批都更新[專案進度清單](docs/project-status.md)，各階段排序見[路線圖](docs/roadmap.md)。

@@ -47,7 +47,7 @@ const statusMap: Record<string, string> = {
     failed: '失敗',
     error: '失敗',
     timeout: '逾時',
-    password_required: '等待解壓密碼',
+    password_required: '等待檔案密碼',
     synthetic: '合成測試資料',
     mock: '合成測試資料',
     no_rules: '未配置規則',
@@ -145,6 +145,13 @@ const labelMap: Record<string, string> = {
 }
 
 const directTextMap: Record<string, string> = {
+    invalid_archive_password: '檔案密碼格式無效，請使用 1 至 256 個字元且不含空字元。',
+    archive_not_waiting: '此檔案目前未等待密碼，請重新取得工作狀態。',
+    password_attempt_limit: '已達密碼嘗試上限，無法再次提交密碼。',
+    'Password attempts exhausted': '已達密碼嘗試上限，無法再次提交密碼。',
+    wrong_password: '密碼不正確，請確認這個檔案的密碼後再試一次。',
+    'Archive password was rejected': '密碼不正確，請確認這個檔案的密碼後再試一次。',
+    'Archive password is required': '此檔案需要密碼才能繼續分析。',
     Explainability: '可解釋性',
     'Explainability summary is available for this report.': '此報告已產生可解釋性摘要。',
     'One nested artifact drove the final suspicious verdict.': '一個巢狀內層檔案主導了最終的可疑判定。',

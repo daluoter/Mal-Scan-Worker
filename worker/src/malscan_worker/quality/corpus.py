@@ -109,7 +109,20 @@ def load_corpus(path: Path) -> dict[str, Any]:
             raise ValueError("Unknown sample label")
         if case.get("fixture") not in data["fixtures"] or not isinstance(case.get("expect"), dict):
             raise ValueError("Missing quality expectation")
-        checks = case["expect"].get("checks", [])
+        expected = case["expect"]
+        if "report_complete" in expected and not isinstance(expected["report_complete"], bool):
+            raise ValueError("Invalid expected report completion state")
+        if "job_status" in expected and expected["job_status"] not in {"done", "password_required"}:
+            raise ValueError("Invalid expected job state")
+        not_run = expected.get("not_run_stages", [])
+        if (
+            not isinstance(not_run, list)
+            or any(not isinstance(name, str) or name not in REQUIRED_STAGES for name in not_run)
+            or len(set(not_run)) != len(not_run)
+            or (not_run and expected.get("job_status") != "password_required")
+        ):
+            raise ValueError("Invalid expected unexecuted stages")
+        checks = expected.get("checks", [])
         if not isinstance(checks, list) or len(checks) > 100:
             raise ValueError("Invalid format evidence checks")
         for check in checks:
@@ -158,8 +171,13 @@ def evaluate_report(
         if not condition:
             errors.append(message)
 
-    require(report.get("report_complete") is True, "execution did not finish")
-    require(report.get("job_status") == "done", "unexpected execution state")
+    require(
+        report.get("report_complete") is expected.get("report_complete", True),
+        "execution completion state differs",
+    )
+    require(
+        report.get("job_status") == expected.get("job_status", "done"), "unexpected execution state"
+    )
     static = report.get("analysis", {}).get("static", {})
     require(static.get("status") == expected["static_status"], "static coverage differs")
     require(
@@ -223,8 +241,10 @@ def evaluate_report(
         )
         coverage = child.get("analysis", {}).get("static", {}).get("stage_coverage", [])
         stages = {item["stage"]: item for item in coverage}
+        not_run = set(expected.get("not_run_stages", [])) if node["parent_id"] is None else set()
+        required_stages = REQUIRED_STAGES - not_run
         require(
-            set(stages) == REQUIRED_STAGES and len(coverage) == len(REQUIRED_STAGES),
+            set(stages) == required_stages and len(coverage) == len(required_stages),
             "required stage coverage is missing or duplicated",
         )
         calculated = build_analysis(stages=coverage)["static"]["status"]
@@ -244,6 +264,8 @@ def evaluate_report(
         for name, status in overrides.items():
             require(stages.get(name, {}).get("status") == status, f"root {name} status differs")
         for name in ("format-analysis", "archive-extract", "document-analysis"):
+            if name in not_run:
+                continue
             status = stages.get(name, {}).get("status")
             if name not in overrides and name not in expected.get("partial_stages", []):
                 require(

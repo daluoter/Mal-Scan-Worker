@@ -26,7 +26,12 @@ from malscan_worker.db import (
     update_job_stage,
     update_job_status,
 )
-from malscan_worker.exceptions import ArchivePasswordRequiredError, ArchiveWrongPasswordError
+from malscan_worker.exceptions import (
+    ArchivePasswordRequiredError,
+    ArchiveWrongPasswordError,
+    DocumentPasswordRequiredError,
+    DocumentWrongPasswordError,
+)
 from malscan_worker.metrics import stage_latency
 from malscan_worker.sandbox import build_empty_sandbox_result
 from malscan_worker.sandbox.providers import ProviderCheckpointError
@@ -835,6 +840,32 @@ async def execute_analysis_stages(
             try:
                 result = await _run_stage(stage, ctx)
             except (ArchivePasswordRequiredError, ArchiveWrongPasswordError) as exc:
+                document_password = isinstance(
+                    exc, (DocumentPasswordRequiredError, DocumentWrongPasswordError)
+                )
+                wrong_password = isinstance(exc, ArchiveWrongPasswordError)
+                kind = "PDF" if document_password else "Archive"
+                findings: dict[str, Any] = {
+                    "reason": f"{kind} password was rejected"
+                    if wrong_password
+                    else f"{kind} password is required"
+                }
+                if document_password:
+                    # Persist only the class of the password block. Exception
+                    # text, the credential and decrypted bytes never belong in
+                    # a stage checkpoint; the existing per-artifact transport
+                    # supplies the password again for a later attempt.
+                    findings.update(
+                        analyzer="pdf",
+                        format_type="PDF",
+                        features={
+                            "encrypted": True,
+                            "content_access": "wrong_password"
+                            if wrong_password
+                            else "password_required",
+                        },
+                        password_kind="pdf",
+                    )
                 now = datetime.now(timezone.utc)
                 blocked = StageResult(
                     stage_name=stage.name,
@@ -842,11 +873,7 @@ async def execute_analysis_stages(
                     started_at=now,
                     ended_at=now,
                     duration_ms=0,
-                    findings={
-                        "reason": "Archive password is required"
-                        if isinstance(exc, ArchivePasswordRequiredError)
-                        else "Archive password was rejected"
-                    },
+                    findings=findings,
                     artifacts=[],
                 )
                 results.append(blocked)

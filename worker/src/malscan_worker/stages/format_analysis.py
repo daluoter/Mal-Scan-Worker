@@ -18,6 +18,7 @@ from malscan_worker.analyzers.base import AnalyzerArtifact
 from malscan_worker.budget import BudgetExceeded, reservation_key
 from malscan_worker.config import get_settings
 from malscan_worker.db import create_artifact
+from malscan_worker.exceptions import ArchivePasswordRequiredError, ArchiveWrongPasswordError
 from malscan_worker.heuristics.models import HeuristicHit
 from malscan_worker.stages.base import Stage, StageContext, StageResult
 from malscan_worker.utils.submission import InternalJobSubmitter
@@ -48,6 +49,9 @@ class FormatAnalysisStage(Stage):
 
         try:
             analysis = await analyzer.analyze(ctx.file_path, ctx)
+        except (ArchivePasswordRequiredError, ArchiveWrongPasswordError):
+            # The shared pipeline checkpoints completed scans before waiting.
+            raise
         except Exception as exc:
             log.error(
                 "format_analysis_failed",
@@ -65,6 +69,11 @@ class FormatAnalysisStage(Stage):
         artifact_ids: list[str] = []
         sub_jobs_created = 0
         errors = list(analysis.errors)
+        analyzer_error_count = len(errors)
+        decrypted_pdf = (
+            analysis.analyzer_name == "pdf"
+            and analysis.features.get("content_access") == "decrypted_child"
+        )
 
         if analysis.extracted_artifacts and (ctx.job or ctx.analysis_services):
             try:
@@ -79,13 +88,29 @@ class FormatAnalysisStage(Stage):
                 )
                 errors.extend(submit_errors)
             except Exception as exc:
+                detail = type(exc).__name__ if decrypted_pdf else str(exc)
                 log.error(
                     "format_analysis_artifact_submission_failed",
                     job_id=ctx.job_id,
-                    error=str(exc),
-                    exc_info=True,
+                    error=detail,
                 )
-                errors.append(f"artifact submission failed: {exc}")
+                errors.append(f"artifact submission failed: {detail}")
+
+        if decrypted_pdf:
+            # Unlocking is not a successful content scan. The plaintext must be
+            # linked to a child which the normal pipeline can actually analyze.
+            if not analysis.extracted_artifacts or not artifact_ids:
+                errors.append("decrypted_pdf_child_not_submitted")
+            child = analysis.features.get("decrypted_child")
+            if isinstance(child, dict):
+                child["artifact_ids"] = list(artifact_ids)
+                child["analysis_state"] = (
+                    "submission_failed"
+                    if artifact_ids and len(errors) > analyzer_error_count
+                    else "submitted"
+                    if artifact_ids
+                    else "not_submitted"
+                )
 
         findings = {
             "analyzer": analysis.analyzer_name or analyzer.name,
@@ -189,6 +214,8 @@ class FormatAnalysisStage(Stage):
 
             art_path = Path(art_path_raw)
             if not art_path.exists():
+                if analyzer_name == "pdf":
+                    errors.append("decrypted_pdf_output_missing")
                 continue
 
             file_sha256 = str(art.get("sha256", "")).strip()
@@ -203,6 +230,11 @@ class FormatAnalysisStage(Stage):
             file_size = art_path.stat().st_size
             filename = str(art.get("filename", art_path.name))
             source = str(art.get("source", filename))
+            if analyzer_name == "pdf" and source == "pdf-decrypted":
+                actual_hash = self._hash_file_sha256(art_path)
+                if file_sha256 != actual_hash or art.get("size") != file_size:
+                    errors.append("decrypted_pdf_output_identity_mismatch")
+                    continue
             if ctx.root_budget:
                 try:
                     await ctx.root_budget.reserve(
@@ -235,6 +267,8 @@ class FormatAnalysisStage(Stage):
                 if child:
                     created_ids.append(str(child))
                     submitted += not (duplicate or cycle)
+                elif analyzer_name == "pdf":
+                    errors.append("decrypted_pdf_child_not_submitted")
                 continue
 
             record = await create_artifact(
@@ -281,14 +315,17 @@ class FormatAnalysisStage(Stage):
                 )
                 if sub_job_id:
                     submitted += 1
+                elif analyzer_name == "pdf":
+                    errors.append("decrypted_pdf_child_not_submitted")
             except Exception as exc:
+                detail = type(exc).__name__ if analyzer_name == "pdf" else str(exc)
                 log.error(
                     "format_analysis_subjob_failed",
                     job_id=ctx.job_id,
                     artifact=filename,
-                    error=str(exc),
+                    error=detail,
                 )
-                errors.append(f"sub-job submit failed for {filename}: {exc}")
+                errors.append(f"sub-job submit failed for {filename}: {detail}")
 
         return submitted, created_ids, errors
 

@@ -59,3 +59,17 @@ export function passwordTargets(report: Report): Array<{ jobId: string; filename
     if (report.artifact_tree) visit(report.artifact_tree)
     return [...targets.values()]
 }
+
+export function passwordTargetError(report: Report, jobId: string): string | undefined {
+    // Encryption metadata alone does not authorize a retry. Only expose a
+    // wrong-password hint for a target the current waiting state identifies.
+    if (!passwordTargets(report).some((target) => target.jobId === jobId)) return undefined
+    const artifact = report.artifacts?.find((item) => item.artifact_id === jobId)
+    if (artifact?.reason === 'wrong_password') return 'wrong_password'
+    const local = jobId === report.job_id ? report : artifact?.report
+    const format = local?.results?.format_analysis
+    const features = format?.features
+    if (features && typeof features === 'object' && !Array.isArray(features)
+        && (features as Record<string, unknown>).content_access === 'wrong_password') return 'wrong_password'
+    return undefined
+}

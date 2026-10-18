@@ -119,7 +119,7 @@ async def test_corrupt_pdf_uses_regex_fallback(
 
     indicator_types = {str(ind["type"]) for ind in result.indicators}
     assert result.errors
-    assert "broken xref" in result.errors[0].lower()
+    assert result.errors == ["failed to parse PDF file: corrupt or unsupported PDF data"]
     assert result.features["object_count"] == 1
     assert "embedded_javascript" in indicator_types
     assert "name_obfuscation" in indicator_types

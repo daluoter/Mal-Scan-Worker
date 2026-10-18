@@ -27,7 +27,7 @@ malscan-api = {path = "../backend", develop = true}
 pyzipper = "^0.3.6"
 oletools = "^0.60"
 pefile = "^2023.2.7"
-pypdf = "^4.0.0"
+pypdf = {version = "^4.0.0", extras = ["crypto"]}
 LnkParse3 = "^1.4.0"
 
 [tool.poetry.group.dev.dependencies]

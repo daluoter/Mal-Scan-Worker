@@ -202,6 +202,7 @@ export default function JobStatusPage() {
                 {jobNeedsPassword(job) && (
                     <div className="mt-6">
                         <PasswordForm
+                            filename={fileInfo.fileName}
                             attemptsUsed={job.password_attempts}
                             attemptsRemaining={job.password_attempts_remaining}
                             attemptsScope={apiClient.isCloudDemo() ? '雲端 demo 最多三次密碼重試，由整個上傳工作共用。' : undefined}

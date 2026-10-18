@@ -21,3 +21,11 @@ class ArchivePasswordRequiredError(ArchivePasswordError):
 
 class ArchiveWrongPasswordError(ArchivePasswordError):
     """Raised when an archive password was provided but is invalid."""
+
+
+class DocumentPasswordRequiredError(ArchivePasswordRequiredError):
+    """A supported encrypted document needs a user-supplied password."""
+
+
+class DocumentWrongPasswordError(ArchiveWrongPasswordError):
+    """A supported document rejected the supplied password."""

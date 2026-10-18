@@ -14,7 +14,7 @@ from malscan_worker.quality.corpus import (
 )
 from malscan_worker.rule_provenance import load_rule_bundle
 
-CORPUS = Path(__file__).parents[1] / "quality" / "corpus-v2.json"
+CORPUS = Path(__file__).parents[1] / "quality" / "corpus-v3.json"
 RULES = Path(__file__).parents[1] / "rules"
 
 
@@ -273,3 +273,45 @@ def test_every_artifact_ancestry_reaches_the_root_without_cycles(corpus, corrupt
     assert result["passed"] is (corruption == "none")
     if error is not None:
         assert error in result["errors"]
+
+
+def test_waiting_quality_case_cannot_be_reported_as_completed(corpus):
+    case = copy.deepcopy(corpus["cases"][0])
+    case["expect"].update(job_status="password_required", report_complete=False)
+    report = _report()
+    completed = evaluate_report(case, report, source_sha256="a" * 64, source_size=31)
+    assert completed["passed"] is False
+    assert "execution completion state differs" in completed["errors"]
+    case["expect"].update(
+        static_status="password_required",
+        not_run_stages=["archive-extract", "document-analysis"],
+        root_stages={"format-analysis": "password_required"},
+    )
+    report.update(job_status="password_required", report_complete=False)
+    report["analysis"]["static"]["status"] = "password_required"
+    report["artifact_tree"]["analysis_status"] = "password_required"
+    child_static = report["artifacts"][0]["report"]["analysis"]["static"]
+    child_static["status"] = "password_required"
+    child_static["stage_coverage"] = [
+        item
+        for item in child_static["stage_coverage"]
+        if item["stage"] not in {"archive-extract", "document-analysis"}
+    ]
+    next(
+        item for item in child_static["stage_coverage"] if item["stage"] == "format-analysis"
+    ).update(status="password_required", reason="PDF password is required")
+    waiting = evaluate_report(case, report, source_sha256="a" * 64, source_size=31)
+    assert waiting["passed"] is True
+    child_static["stage_coverage"] = [
+        item for item in child_static["stage_coverage"] if item["stage"] != "clamav"
+    ]
+    lost_detector = evaluate_report(case, report, source_sha256="a" * 64, source_size=31)
+    assert lost_detector["passed"] is False
+
+
+def test_historical_v2_retains_locked_pdf_partial_expectation():
+    historical = load_corpus(CORPUS.with_name("corpus-v2.json"))
+    assert historical["corpus_version"] == "static-quality-v2.0.0"
+    locked = next(case for case in historical["cases"] if case["id"] == "pdf-encrypted")
+    assert locked["expect"]["static_status"] == "partial"
+    assert "job_status" not in locked["expect"]

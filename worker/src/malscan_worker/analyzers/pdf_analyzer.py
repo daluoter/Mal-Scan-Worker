@@ -2,9 +2,14 @@
 
 from __future__ import annotations
 
-import asyncio
 import io
+import logging
+import os
 import re
+import shutil
+import tempfile
+from collections.abc import Callable
+from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -16,6 +21,11 @@ from malscan_worker.analyzers.base import (
     FormatAnalyzer,
     JsonValue,
 )
+from malscan_worker.analyzers.pdf_decryption import decrypt_to_child
+from malscan_worker.budget import BudgetExceeded
+from malscan_worker.config import get_settings
+from malscan_worker.exceptions import DocumentPasswordRequiredError, DocumentWrongPasswordError
+from malscan_worker.extractors.process import run_parser_bounded
 from malscan_worker.heuristics.pdf import build_pdf_heuristics
 
 if TYPE_CHECKING:
@@ -83,48 +93,162 @@ class PDFAnalyzer(FormatAnalyzer):
         return _PDF_MAGIC_RE.match(magic) is not None
 
     async def analyze(self, file_path: Path, ctx: StageContext) -> AnalyzerResult:
-        del ctx
         result = AnalyzerResult(analyzer_name=self.name, format_type="PDF")
 
         try:
             file_size = file_path.stat().st_size
-        except OSError as exc:
-            result.errors.append(f"failed to stat PDF file: {exc}")
+        except OSError:
+            result.errors.append("failed to stat PDF file")
             return result
 
         if file_size > _MAX_FILE_SIZE_BYTES:
             result.errors.append("PDF analysis skipped: file exceeds 50MB limit")
             return result
 
-        loop = asyncio.get_running_loop()
-        return await loop.run_in_executor(None, self._analyze_sync, file_path)
+        settings = getattr(ctx, "analysis_settings", None) or get_settings()
+        maximum_bytes = min(
+            _MAX_FILE_SIZE_BYTES,
+            settings.extraction_max_single_bytes,
+            settings.extraction_max_bytes,
+        )
+        max_depth = getattr(ctx.analysis_services, "max_depth", settings.max_job_depth)
+        depth = ctx.job.depth if ctx.job else ctx.depth
+        if re.fullmatch(r"[A-Za-z0-9_-]{1,128}", ctx.job_id) is None:
+            result.errors.append("PDF working directory unavailable")
+            return result
+        parent = Path("/tmp") / ctx.job_id / "pdf_artifacts"
+        try:
+            parent.mkdir(parents=True, mode=0o700, exist_ok=True)
+            work = Path(tempfile.mkdtemp(prefix="decrypt-", dir=parent))
+        except OSError:
+            result.errors.append("PDF working directory unavailable")
+            return result
+        retain = False
+        try:
 
-    def _analyze_sync(self, file_path: Path) -> AnalyzerResult:
+            def parse(reserve: Callable[[str, int, int], None]) -> AnalyzerResult:
+                with open(os.devnull, "w") as sink, redirect_stdout(sink), redirect_stderr(sink):
+                    return self._analyze_sync(
+                        file_path,
+                        password=ctx.archive_password,
+                        output_path=work / "decrypted.pdf",
+                        reserve=reserve,
+                        maximum_bytes=maximum_bytes,
+                        job_id=ctx.job_id,
+                        depth_limited=depth >= max_depth,
+                    )
+
+            try:
+                result = await run_parser_bounded(
+                    parse,
+                    root_budget=ctx.root_budget,
+                    job_id=ctx.job_id,
+                    source="format-analysis",
+                    timeout_seconds=settings.extraction_timeout,
+                )
+            except BudgetExceeded as exc:
+                result.features = {
+                    "resource_limited": True,
+                    "limit_reason": exc.reason,
+                }
+                result.errors = [exc.reason]
+            except Exception:
+                result.errors = ["PDF parser unavailable or failed"]
+            access = result.features.get("content_access")
+            if access == "password_required":
+                raise DocumentPasswordRequiredError("pdf")
+            if access == "wrong_password":
+                raise DocumentWrongPasswordError("pdf")
+            # HeuristicHit contains immutable mapping proxies. Build those from
+            # the bounded parser's plain features after crossing the IPC boundary.
+            result.heuristics = build_pdf_heuristics(result.features)
+            retain = bool(result.extracted_artifacts)
+            return result
+        finally:
+            if not retain:
+                shutil.rmtree(work, ignore_errors=True)
+
+    def _analyze_sync(
+        self,
+        file_path: Path,
+        *,
+        password: str | None,
+        output_path: Path,
+        reserve: Callable[[str, int, int], None],
+        maximum_bytes: int,
+        job_id: str,
+        depth_limited: bool,
+    ) -> AnalyzerResult:
         result = AnalyzerResult(analyzer_name=self.name, format_type="PDF")
         features = self._empty_features()
 
+        # Hostile parser diagnostics can include file contents. Keep the parser
+        # child's logging channel private and return only sanitized diagnostics.
+        parser_log = logging.getLogger("pypdf")
+        parser_log.handlers = [logging.NullHandler()]
+        parser_log.propagate = False
+
         try:
-            raw = file_path.read_bytes()
-        except OSError as exc:
-            result.errors.append(f"failed to read PDF file: {exc}")
+            with file_path.open("rb") as source:
+                raw = source.read(_MAX_FILE_SIZE_BYTES + 1)
+            if len(raw) > _MAX_FILE_SIZE_BYTES:
+                raise BudgetExceeded("document_input_bytes_limit")
+        except OSError:
+            result.errors.append("failed to read PDF file")
             result.features = features
             return result
 
         self._scan_raw_features(raw, features, include_action_tokens=False)
 
         parser_ok = False
+        reader_available = False
         try:
             reader = PdfReader(io.BytesIO(raw))
-            self._scan_structured(reader, features)
+            reader_available = True
+            features["encrypted"] = bool(getattr(reader, "is_encrypted", False))
+            if features["encrypted"]:
+                decryption = decrypt_to_child(
+                    reader,
+                    password=password,
+                    output_path=output_path,
+                    reserve=reserve,
+                    maximum_bytes=maximum_bytes,
+                    job_id=job_id,
+                    depth_limited=depth_limited,
+                )
+                features["content_access"] = decryption.access
+                features["encryption"] = decryption.encryption
+                if decryption.object_coverage:
+                    features["decryption_object_coverage"] = decryption.object_coverage
+                    if decryption.object_coverage.get("status") != "complete":
+                        result.errors.append(
+                            "PDF object preservation incomplete: "
+                            "unreadable or ambiguous xref objects"
+                        )
+                if decryption.artifact is not None:
+                    result.extracted_artifacts = [decryption.artifact]
+                    features["decrypted_child"] = {
+                        "sha256": decryption.artifact["sha256"],
+                        "size": decryption.artifact["size"],
+                    }
+            else:
+                self._scan_structured(reader, features)
             parser_ok = True
-        except Exception as exc:
-            result.errors.append(f"failed to parse PDF file: {exc}")
+        except BudgetExceeded as exc:
+            features["resource_limited"] = True
+            features["limit_reason"] = exc.reason
+            features["content_access"] = "unavailable"
+            result.errors = [exc.reason]
+        except Exception:
+            if not reader_available:
+                features["encrypted"] = None
+            features["content_access"] = "unavailable"
+            result.errors.append("failed to parse PDF file: corrupt or unsupported PDF data")
             self._scan_raw_features(raw, features, include_action_tokens=True)
 
         indicators = self._build_indicators(features)
         result.features = features
         result.indicators = indicators
-        result.heuristics = build_pdf_heuristics(features)
         result.risk_score = self._calculate_risk_score(indicators)
         result.risk_factors = [str(ind.get("type", "")) for ind in indicators if ind.get("type")]
 
@@ -139,12 +263,6 @@ class PDFAnalyzer(FormatAnalyzer):
             features["version"] = header.removeprefix("%PDF-")
 
         features["encrypted"] = bool(getattr(reader, "is_encrypted", False))
-        if features["encrypted"] and not reader.decrypt(""):
-            # Accessing pages first raises before the encryption evidence is kept.
-            # Archive passwords do not currently unlock PDF content for this analyzer.
-            features["content_access"] = "password_required"
-            raise ValueError("Encrypted PDF requires a password; content analysis unavailable")
-
         pages = list(getattr(reader, "pages", []))
         features["page_count"] = len(pages)
 

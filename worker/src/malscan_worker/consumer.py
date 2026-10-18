@@ -26,7 +26,11 @@ from malscan_worker.db import (
     update_job_result_strict,
     update_job_status,
 )
-from malscan_worker.exceptions import ArchivePasswordRequiredError, ArchiveWrongPasswordError
+from malscan_worker.exceptions import (
+    ArchivePasswordRequiredError,
+    ArchiveWrongPasswordError,
+    DocumentWrongPasswordError,
+)
 from malscan_worker.metrics import job_total, worker_active_jobs
 from malscan_worker.pipeline import finalize_deferred_sandbox_job, run_pipeline
 from malscan_worker.reporting import build_password_attempts_exhausted_report
@@ -201,7 +205,7 @@ async def _process_message(message: aio_pika.abc.AbstractIncomingMessage) -> Non
                     job_id,
                     "password_required",
                     error_message=(
-                        "Archive is password-protected. " "Please provide a password to continue."
+                        "File is password-protected. " "Please provide a password to continue."
                     ),
                 )
             await message.ack()
@@ -214,12 +218,15 @@ async def _process_message(message: aio_pika.abc.AbstractIncomingMessage) -> Non
                     await update_job_status(
                         job_id,
                         "password_required",
-                        error_message="Wrong archive password. Please try again.",
+                        error_message="Wrong file password. Please try again.",
                     )
                 elif job_id and attempts >= 3:
                     report_payload = build_password_attempts_exhausted_report(
                         body,
                         existing_report=getattr(exc, "partial_report", None),
+                        password_kind="pdf"
+                        if isinstance(exc, DocumentWrongPasswordError)
+                        else None,
                     )
                     await update_job_result_strict(job_id, report_payload)
                     artifact_id = body.get("artifact_id")

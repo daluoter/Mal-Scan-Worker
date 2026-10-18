@@ -87,9 +87,9 @@ async def _execute(args: argparse.Namespace) -> dict[str, Any]:
     result_store = _store(args, "result", output_dir, read_only=False)
     passwords = {}
     if args.password_artifact:
-        passwords[args.password_artifact] = getpass.getpass("Archive password (hidden input): ")
+        passwords[args.password_artifact] = getpass.getpass("File password (hidden input): ")
     elif args.ask_password:
-        passwords[manifest.root_job_id] = getpass.getpass("Archive password (hidden input): ")
+        passwords[manifest.root_job_id] = getpass.getpass("File password (hidden input): ")
     runner = RootBatchRunner(
         manifest=manifest,
         source_store=source_store,
@@ -126,7 +126,7 @@ def main() -> int:
     parser.add_argument("--resume", action="store_true")
     passwords = parser.add_mutually_exclusive_group()
     passwords.add_argument(
-        "--ask-password", action="store_true", help="Prompt for the root archive password"
+        "--ask-password", action="store_true", help="Prompt for the root file password"
     )
     passwords.add_argument(
         "--password-artifact", help="Prompt for this waiting artifact's password"

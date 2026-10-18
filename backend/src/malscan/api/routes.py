@@ -679,7 +679,7 @@ async def submit_job_password(
     payload: PasswordSubmitRequest,
     db: AsyncSession = Depends(get_db),
 ) -> PasswordSubmitResponse:
-    """Submit password for a password-protected archive job and requeue it."""
+    """Submit password for a supported password-protected file job and requeue it."""
     try:
         job_uuid = uuid.UUID(job_id)
     except ValueError:

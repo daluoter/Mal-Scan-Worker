@@ -131,6 +131,7 @@ class ApiClient {
         return response.json()
     }
 
+    /** Submit a file password for a supported archive or PDF; retain the legacy method name. */
     async submitArchivePassword(jobId: string, payload: PasswordSubmitRequest): Promise<PasswordSubmitResponse> {
         if (this.cloud) {
             const response = await this.cloud.submitPassword(jobId, payload.password)
@@ -146,7 +147,7 @@ class ApiClient {
         })
 
         if (!response.ok) {
-            let errorMessage = '提交解壓密碼失敗'
+            let errorMessage = '提交檔案密碼失敗'
             try {
                 const errorData = await response.json()
                 errorMessage = errorData?.detail?.error?.message ||

@@ -1,9 +1,10 @@
 # 靜態分析品質基準
 
-2026-10-17：P1 第二批實作。目標是讓偵測結果、分析範圍與子檔案證據可以重現及核對。
+更新日期：2026-10-18（Asia/Taipei）。目標是讓偵測結果、分析範圍與子檔案證據可以重現及核對。
+目前預設一般基準為 `corpus-v3.json`，PDF 密碼流程另有獨立驗收；下列 2026-10-17 數字保留為第二批歷史結果。
 這份基準使用合成資料與標準 EICAR 測試字串，不是實際惡意程式樣本庫，也不能據此估計真實世界的偵測率。
 
-本批 32／32 真實引擎案例通過，共 28 個固定 fixture。worker 717 passed／3 skipped、
+2026-10-17 第二批 32／32 真實引擎案例通過，共 28 個固定 fixture。worker 717 passed／3 skipped、
 backend 203 passed／1 skipped、frontend 34 passed；四個 skip 均為 PostgreSQL opt-in。
 Ruff、strict mypy、前端 typecheck／lint／cloud-demo build 通過。
 完整報告另以加強後的 parent 圖與編碼 URL 驗收器重新核對 32 案，沒有重跑偵測器；
@@ -11,13 +12,19 @@ Ruff、strict mypy、前端 typecheck／lint／cloud-demo build 通過。
 [2026-10-17 紀錄](milestones/2026-10-17-static-quality.json)。
 歷史第一批 18／18 真實引擎完整流程及一般測試結果見
 [2026-10-16 紀錄](milestones/2026-10-16-static-quality.json)，不能沿用為第二批的通過證據。
-正式 GCP／Cloudflare 尚未部署這兩批品質變更；合併更新方式見
-[worker／Pages 部署手冊](deploy-static-quality-v2.md)，既有雲端驗收另見
-[P0 紀錄](milestones/2026-10-15-p0-acceptance.md)。
+兩批品質變更的正式 worker／Pages 部署結果與三份 demo 報告已核對：正常 Office、PDF action、加密 PDF。
+這些報告使用當時尚無 PDF 密碼補交的版本，不能代替本批 PDF 密碼恢復驗收。
+2026-10-18 PDF 程式與本機驗證完成：最終一般原生基準 32／32、獨立 PDF 密碼原生案例 12／12、
+worker 839 passed／3 skipped、
+backend 203 passed／1 skipped、frontend 39 passed；skip 均為 PostgreSQL opt-in。加密支援負面檢查 38 案與
+最後 AES-128 原生重跑 1／1 亦通過，證據見 [本批紀錄](milestones/2026-10-18-pdf-password.json)。
+正式 demo 尚未更新本批，部署另見 [PDF 更新手冊](deploy-pdf-password.md)；
+既有雲端驗收見 [P0 紀錄](milestones/2026-10-15-p0-acceptance.md)。
 
 ## 版本化樣本與驗收
 
-[`worker/quality/corpus-v2.json`](../worker/quality/corpus-v2.json) 保存版本、每個 fixture 的 SHA-256、
+[`worker/quality/corpus-v3.json`](../worker/quality/corpus-v3.json) 是目前一般基準，仍為 32 個案例。
+加密 PDF 的預期改為等待密碼；其餘案例沿用已審查的行為。manifest 保存版本、每個 fixture 的 SHA-256、
 生成方法、目前規則內容雜湊與案例預期。ZIP 的時間、來源權限、壓縮方法及 entry 順序固定；gzip 不寫入當前時間。
 PE 與文件採有版本的生成配方，包含固定 headers、ZIP/XML 或 PDF 結構，不下載外部樣本。
 fixture 的 bytes 或預期需要改變時，必須審查 diff 及更新版本，執行器不會自動接受新的雜湊。
@@ -34,7 +41,8 @@ fixture 的 bytes 或預期需要改變時，必須審查 diff 及更新版本�
 | Java 新增 2 案例 | 正常程序 API 文件、request＋程序執行指標 | 正常對照零 JSP 命中，指標對照保留 `jsp_webshell` 命中 |
 | 失敗／限制 | 損壞 ZIP／PDF、ClamAV 缺失、YARA 空目錄／無效規則、去混淆檔案大小／候選數、深度限制 | 明確 partial、階段原因與保留證據，不能因 `infected=false` 或空命中就判定掃描成功 |
 
-原始 [`corpus-v1.json`](../worker/quality/corpus-v1.json) 保留為歷史基準：固定輸入仍可重現，
+原始 [`corpus-v1.json`](../worker/quality/corpus-v1.json) 與第二批
+[`corpus-v2.json`](../worker/quality/corpus-v2.json) 保留為歷史基準：固定輸入仍可重現，
 舊規則／評分預期則需配合原版本使用，不應要求它在目前規則下原樣通過。
 正常樣本仍可能觸發啟發式規則；基準通過代表宣告的行為與證據契約通過，沒有全面準確率保證。
 
@@ -58,7 +66,9 @@ fixture 的 bytes 或預期需要改變時，必須審查 diff 及更新版本�
 文件對照修正 OOXML ZIP／XML 解析與範圍呈現：ZIP MIME 的 OOXML 仍交給 Office 分析，
 relationship 依 XML 結構讀取，不把註解內範例當成外部 target；ZIP／XML 損壞、metadata 限制、
 存在 VBA project 卻無可解析來源時，保留 partial 與原因。PDF 需非空密碼而無法存取內容時也為 partial，
-保留 `encrypted`／`content_access=password_required`，本批沒有新增 PDF 密碼解鎖或附件提取能力。
+保留 `encrypted`／`content_access=password_required`；這是第二批的歷史預期。
+2026-10-18 新增的 PDF 密碼恢復會等待補交密碼，正確解鎖後建立另行掃描的子檔，
+詳見 [PDF 密碼流程](pdf-password.md)。PDF 附件提取尚未提供。
 
 ## 已量測的前後差異
 
@@ -71,7 +81,8 @@ relationship 依 XML 結構讀取，不把註解內範例當成外部 target；Z
 前兩筆修正前值來自第一批紀錄；OOXML 的 31 分是本批調整 YARA 後、調整 IOC 計分前的本機整合探測，
 不是先前雲端量測。PE 程序注入結構對照、Office 外部參照及 PDF active actions 仍為 84 分／suspicious，
 直接 EICAR 為 100 分／malicious，ZIP／gzip 子檔命中仍繼承風險。
-加密 PDF 即使無命中且分數為零，靜態範圍仍為 partial，保留未取得內容的限制。
+第二批加密 PDF 即使無命中且分數為零，靜態範圍仍為 partial，保留未取得內容的限制。
+目前 v3 基準要求等待密碼，獨立的 PDF 套件再驗證補交與解密後完整掃描；零分仍不能取代 coverage。
 
 ## 執行完整本機基準
 
@@ -84,7 +95,7 @@ CLAMAV_MODE=cli \
 CLAMAV_DATABASE_PATH=/absolute/path/to/verified-clamav-databases \
 SANDBOX_ENABLED=false \
 poetry run python -m malscan_worker.quality \
-  --manifest quality/corpus-v2.json \
+  --manifest quality/corpus-v3.json \
   --jobs 1 \
   --output-dir /absolute/path/to/new-quality-run
 ```
@@ -97,7 +108,7 @@ poetry run python -m malscan_worker.quality \
 
 輸出目錄必須是新路徑。每個案例保留完整 report 與 runner log，根目錄的
 `quality-report.json` 保存 corpus 版本、manifest／fixture／report 雜湊、耗時、
-各案例 coverage／命中／失敗、已知限制與總結果。v2 核對 manifest 固定的規則內容雜湊，
+各案例 coverage／命中／失敗、已知限制與總結果。v2／v3 核對 manifest 固定的規則內容雜湊，
 並檢查報告中的指定結構欄位，不能以 parser 程序退出成功取代證據。
 執行器核對執行前後的 manifest 身分與分析後原檔雜湊；程序退出碼 0 才表示所選案例皆通過。
 這些案例只使用本機 stores，不呼叫 Cloud Run 或外部沙箱。
@@ -105,6 +116,19 @@ poetry run python -m malscan_worker.quality \
 一般 worker CI 的 pytest 另外驗證固定樣本雜湊、原生 YARA 命中，以及能否拒絕
 遺失階段、重複階段、錯誤來源身份、失敗掃描及互相矛盾的 report 欄位。
 完整 ClamAV 容器基準與這些一般測試分開記錄。
+
+## PDF 密碼流程的獨立驗收
+
+[`pdf-password-v1.json`](../worker/quality/pdf-password-v1.json) 固定 12 個真實加密 fixture（suite `pdf-password-v1.1.0`），
+涵蓋 RC4-40、AES-128、AES-256 revision 5／6、空 user password、不同密碼 ZIP → PDF，
+以及不由 catalog 引用的加密 stream。固定 bytes、大小與 SHA-256 可由標準函式庫重現。
+
+每個需密碼案例核對 missing → wrong → correct、同一 artifact 的持久 checkpoint 恢復、
+原檔 hash 不變、已完成 stages 不重跑、解密子檔的實際 AV／YARA 與適用階段、來源與 action 證據。
+解密保存可讀的 active xref 物件，不只重寫 catalog 可到達的頁面；無法保存時保留 partial。
+完成後再 resume 不新增第二個解密 occurrence，報告、持久 checkpoint 與日誌不能含測試密碼。
+完整執行命令及資源／相容性邊界見 [PDF 密碼說明](pdf-password.md)。
+這套原生測試與一般 32 案例分開記錄，不以一般 corpus 通過代替密碼恢復通過。
 
 ## 子檔案與重複內容的證據
 
@@ -143,7 +167,8 @@ ClamAV 報告另外提供 `engine_version`、`database_version` 與 `database_ti
 
 ## 後續擴充
 
-本批先完成原生引擎回歸與新舊品質比較，再合併部署 worker 與 Pages；病毒庫新鮮度維護持續獨立追蹤。
+前兩批品質變更已完成本機驗證與三份正式 demo 報告核對；PDF 密碼恢復的本機回歸、
+正式 Job／Pages 更新及 smoke 分開記錄。病毒庫新鮮度、DO 清理、長期成本與真實回退仍獨立追蹤。
 後續增加具有來源與預期的 LNK、更多 Office／PDF 變種、密碼與附件，以及更大正常對照集。
 增加規則或 parser 前，都應同時增加正常對照與失敗案例。
 真實惡意樣本偵測率、所有格式相容性與動態沙箱仍需要各自的驗收，不包含在本批合成案例的結論內。

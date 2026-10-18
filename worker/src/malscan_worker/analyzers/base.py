@@ -32,6 +32,7 @@ class AnalyzerArtifact(TypedDict, total=False):
     size: int
     path: str
     source: str
+    budget_key: str
 
 
 @dataclass

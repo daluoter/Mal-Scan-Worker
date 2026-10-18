@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import { apiClient } from '../../api/client'
 import type { JobStatus, Report } from '../../api/types'
 import PasswordForm from '../PasswordForm'
-import { passwordTargets } from './reportState'
+import { passwordTargetError, passwordTargets } from './reportState'
 
 export default function PasswordTargetsPanel({ report, onSubmitted }: { report: Report; onSubmitted: () => void }) {
     const [jobs, setJobs] = useState<Record<string, JobStatus>>({})
@@ -67,7 +67,7 @@ export default function PasswordTargetsPanel({ report, onSubmitted }: { report: 
                             attemptsUsed={jobs[target.jobId].password_attempts}
                             attemptsRemaining={jobs[target.jobId].password_attempts_remaining}
                             onSubmit={(password) => submit(target.jobId, password)}
-                            error={errors[target.jobId]}
+                            error={errors[target.jobId] || passwordTargetError(report, target.jobId) || jobs[target.jobId].error_message}
                         /> : <p className="text-sm text-slate-400">{errors[target.jobId] || (jobs[target.jobId] ? '此檔案的工作狀態已更新。' : '取得密碼工作狀態中…')}</p>}
                     </div>
                 ))}

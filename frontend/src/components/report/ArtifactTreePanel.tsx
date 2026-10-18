@@ -53,7 +53,7 @@ function ArtifactNode({ node }: { node: ArtifactTreeNode }) {
                     <span className="rounded-full border border-white/10 px-2 py-0.5 text-[11px] text-slate-300">
                         靜態：{localizeStatus(node.analysis?.static?.status || node.analysis_status || 'unknown')}
                     </span>
-                    {node.job_status === 'password_required' && <span className="text-xs text-caution-yellow">等待解壓密碼</span>}
+                    {node.job_status === 'password_required' && <span className="text-xs text-caution-yellow">等待檔案密碼</span>}
                     {typeof node.archive_layer === 'number' && (
                         <span className="rounded-full border border-neon-cyan/20 px-2 py-0.5 font-mono text-[11px] text-neon-cyan">
                             第 {node.archive_layer} 層

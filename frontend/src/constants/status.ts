@@ -5,7 +5,7 @@ type JobState = JobStatus['status']
 export const STATUS_LABELS: Record<JobState, string> = {
     queued: '排隊中',
     scanning: '分析中',
-    password_required: '需要解壓密碼',
+    password_required: '需要檔案密碼',
     done: '完成',
     failed: '失敗',
 }

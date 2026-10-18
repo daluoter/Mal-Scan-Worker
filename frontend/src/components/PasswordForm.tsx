@@ -1,4 +1,5 @@
 import { FormEvent, useState } from 'react'
+import { localizeReportText } from './report/reportText'
 
 interface PasswordFormProps {
     attemptsUsed: number
@@ -40,10 +41,10 @@ export default function PasswordForm({
 
     return (
         <div className="p-4 rounded-lg bg-caution-yellow/10 border border-caution-yellow/40">
-            <h2 className="text-lg font-semibold text-caution-yellow">需要解壓密碼</h2>
+            <h2 className="text-lg font-semibold text-caution-yellow">需要檔案密碼</h2>
             {filename && <p className="mt-2 break-all font-mono text-sm text-white">{artifactPath || filename}</p>}
             <p className="mt-2 text-sm text-slate-300">
-                這個壓縮檔需要密碼才能繼續分析，請輸入密碼後提交。
+                這個檔案需要密碼才能繼續分析。請輸入加密壓縮檔或 PDF 的密碼；已完成的分析成果會保留。
             </p>
 
             <div className="mt-3 font-mono text-sm text-slate-300">
@@ -64,7 +65,8 @@ export default function PasswordForm({
                     type="password"
                     value={password}
                     onChange={(event) => setPassword(event.target.value)}
-                    placeholder="輸入壓縮檔密碼"
+                    aria-label="檔案密碼"
+                    placeholder="輸入檔案密碼"
                     className="w-full rounded-lg border border-slate-700 bg-deep-space px-3 py-2 text-white placeholder:text-slate-500 focus:border-caution-yellow focus:outline-none"
                     autoComplete="off"
                     maxLength={256}
@@ -82,7 +84,7 @@ export default function PasswordForm({
 
             {error && (
                 <div className="mt-3 rounded-md border border-alert-red bg-alert-red/10 px-3 py-2 text-sm text-alert-red">
-                    {error}
+                    {localizeReportText(error)}
                 </div>
             )}
         </div>

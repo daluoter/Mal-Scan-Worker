@@ -11,6 +11,7 @@ from typing import Any
 from xml.etree import ElementTree
 
 import pytest
+from malscan_worker.exceptions import DocumentPasswordRequiredError
 from malscan_worker.quality.document_fixtures import (
     DOCUMENT_PROFILES,
     PDF_TEST_PASSWORD,
@@ -252,9 +253,12 @@ def test_encrypted_pdf_has_real_deterministic_password_protection() -> None:
 
 
 @pytest.mark.asyncio
-async def test_locked_pdf_is_partial_and_keeps_the_encryption_evidence(tmp_path: Path) -> None:
-    result = await FormatAnalysisStage().execute(_context(tmp_path, "pdf-encrypted"))
-    assert result.status == "partial"
-    assert result.findings["features"]["encrypted"] is True
-    assert result.findings["features"]["content_access"] == "password_required"
-    assert any("requires a password" in item for item in result.findings["errors"])
+async def test_locked_pdf_requests_a_password_without_modifying_the_original(
+    tmp_path: Path,
+) -> None:
+    ctx = _context(tmp_path, "pdf-encrypted")
+    assert ctx.file_path is not None
+    original = ctx.file_path.read_bytes()
+    with pytest.raises(DocumentPasswordRequiredError, match="^pdf$"):
+        await FormatAnalysisStage().execute(ctx)
+    assert ctx.file_path.read_bytes() == original

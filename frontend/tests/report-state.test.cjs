@@ -18,7 +18,7 @@ for (const extension of ['.ts', '.tsx']) {
     }
 }
 
-const { dynamicStatus, jobNeedsPassword, passwordTargets, shouldRefreshReport, stageCompleted } = require('../src/components/report/reportState.ts')
+const { dynamicStatus, jobNeedsPassword, passwordTargetError, passwordTargets, shouldRefreshReport, stageCompleted } = require('../src/components/report/reportState.ts')
 const CoveragePanel = require('../src/components/report/AnalysisCoveragePanel.tsx').default
 const DynamicPanel = require('../src/components/report/DynamicAnalysisPanel.tsx').default
 const ArtifactTreePanel = require('../src/components/report/ArtifactTreePanel.tsx').default
@@ -119,6 +119,80 @@ test('password targets address nested child job identities and preserve artifact
     assert.deepEqual(passwordTargets(report()), [])
 })
 
+test('a supported encrypted PDF waits in the generic file password form', () => {
+    const pdf = report({ job_status: 'password_required', password_required_artifacts: ['root-job'],
+        file: { original_filename: 'locked.pdf', mime: 'application/pdf' },
+        results: { format_analysis: { analyzer: 'pdf', features: { encrypted: true, content_access: 'password_required' } } },
+    })
+    assert.equal(jobNeedsPassword({ job_id: pdf.job_id, status: pdf.job_status, password_required_artifacts: pdf.password_required_artifacts }), true)
+    assert.deepEqual(passwordTargets(pdf), [{ jobId: 'root-job', filename: 'locked.pdf' }])
+    const html = render(PasswordForm, { filename: 'locked.pdf', attemptsUsed: 0, attemptsRemaining: 3, onSubmit: async () => {} })
+    assert.match(html, /需要檔案密碼/)
+    assert.match(html, /加密壓縮檔或 PDF/)
+    assert.match(html, /已完成的分析成果會保留/)
+    assert.match(html, /aria-label="檔案密碼"/)
+    assert.match(html, /placeholder="輸入檔案密碼"/)
+    assert.match(html, /locked.pdf/)
+    assert.doesNotMatch(html, /需要解壓密碼|輸入壓縮檔密碼|Office/)
+})
+
+test('nested PDF wrong passwords remain attached to the target and cloud root-wide retry budget', () => {
+    const child = report({ job_id: 'pdf-child', job_status: 'password_required',
+        file: { original_filename: 'locked.pdf' },
+        results: { format_analysis: { analyzer: 'pdf', features: { encrypted: true, content_access: 'wrong_password' } } },
+    })
+    const nested = report({ job_status: 'password_required', password_required_artifacts: ['pdf-child'],
+        child_jobs: [{ job_id: 'pdf-child', filename: 'locked.pdf', status: 'password_required' }],
+        artifacts: [{ artifact_id: 'pdf-child', status: 'password_required', reason: 'wrong_password', report: child }],
+        artifact_tree: { id: 'root', job_id: 'root-job', filename: 'outer.zip', children: [
+            { id: 'pdf-child', job_id: 'pdf-child', filename: 'locked.pdf', display_path: 'outer.zip/locked.pdf', job_status: 'password_required', children: [] },
+        ] },
+    })
+    assert.deepEqual(passwordTargets(nested), [{ jobId: 'pdf-child', filename: 'locked.pdf', path: 'outer.zip/locked.pdf' }])
+    assert.equal(passwordTargetError(nested, 'pdf-child'), 'wrong_password')
+    assert.equal(passwordTargetError(nested, 'root-job'), undefined)
+    assert.equal(passwordTargetError(child, 'pdf-child'), 'wrong_password')
+    const html = render(PasswordForm, { filename: 'locked.pdf', artifactPath: 'outer.zip/locked.pdf',
+        attemptsUsed: 1, attemptsRemaining: 2, attemptsScope: '雲端 demo 的密碼重試次數由整個上傳工作共用。',
+        error: passwordTargetError(nested, 'pdf-child'), onSubmit: async () => {},
+    })
+    assert.match(html, /outer.zip\/locked.pdf/)
+    assert.match(html, /密碼不正確/)
+    assert.match(html, /剩餘次數: 2/)
+    assert.match(html, /整個上傳工作共用/)
+    const exhausted = render(PasswordForm, { filename: 'locked.pdf', attemptsUsed: 3, attemptsRemaining: 0,
+        error: 'password_attempt_limit', onSubmit: async () => {},
+    })
+    assert.match(exhausted, /剩餘次數: 0/)
+    assert.match(exhausted, /已達密碼嘗試上限/)
+    assert.match(exhausted, /disabled=""/)
+})
+
+test('unsupported encrypted PDFs stay partial without offering an unauthorized password retry', () => {
+    const unsupported = report({ job_status: 'done', report_complete: true, password_required_artifacts: [],
+        file: { original_filename: 'unsupported.pdf' },
+        analysis: { static: { status: 'partial', stage_coverage: [{ stage: 'format-analysis', status: 'unsupported', reason: 'unsupported_encryption' }] }, dynamic: { status: 'disabled' } },
+        results: { format_analysis: { analyzer: 'pdf', features: { encrypted: true, content_access: 'password_required' } } },
+    })
+    assert.deepEqual(passwordTargets(unsupported), [])
+    assert.equal(passwordTargetError(unsupported, unsupported.job_id), undefined)
+    assert.equal(stageCompleted(unsupported, 'format-analysis'), false)
+    assert.match(render(CoveragePanel, { analysis: unsupported.analysis, complete: true }), /部分完成/)
+})
+
+test('legacy archive-named password errors remain compatible with the generic file form', () => {
+    for (const [error, expected] of [
+        ['invalid_archive_password', /檔案密碼格式無效/],
+        ['archive_not_waiting', /此檔案目前未等待密碼/],
+        ['Archive password was rejected', /密碼不正確/],
+        ['Password attempts exhausted', /已達密碼嘗試上限/],
+    ]) {
+        const html = render(PasswordForm, { attemptsUsed: 1, attemptsRemaining: 2, error, onSubmit: async () => {} })
+        assert.match(html, expected)
+        assert.doesNotMatch(html, new RegExp(error))
+    }
+})
+
 test('signed child password requirements never turn the root into a password target', () => {
     const root = report({ job_status: 'password_required', password_required_artifacts: ['child-job'],
         child_jobs: [{ job_id: 'child-job', filename: 'inner.zip', status: 'password_required' }] })
@@ -146,7 +220,7 @@ test('exhausted cloud password controls explain the root-wide limit and disable 
 test('artifact tree shows password state and links to the specific descendant job', () => {
     const html = render(ArtifactTreePanel, { tree: { id: 'leaf', job_id: 'leaf-job', job_status: 'password_required', analysis_status: 'partial', filename: 'locked.7z', sha256: 'abcd', depth: 2, children: [], top_finding_titles: [] } })
     assert.match(html, /href="\/jobs\/leaf-job"/)
-    assert.match(html, /等待解壓密碼/)
+    assert.match(html, /等待檔案密碼/)
     assert.match(html, /部分完成/)
 })
 

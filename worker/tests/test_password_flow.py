@@ -5,7 +5,12 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 from malscan.scoring.policy import POLICY_VERSION
-from malscan_worker.exceptions import ArchivePasswordRequiredError, ArchiveWrongPasswordError
+from malscan_worker.exceptions import (
+    ArchivePasswordRequiredError,
+    ArchiveWrongPasswordError,
+    DocumentPasswordRequiredError,
+    DocumentWrongPasswordError,
+)
 from malscan_worker.stages.base import StageContext
 
 
@@ -66,7 +71,10 @@ async def test_run_stage_reraises_password_exception(tmp_path):
 
 
 @pytest.mark.asyncio
-async def test_consumer_password_required_updates_status_and_ack(mocker):
+@pytest.mark.parametrize(
+    "error_type", [ArchivePasswordRequiredError, DocumentPasswordRequiredError]
+)
+async def test_consumer_password_required_updates_status_and_ack(mocker, error_type):
     from malscan_worker import consumer
 
     message = _FakeMessage(
@@ -79,7 +87,7 @@ async def test_consumer_password_required_updates_status_and_ack(mocker):
     mocker.patch(
         "malscan_worker.consumer.run_pipeline",
         new_callable=AsyncMock,
-        side_effect=ArchivePasswordRequiredError("zip"),
+        side_effect=error_type("pdf" if error_type.__name__.startswith("Document") else "zip"),
     )
     update_status = mocker.patch(
         "malscan_worker.consumer.update_job_status", new_callable=AsyncMock
@@ -92,7 +100,7 @@ async def test_consumer_password_required_updates_status_and_ack(mocker):
     update_status.assert_any_await(
         "11111111-1111-1111-1111-111111111111",
         "password_required",
-        error_message="Archive is password-protected. Please provide a password to continue.",
+        error_message="File is password-protected. Please provide a password to continue.",
     )
     message.ack.assert_awaited_once()
     message.reject.assert_not_awaited()
@@ -230,7 +238,10 @@ def test_build_password_attempts_exhausted_report_has_zero_risk_block() -> None:
 
 
 @pytest.mark.asyncio
-async def test_consumer_wrong_password_exhausted_stores_report_sets_done_and_ack(mocker):
+@pytest.mark.parametrize("error_type", [ArchiveWrongPasswordError, DocumentWrongPasswordError])
+async def test_consumer_wrong_password_exhausted_stores_report_sets_done_and_ack(
+    mocker, error_type
+):
     from malscan_worker import consumer
 
     artifact_id = "99999999-0000-0000-0000-000000000000"
@@ -247,7 +258,7 @@ async def test_consumer_wrong_password_exhausted_stores_report_sets_done_and_ack
     mocker.patch(
         "malscan_worker.consumer.run_pipeline",
         new_callable=AsyncMock,
-        side_effect=ArchiveWrongPasswordError("zip"),
+        side_effect=error_type("pdf" if error_type.__name__.startswith("Document") else "zip"),
     )
     mocker.patch(
         "malscan_worker.consumer.increment_password_attempts",
@@ -290,9 +301,16 @@ async def test_consumer_wrong_password_exhausted_stores_report_sets_done_and_ack
         "descendant_summary": {},
         "score_trace": {},
     }
-    archive_result = saved_result["results"]["archive_extract"]
-    assert archive_result["reason"] == "連續 3 次密碼錯誤，封存檔解壓失敗。"
-    assert saved_result["results"]["archive_extract"]["extraction_failed"] is True
+    if error_type is DocumentWrongPasswordError:
+        pdf_result = saved_result["results"]["format_analysis"]
+        assert pdf_result["decryption_failed"] is True
+        assert pdf_result["features"]["content_access"] == "password_attempts_exhausted"
+        assert "archive_extract" not in saved_result["results"]
+        assert saved_result["stages"][-1]["stage_name"] == "format-analysis"
+    else:
+        archive_result = saved_result["results"]["archive_extract"]
+        assert archive_result["reason"] == "連續 3 次密碼錯誤，封存檔解壓失敗。"
+        assert saved_result["results"]["archive_extract"]["extraction_failed"] is True
     assert saved_result["explainability"]["failure_diagnostics"]["status"] == "blocked"
     update_artifact_risk.assert_awaited_once_with(
         artifact_id=artifact_id,
@@ -311,7 +329,10 @@ async def test_consumer_wrong_password_exhausted_stores_report_sets_done_and_ack
 
 
 @pytest.mark.asyncio
-async def test_consumer_wrong_password_under_limit_sets_password_required_and_ack(mocker):
+@pytest.mark.parametrize("error_type", [ArchiveWrongPasswordError, DocumentWrongPasswordError])
+async def test_consumer_wrong_password_under_limit_sets_password_required_and_ack(
+    mocker, error_type
+):
     from malscan_worker import consumer
 
     message = _FakeMessage(
@@ -324,7 +345,7 @@ async def test_consumer_wrong_password_under_limit_sets_password_required_and_ac
     mocker.patch(
         "malscan_worker.consumer.run_pipeline",
         new_callable=AsyncMock,
-        side_effect=ArchiveWrongPasswordError("zip"),
+        side_effect=error_type("pdf" if error_type.__name__.startswith("Document") else "zip"),
     )
     mocker.patch(
         "malscan_worker.consumer.increment_password_attempts",
@@ -343,7 +364,7 @@ async def test_consumer_wrong_password_under_limit_sets_password_required_and_ac
     update_status.assert_any_await(
         "55555555-5555-5555-5555-555555555555",
         "password_required",
-        error_message="Wrong archive password. Please try again.",
+        error_message="Wrong file password. Please try again.",
     )
     update_result.assert_not_awaited()
     message.ack.assert_awaited_once()
@@ -407,9 +428,7 @@ async def test_consumer_wrong_password_increment_failure_rejects_for_retry(mocke
         new_callable=AsyncMock,
         side_effect=RuntimeError("db unavailable"),
     )
-    status = mocker.patch(
-        "malscan_worker.consumer.update_job_status", new_callable=AsyncMock
-    )
+    status = mocker.patch("malscan_worker.consumer.update_job_status", new_callable=AsyncMock)
 
     await consumer.process_message(message)
 

@@ -383,7 +383,7 @@ export interface Report {
     execution_active?: boolean | null
     requires_reconciliation?: boolean
     error_message?: string | null
-    artifacts?: Array<{ artifact_id: string; status: string; report: Report | null }>
+    artifacts?: Array<{ artifact_id: string; status: string; reason?: string | null; report: Report | null }>
     risk?: RiskSummary
     results: {
         av_result: AvResult
@@ -475,6 +475,7 @@ export interface HealthResponse {
 }
 
 export interface PasswordSubmitRequest {
+    /** Password for this supported encrypted archive or PDF; never persisted in a report. */
     password: string
 }
 

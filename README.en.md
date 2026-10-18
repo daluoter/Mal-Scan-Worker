@@ -4,11 +4,13 @@ English | [繁體中文](README.md)
 
 A file analysis platform built around static analysis: upload files, trace archives and embedded children, and read reports with evidence, artifact lineage, coverage and explicit reasons for unfinished work. Self-hosted installations can add CAPE dynamic analysis. The cloud demo runs the same static core with separate usage limits.
 
-**[Open the cloud demo](https://malscan-v2-demo.pages.dev)** · [Supported formats](docs/analysis-support.md) · [v2 architecture](docs/v2-architecture.md) · [Acceptance and maintenance](docs/cloud-demo-operations.md) · [Roadmap](docs/roadmap.md)
+**[Open the cloud demo](https://malscan-v2-demo.pages.dev)** · [Supported formats](docs/analysis-support.md) · [v2 architecture](docs/v2-architecture.md) · [Acceptance and maintenance](docs/cloud-demo-operations.md) · [Status checklist](docs/project-status.md) · [Roadmap](docs/roadmap.md)
 
 ## Current milestone
 
-**2026-10-17: the second P1 static-quality batch is validated.** The corpus now defines 32 cases / 28 pinned fixtures, including PE, Office and PDF structural and failure controls. Changes address normal PE/document parsing and measured YARA/IOC risk false positives. All 32 native-engine cases passed; see the [static quality baseline](docs/static-quality.md) for scope and limitations. Neither quality batch has reached the live demo yet. The [combined deployment guide](docs/deploy-static-quality-v2.md) will update the worker image and Pages frontend as one release.
+**2026-10-18: PDF password recovery is implemented and locally validated.** It adds password waits, wrong-to-correct submission, different passwords for ZIP→PDF and checkpoint resume. Decrypted content is a separate child that runs ClamAV/YARA and applicable static stages; the original remains unchanged. The final 32-case general native baseline and all 12 separate PDF password cases passed; worker 839, backend 203 and frontend 39 tests passed, with four PostgreSQL opt-in skips. This batch is not deployed to the production demo. See the [batch record](docs/milestones/2026-10-18-pdf-password.json), [PDF password workflow](docs/pdf-password.md) and [deployment guide](docs/deploy-pdf-password.md). The [status checklist](docs/project-status.md) tracks 43 IDs, including open DO cleanup, long-term costs, live rollback and automatic antivirus database refresh tasks.
+
+**2026-10-17: the second P1 static-quality batch is validated.** The corpus defines 32 cases / 28 pinned fixtures, including PE, Office and PDF structural and failure controls; all 32 native-engine cases passed. User-provided worker/Pages deployment outputs and three production demo reports have been checked for both batches. PDF password recovery is a separate subsequent batch. See the [static quality baseline](docs/static-quality.md) and [status checklist](docs/project-status.md) for evidence, completed scope and remaining work.
 
 **2026-10-16 (Asia/Taipei): the current cloud acceptance batch is verified.** Production API tests covered nested archives, different ZIP/7z passwords with resume, a 20,000,000-byte file, and a 49-byte scan after image promotion. The 20 MB report correctly remains static `partial` because deobfuscation has a 10 MB limit; its required scans completed. See the [P0 acceptance record](docs/milestones/2026-10-15-p0-acceptance.md) for results and evidence boundaries.
 
@@ -27,13 +29,13 @@ The earlier **20,000,000-byte upload / R2 download / scanning PoC** passed separ
 | General static analysis | File type and hashes, ClamAV, YARA, IOCs, deobfuscation candidates and heuristic evidence |
 | Format analysis | Windows PE, Office OLE/OOXML/RTF, PDF, LNK and supported scripts; depth varies by format |
 | Recursive artifacts | ZIP, 7z, RAR, TAR, gzip, bzip2 and supported embedded document objects, with parent-to-child lineage |
-| Passwords and resume | Password submission for supported archives, different passwords across nested archives, completed-stage checkpoints and cumulative extraction budgets |
+| Passwords and resume | Password submission for supported archives and PDF, different nested passwords, completed-stage checkpoints and cumulative extraction budgets; the PDF batch is locally validated and awaiting production rollout |
 | Explainable reports | Stage states, tool/rule versions, direct and descendant risk evidence, partial results and unfinished-work reasons |
 | Optional dynamic analysis | A self-hosted CAPEv2 integration adds available process, file, registry and network evidence |
 
 Reports distinguish no detections from tool errors, missing rules, password waits, budget limits and unsupported formats. `complete` means the declared scope for that analysis finished; no detections do not guarantee a file is safe.
 
-Encrypted Office/PDF decryption, ISO extraction and dedicated deep analysis for ELF, Mach-O, email and APK are not implemented. RAR capabilities depend on an available external extractor. PDF attachment descriptions do not mean those attachments were extracted and scanned. Consult the [support matrix](docs/analysis-support.md) and each report's coverage.
+Encrypted Office decryption, ISO extraction and dedicated deep analysis for ELF, Mach-O, email and APK are not implemented. PDF password recovery is implemented and locally validated (F-01); production rollout remains open (F-08). RAR capabilities depend on an available external extractor. PDF attachment descriptions do not mean those attachments were extracted and scanned. Consult the [support matrix](docs/analysis-support.md) and each report's coverage.
 
 ## Choose a deployment mode
 
@@ -115,7 +117,7 @@ export YARA_RULES_PATH="$PWD/rules"
 poetry run python -m malscan_worker.runtime --file /path/sample.zip --output-dir /path/analysis
 # Resume with the same source, output directory and retained checkpoint
 poetry run python -m malscan_worker.runtime --file /path/sample.zip --output-dir /path/analysis --resume
-# Enter the root archive password at a hidden prompt
+# Enter a root archive or PDF password at a hidden prompt
 poetry run python -m malscan_worker.runtime --file /path/sample.zip --output-dir /path/analysis --resume --ask-password
 ```
 
@@ -169,4 +171,4 @@ Current source uses ruleset `1.1.0` and scoring policy `msrs-v1.1`. Ordinary URL
 
 Local validation covers backend/worker/frontend tests, real PostgreSQL budgets and attempts, real ZIP/7z different-password recovery, full-container/S3 checkpoints and Worker-to-Python-dispatcher HTTP integration. Consult the [validation record](docs/v2-validation.md) for counts, commands and evidence boundaries. These tests do not replace live-provider or billing acceptance.
 
-The immediate priority is the second batch's full regression and before/after quality comparison, followed by one worker/frontend cloud release. Further work expands normal, anomalous and limited-format controls before document password/attachment support and measured performance improvements. Cloud maintenance and cost observations continue alongside this work; live CAPE acceptance depends on available infrastructure. The [project roadmap](docs/roadmap.md) defines the order and acceptance criteria.
+The next step is production PDF password rollout and smoke acceptance, followed by Office passwords, document attachments, format-quality controls and measured performance improvements. DO cleanup, long-term costs, a real cloud rollback and automated signed antivirus database updates remain separate follow-ups. Live CAPE acceptance depends on available infrastructure. Every batch updates the [status checklist](docs/project-status.md); the [roadmap](docs/roadmap.md) defines the order and acceptance criteria.
