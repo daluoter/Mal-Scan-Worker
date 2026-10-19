@@ -145,7 +145,11 @@ Cloudflare protections enabled.
 Tickets are bound to byte count, hash and filename. Admission is deliberately
 limited globally: `DAILY_JOB_LIMIT` counts issued tickets (including abandoned
 ones); `DAILY_EXECUTION_LIMIT` counts every reserved execution, including
-password retries. There are at most three password executions per root job.
+password submissions. Each file has its own allowance of three accepted
+password submissions. A successful ZIP submission consumes one ZIP allowance;
+its encrypted PDF child starts with three separate submissions. Reaching one
+file's limit does not prevent another waiting file from being resumed. Both
+successful and unsuccessful submissions count, because each starts an execution.
 Defaults are ten admissions and twenty executions per UTC day. Execution
 reservations are also capped at forty per UTC calendar month through
 `MONTHLY_EXECUTION_LIMIT`, including ambiguous starts and password resumes.
@@ -154,6 +158,23 @@ its maximum monthly resource use. Free allowances are shared across the billing
 account, and registry, secrets, logs and storage may have their own charges.
 These controls limit spend; they do not guarantee availability against public quota exhaustion
 or guarantee a free invoice. Intake can be disabled without deleting resources.
+
+Job status includes `password_attempts_scope:"artifact"`,
+`password_attempt_limit:3`, and `password_attempts_by_artifact`, whose values are
+`{attempts_used,attempts_remaining,limit}`. The scalar `password_attempts` and
+`password_attempts_remaining` describe the requested file: root status describes
+the original upload, while a password POST response describes its target file.
+The browser projects child status from the authorized root snapshot and this
+map; child GET routes do not gain access solely from knowing an artifact ID.
+`total_password_submissions` retains the root aggregate for auditing.
+
+On the first upgrade from the previous root-wide policy, SQLite preserves that
+aggregate and snapshots it as `legacy_password_submissions`. Historical controls
+have already been deleted, so those old submissions cannot be assigned truthfully
+to specific files. Their per-file ledger starts empty once; later Worker reloads
+preserve every new per-file count. Daily and monthly execution counters retain
+all previous reservations. Invalid targets, exhausted files and admission-quota
+rejections do not consume an additional password submission or execution.
 
 ## Runner protocol and recovery
 
@@ -173,12 +194,22 @@ payload string. Its payload is:
   "checkpoint_key": "checkpoints/ROOT/ATTEMPT.json",
   "resume": false,
   "passwords": {},
+  "password_attempts_by_artifact": {},
+  "password_attempt_limit": 3,
+  "password_attempts_scope": "artifact",
   "status_key": "statuses/ROOT/DISPATCH.json",
   "dispatch_id": "DISPATCH",
   "sequence": 1,
   "expires_at": 1791849600000
 }
 ```
+
+Unlike the browser status map, the private control's
+`password_attempts_by_artifact` maps each file ID directly to an integer count.
+It includes the currently reserved submission. After a third wrong password the
+runner finalizes that file as limited, preserves its partial evidence, and keeps
+other waiting or runnable files independent. Older signed controls without the
+new optional fields remain readable during an ordered rollout.
 
 The runner writes the same envelope form at `status_key`. Its payload contains
 `status_version:1`, `job_id`, `attempt_id`, `dispatch_id`, `sequence`,

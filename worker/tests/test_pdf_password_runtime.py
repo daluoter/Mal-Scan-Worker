@@ -69,7 +69,7 @@ def _encrypted_pdf(password, *, title="Ordinary document"):
     return stream.getvalue()
 
 
-def _runner(tmp_path, manifest, scans, *, passwords=None):
+def _runner(tmp_path, manifest, scans, *, passwords=None, password_attempts=None):
     av, yara = scans
     return RootBatchRunner(
         manifest=manifest,
@@ -77,6 +77,8 @@ def _runner(tmp_path, manifest, scans, *, passwords=None):
         result_store=LocalObjectStore(tmp_path / "results"),
         state_dir=tmp_path / "state",
         passwords=passwords,
+        password_attempts_by_artifact=password_attempts,
+        password_attempt_limit=3 if password_attempts is not None else None,
         parallel_stages=[FileTypeStage(), av, yara, IocExtractStage(), DeobfuscationStage()],
         format_stage=FormatAnalysisStage(),
         sequential_stages=[ArchiveExtractStage(), DocumentAnalysisStage(), SandboxStage()],
@@ -96,6 +98,66 @@ def _assert_no_credentials(tmp_path, report, *credentials):
         documents += path.read_text()
     for credential in credentials:
         assert credential not in documents
+
+
+@pytest.mark.asyncio
+async def test_three_wrong_pdf_submissions_block_only_that_file_and_sibling_can_resume(
+    tmp_path, scans
+):
+    import zipfile
+
+    source = tmp_path / "siblings.zip"
+    with zipfile.ZipFile(source, "w") as archive:
+        archive.writestr("one.pdf", _encrypted_pdf("first-public-fixture-password"))
+        archive.writestr("two.pdf", _encrypted_pdf("second-public-fixture-password"))
+    manifest = AnalysisManifest.for_local_file(source)
+    initial = await _runner(tmp_path, manifest, scans, password_attempts={}).run()
+    waiting = {
+        node["original_filename"]: node["artifact_id"]
+        for node in initial["artifacts"]
+        if node["status"] == "password_required"
+    }
+    first, second = waiting["one.pdf"], waiting["two.pdf"]
+    for used in range(1, 4):
+        report = await _runner(
+            tmp_path,
+            manifest,
+            scans,
+            passwords={first: "incorrect-public-fixture-password"},
+            password_attempts={first: used},
+        ).run(resume=True)
+        node = next(item for item in report["artifacts"] if item["artifact_id"] == first)
+        assert node["status"] == ("failed" if used == 3 else "password_required")
+        assert node["reason"] == ("password_attempts_exhausted" if used == 3 else "wrong_password")
+        assert second in report["password_required_artifacts"]
+        assert report["job_status"] == "password_required"
+    assert first not in report["password_required_artifacts"]
+    assert node["report"]["results"]["format_analysis"]["decryption_failed"] is True
+    assert node["report"]["analysis"]["static"]["status"] == "partial"
+    blocked = next(
+        stage for stage in node["report"]["stages"] if stage["stage_name"] == "format-analysis"
+    )
+    assert blocked["status"] == "blocked"
+    assert scans[0].calls[first] == scans[1].calls[first] == 1
+    (tmp_path / "state" / "checkpoint.json").unlink()
+    final = await _runner(
+        tmp_path,
+        manifest,
+        scans,
+        passwords={second: "second-public-fixture-password"},
+        password_attempts={first: 3, second: 1},
+    ).run(resume=True)
+    assert final["job_status"] == "done"
+    assert final["report_complete"] is True
+    assert final["analysis"]["static"]["status"] == "partial"
+    failed = next(item for item in final["artifacts"] if item["artifact_id"] == first)
+    assert failed["status"] == "failed"
+    unlocked = next(item for item in final["artifacts"] if item["parent_id"] == second)
+    assert unlocked["status"] == "done"
+    assert scans[0].calls[first] == scans[1].calls[first] == 1
+    _assert_no_credentials(
+        tmp_path, final, "incorrect-public-fixture-password", "second-public-fixture-password"
+    )
 
 
 @pytest.mark.asyncio

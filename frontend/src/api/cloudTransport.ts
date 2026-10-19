@@ -1,4 +1,5 @@
 import type { ArtifactTreeNode, JobStatus, Report, UploadResponse } from './types'
+import { passwordTargetError, passwordTargets } from '../components/report/reportState'
 
 interface Ownership { rootId: string; capability: string }
 interface Ticket { token: string; capability_token: string; job_id: string; max_bytes: number; expires_at: number }
@@ -8,6 +9,7 @@ const TOKEN = /^[a-f0-9]{64}$/
 
 export class CloudTransport {
     private reports = new Map<string, Report>()
+    private passwordSnapshots = new Map<string, string>()
     constructor(private baseUrl: string, private storage: OwnershipStorage) {}
 
     private key(jobId: string): string { return `malscan:cloud:${this.baseUrl}:${jobId}` }
@@ -83,20 +85,42 @@ export class CloudTransport {
         return 'scanning'
     }
 
+    private passwordSnapshotKey(root: JobStatus): string {
+        return JSON.stringify([root.password_attempts, root.total_password_submissions,
+            [...(root.password_required_artifacts ?? [])].sort()])
+    }
+
+    private async rootStatus(ownership: Ownership): Promise<JobStatus> {
+        const root = await this.request<JobStatus>(`/api/v1/jobs/${ownership.rootId}`, { headers: this.headers(ownership) })
+        this.register(ownership, root.password_required_artifacts ?? [])
+        return root
+    }
+
+    private async readReport(ownership: Ownership, root: JobStatus): Promise<Report> {
+        const report = await this.request<Report>(`/api/v1/reports/${ownership.rootId}`, { headers: this.headers(ownership) })
+        if (report.job_id !== ownership.rootId) throw new Error('Demo 報告工作 ID 不符。')
+        this.reports.set(ownership.rootId, report)
+        if (root.status === 'password_required') this.passwordSnapshots.set(ownership.rootId, this.passwordSnapshotKey(root))
+        this.register(ownership, report.child_jobs.map((child) => child.job_id))
+        const visit = (node: ArtifactTreeNode) => { if (node.job_id) this.register(ownership, [node.job_id]); node.children.forEach(visit) }
+        if (report.artifact_tree) visit(report.artifact_tree)
+        return report
+    }
+
     async getReport(jobId: string): Promise<Report> {
         const ownership = this.ownership(jobId)
-        const report = await this.request<Report>(`/api/v1/reports/${ownership.rootId}`, { headers: this.headers(ownership) })
-        const root = await this.getJobStatus(ownership.rootId)
+        const root = await this.rootStatus(ownership)
+        const report = await this.readReport(ownership, root)
         report.password_required_artifacts = root.status === 'password_required' ? root.password_required_artifacts ?? [] : []
         report.job_status = root.status
         report.execution_active = root.dispatch_uncertain ? null : root.status === 'queued' || root.status === 'scanning'
         report.requires_reconciliation = Boolean(root.dispatch_uncertain)
         report.error_message = root.error_message
+        report.password_attempts_by_artifact = root.password_attempts_by_artifact
+        report.password_attempts_scope = root.password_attempts_scope
+        report.total_password_submissions = root.total_password_submissions
+        report.legacy_password_submissions = root.legacy_password_submissions
         report.report_complete = root.status === 'done' && report.report_complete === true
-        this.reports.set(ownership.rootId, report)
-        this.register(ownership, report.child_jobs.map((child) => child.job_id))
-        const visit = (node: ArtifactTreeNode) => { if (node.job_id) this.register(ownership, [node.job_id]); node.children.forEach(visit) }
-        if (report.artifact_tree) visit(report.artifact_tree)
         if (jobId === ownership.rootId) return report
         const artifact = report.artifacts?.find((item) => item.artifact_id === jobId)
         if (!artifact?.report) {
@@ -121,19 +145,42 @@ export class CloudTransport {
             pending_descendants: pending,
             execution_active: report.execution_active, requires_reconciliation: report.requires_reconciliation,
             error_message: report.error_message,
+            password_attempts_scope: root.password_attempts_scope,
+            password_attempts_by_artifact: root.password_attempts_by_artifact ? Object.fromEntries(
+                Object.entries(root.password_attempts_by_artifact).filter(([id]) => id === jobId || ids.has(id))) : undefined,
             child_jobs: report.child_jobs.filter((child) => child.job_id !== jobId && ids.has(child.job_id)),
             artifact_tree: subtree, password_required_artifacts: report.password_required_artifacts }
     }
 
     async getJobStatus(jobId: string): Promise<JobStatus> {
         const ownership = this.ownership(jobId)
-        const root = await this.request<JobStatus>(`/api/v1/jobs/${ownership.rootId}`, { headers: this.headers(ownership) })
-        this.register(ownership, root.password_required_artifacts ?? [])
-        if (jobId === ownership.rootId) return root
+        const root = await this.rootStatus(ownership)
         let previous = this.reports.get(ownership.rootId)
-        if (root.report_available && this.childStatus(root, previous, jobId) === 'scanning' && root.status !== 'queued' && root.status !== 'scanning') previous = await this.getReport(ownership.rootId)
-        const status = this.childStatus(root, previous, jobId)
-        return { ...root, job_id: jobId, parent_job_id: ownership.rootId, status }
+        let unavailable = false
+        if (root.report_available && (
+            (root.status === 'password_required' && this.passwordSnapshots.get(ownership.rootId) !== this.passwordSnapshotKey(root))
+            || (jobId !== ownership.rootId && this.childStatus(root, previous, jobId) === 'scanning' && root.status !== 'queued' && root.status !== 'scanning')
+        )) {
+            try { previous = await this.readReport(ownership, root) } catch (error) {
+                if (root.status !== 'password_required') throw error
+                // The signed status remains useful, but an old snapshot cannot
+                // tell whether the most recent credential was rejected.
+                unavailable = true
+                previous = undefined
+            }
+        }
+        const status = jobId === ownership.rootId ? root.status : this.childStatus(root, previous, jobId)
+        const counts = root.password_attempts_by_artifact?.[jobId]
+        const authorized = previous ? { ...previous, job_status: root.status,
+            password_required_artifacts: root.status === 'password_required' ? root.password_required_artifacts ?? [] : [] } : undefined
+        const target = authorized ? passwordTargets(authorized).find((item) => item.jobId === jobId) : undefined
+        return { ...root, job_id: jobId, parent_job_id: jobId === ownership.rootId ? null : ownership.rootId, status,
+            ...(counts ? { password_attempts: counts.attempts_used, password_attempts_remaining: counts.attempts_remaining } : {}),
+            password_target: target ? { filename: target.filename, path: target.path } : undefined,
+            error_message: unavailable ? '無法取得最新密碼驗證結果，正在重新查詢。'
+                : status === 'password_required' && authorized ? passwordTargetError(authorized, jobId) ?? root.error_message
+                    : previous?.artifacts?.find((item) => item.artifact_id === jobId)?.reason === 'password_attempts_exhausted'
+                        ? '此檔案的三次密碼提交已用完，加密內容未能分析。' : root.error_message }
     }
 
     async submitPassword(jobId: string, password: string) {

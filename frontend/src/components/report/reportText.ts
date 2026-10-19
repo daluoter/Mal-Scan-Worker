@@ -126,6 +126,7 @@ const uncertaintyKindMap: Record<string, string> = {
 const scoreComponentTypeMap: Record<string, string> = {
     evidence: '證據貢獻',
     descendant_inheritance: '子層風險繼承',
+    descendant_risk_floor: '子檔風險下限',
     synergy_bonus: '交叉印證加分',
     dampener: '抑制因子',
 }

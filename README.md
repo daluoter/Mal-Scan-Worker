@@ -8,7 +8,11 @@
 
 ## 目前里程碑
 
-**2026-10-18：PDF 密碼恢復程式與本機驗證完成。** 支援需密碼的 PDF 等待、錯誤後補交正確密碼、不同密碼 ZIP→PDF，以及 checkpoint 續跑。解密內容成為獨立子檔，重新執行 ClamAV／YARA 與適用靜態分析，原檔不改寫；一般原生基準 32／32、獨立 PDF 密碼案例 12／12 通過；worker 839、backend 203、frontend 39 項測試通過，另有四項 PostgreSQL opt-in skip。正式 demo 尚未部署這批；結果見 [本批紀錄](docs/milestones/2026-10-18-pdf-password.json)。見 [PDF 密碼流程](docs/pdf-password.md)及[部署手冊](docs/deploy-pdf-password.md)。[進度清單](docs/project-status.md)逐項追蹤 43 個 ID，包含仍待辦的 DO 清理、長期成本、真實回退及自動病毒庫更新。
+**2026-10-18：PDF 密碼恢復與正式 demo 回饋修正。** 首批程式／本機驗證完成，使用者已提供 Job 切換及兩組原檔／解密子檔 JSON，確認實際解密掃描；Pages 發布及等待／錯誤狀態仍待完整核對。
+本次修正明確的錯誤密碼提示、每個加密檔案各三次補交、紅色高風險呈現，以及 `msrs-v1.2` 的子檔風險逐層回傳；worker 852、backend 233、frontend 51、控制層 25 項通過，另有五項 opt-in skip；PDF 原生 12／12，32 份一般原生報告以最終 manifest 重新核對通過。詳見 [本批紀錄](docs/milestones/2026-10-18-pdf-feedback.json)，正式修正版本尚未上線。
+ZIP 密碼使用一次不扣內層 PDF 額度，仍受全站 execution 限制；本檔分數與含子檔的有效風險分開保留。見 [PDF 密碼流程](docs/pdf-password.md)及 [Job→Worker→Pages 部署手冊](docs/deploy-pdf-feedback.md)。
+[進度清單](docs/project-status.md)逐項追蹤 47 個 ID，包含仍待辦的 DO 清理、長期成本、真實回退及自動病毒庫更新。
+首批 32／32 一般原生案例、12／12 PDF 密碼案例與歷史測試數字保留在 [首批紀錄](docs/milestones/2026-10-18-pdf-password.json)，不代替本次修正驗收。
 
 **2026-10-17：P1 靜態品質第二批已驗證**：品質 corpus 擴充為 32 個案例／28 個固定 fixture，新增 PE、Office、PDF 結構與失敗對照；32／32 真實引擎案例通過。兩批變更的 worker／Pages 部署結果與三份正式 demo 報告已核對；PDF 密碼恢復為下一個獨立批次。驗收範圍見[靜態品質基準](docs/static-quality.md)，所有完成／待辦項目及條件見[進度清單](docs/project-status.md)。
 
@@ -27,7 +31,7 @@
 | 通用靜態分析 | 檔案型別與 hash、ClamAV、YARA、IOC、去混淆候選與啟發式證據 |
 | 格式分析 | Windows PE、Office OLE／OOXML／RTF、PDF、LNK、支援的 scripts；各格式深度不同 |
 | 遞迴子檔 | ZIP、7z、RAR、TAR、gzip、bzip2，以及支援的文件嵌入物件；保留原檔到子檔的來源樹 |
-| 密碼與續跑 | 支援封存格式與 PDF 的密碼補交、巢狀不同密碼、已完成 stage checkpoint 與累計提取預算；PDF 本批程式／本機驗證完成，正式 demo 待更新 |
+| 密碼與續跑 | 支援封存格式與 PDF 的密碼補交、巢狀不同密碼、已完成 stage checkpoint 與累計提取預算；PDF 基礎流程已有正式報告；逐檔計次與風險修正待完整驗收 |
 | 可解釋報告 | 各階段狀態、工具／規則版本、直接與子檔風險來源、部分成果及未完成原因 |
 | 選用動態分析 | 自架串接真實 CAPEv2，將可取得的 process／file／registry／network 等證據補入報告 |
 
@@ -155,7 +159,7 @@ scripts/enable-sandbox.sh
 
 雲端映像在**建置時**更新 ClamAV 簽章，每次掃描不下載病毒庫；目前有七天 freshness guard，超齡會讓防毒階段回報失敗。**自動每日重建／更新尚未完成**。Compose 則以獨立 ClamAV 服務運作，預設啟用其更新器。擴充 YARA 規則時也需處理授權、來源、版本、誤報與效能，而不只是增加規則數量。
 
-目前來源中的規則集為 `1.1.0`，評分政策為 `msrs-v1.1`。一般網址的 `network_iocs` 命中保留為零風險權重的 context，原始 URL／domain／IP 也保留證據但不單獨加分；JSP 規則需要附近同時出現 request 輸入與程序執行字串。這是縮小已知誤報的啟發式調整，沒有 URL 信譽或 Java 資料流分析。規則授權仍如實標記 `NOASSERTION`，不是授權許可。
+目前來源中的規則集為 `1.1.0`，評分政策為 `msrs-v1.2`。已驗證高風險子檔成為祖先有效風險的下限，本檔分數與直接證據另行保存；不把高風險直接視為已確認惡意。一般網址的 `network_iocs` 命中保留為零風險權重的 context，原始 URL／domain／IP 也保留證據但不單獨加分；JSP 規則需要附近同時出現 request 輸入與程序執行字串。這是縮小已知誤報的啟發式調整，沒有 URL 信譽或 Java 資料流分析。規則授權仍如實標記 `NOASSERTION`，不是授權許可。
 
 ## 開發、驗證與後續工作
 
@@ -169,4 +173,4 @@ scripts/enable-sandbox.sh
 
 本機已驗證 backend／worker／frontend 測試、真 PostgreSQL 預算與 attempt、真 ZIP／7z 不同密碼恢復、完整容器／S3 checkpoint，以及 Worker 與 Python dispatcher 的 HTTP 串接。測試數量、命令與證據邊界見[驗證紀錄](docs/v2-validation.md)；它們不取代 live provider 或實際帳單驗收。
 
-目前下一步為 PDF 密碼恢復的正式部署與 smoke，再依序擴充 Office 密碼、文件附件、格式品質與可量測的效能改善。DO 清理、長期成本、真實雲端回退及自動簽章病毒庫更新持續列為獨立待辦；真實 CAPE 驗收待可用基礎設施。每批都更新[專案進度清單](docs/project-status.md)，各階段排序見[路線圖](docs/roadmap.md)。
+目前下一步先完成 PDF 四項回饋修正的驗證與 Job／Worker／Pages 正式 smoke，再依序擴充 Office 密碼、PDF token／Base64 弱雜訊對照、文件附件與可量測的效能改善。DO 清理、長期成本、真實雲端回退及自動簽章病毒庫更新持續列為獨立待辦；真實 CAPE 驗收待可用基礎設施。每批都更新[專案進度清單](docs/project-status.md)，各階段排序見[路線圖](docs/roadmap.md)。

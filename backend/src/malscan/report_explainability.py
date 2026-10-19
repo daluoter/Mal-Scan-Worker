@@ -212,7 +212,7 @@ def _attach_analysis_reference_ids(
 
 def _flatten_artifacts(tree: dict[str, Any]) -> list[dict[str, Any]]:
     nodes: list[dict[str, Any]] = []
-    root_id = str(tree["id"])
+    root_id = str(tree.get("root_artifact_id") or tree["id"])
 
     def _walk(
         node: dict[str, Any],

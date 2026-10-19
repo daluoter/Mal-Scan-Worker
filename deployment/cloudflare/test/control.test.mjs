@@ -22,7 +22,7 @@ async function runtime(extra = {}) {
   let rejectDispatch = false;
   let dispatchGate;
   let claimGate;
-  const mf = new Miniflare({
+  const options = {
     name: 'control-test', modules: true, unsafeInspectDurableObjects: true,
     scriptPath: fileURLToPath(new URL('../src/worker.mjs', import.meta.url)),
     compatibilityDate: '2026-07-30', r2Buckets: ['UPLOADS', 'RESULTS'], r2Persist: false,
@@ -74,11 +74,12 @@ async function runtime(extra = {}) {
       if (rejectDispatch) return Response.json({error: 'local-test-rejected'}, {status: 503});
       return Response.json({name: `projects/local-test/locations/us-central1/operations/test-${calls.length}`});
     },
-  });
+  };
+  const mf = new Miniflare(options);
   let localUrl;
   try {localUrl = await mf.ready;} catch (exception) {await mf.dispose(); throw exception;}
-  const uploadStore = await mf.getR2Bucket('UPLOADS');
-  const resultStore = await mf.getR2Bucket('RESULTS');
+  let uploadStore = await mf.getR2Bucket('UPLOADS');
+  let resultStore = await mf.getR2Bucket('RESULTS');
   let sql;
   try {sql = await mf.unsafeGetDurableObjectStorage('control-test', 'DemoControl', {name: 'demo-control'});}
   catch (exception) {await mf.dispose(); throw exception;}
@@ -120,7 +121,14 @@ async function runtime(extra = {}) {
     await resultStore.put(job.status_key, JSON.stringify(signed(payload)));
     return {job, report, payload, reportKey};
   };
-  return {mf, sql, fetch, uploadStore, resultStore, calls, dispatches, ticket, upload, headerOnlyUpload, owned, row, publish,
+  return {mf, get sql() {return sql;}, fetch, get uploadStore() {return uploadStore;}, get resultStore() {return resultStore;}, calls, dispatches, ticket, upload, headerOnlyUpload, owned, row, publish,
+    async restart() {
+      await mf.setOptions({...options, bindings: {...options.bindings, TEST_RELOAD_ID: randomUUID()}});
+      localUrl = await mf.ready;
+      uploadStore = await mf.getR2Bucket('UPLOADS');
+      resultStore = await mf.getR2Bucket('RESULTS');
+      sql = await mf.unsafeGetDurableObjectStorage('control-test', 'DemoControl', {name: 'demo-control'});
+    },
     claim(envelope) {return fetch('/internal/dispatch/claim', {method: 'POST', headers: {'content-type': 'application/json'}, body: JSON.stringify(envelope)});},
     pauseClaim() {
       let markStarted, release;
@@ -309,6 +317,9 @@ test('real workerd, SQLite and R2 demo control contract', {timeout: 180000}, asy
       const envelope = await (await r.resultStore.get(`controls/${next.id}/${next.dispatch_id}.json`)).json();
       const control = JSON.parse(envelope.payload);
       assert.equal(control.resume, true); assert.equal(control.passwords[child], 'hidden-local-password');
+      assert.equal(control.password_attempts_scope, 'artifact');
+      assert.equal(control.password_attempt_limit, 3);
+      assert.deepEqual(control.password_attempts_by_artifact, {[child]: 1});
       assert.equal(control.checkpoint_key, `checkpoints/${next.id}/${next.attempt_id}.json`);
       assert.equal(control.expires_at, next.expires_at);
       assert.ok(!JSON.stringify(r.calls).includes('hidden-local-password'));
@@ -462,6 +473,146 @@ test('public demo intake must be explicitly enabled; global daily quota is durab
     const response = await limited.fetch('/api/v1/upload-tickets', {method: 'POST', body: JSON.stringify({bytes: 1, filename: 'x', sha256: hash('x')})});
     assert.equal(response.status, 429);
   } finally {await limited.mf.dispose();}
+});
+
+test('password submissions are counted durably for each file while execution admission stays global', {timeout: 120000}, async () => {
+  const r = await runtime({MONTHLY_EXECUTION_LIMIT: '100'});
+  try {
+    const body = Buffer.from('nested ZIP and PDF placeholders');
+    const ticket = await r.ticket(body, 'protected.zip');
+    await r.upload(ticket, body);
+    const pdf = '00000000-0000-5000-8000-000000000011';
+    const sibling = '00000000-0000-5000-8000-000000000012';
+    const wait = async targets => {
+      await r.publish(ticket, 'password_required', targets);
+      return (await r.owned(ticket, `/api/v1/jobs/${ticket.job_id}`)).json();
+    };
+    const submit = id => r.owned(ticket, `/api/v1/jobs/${id}/password`, {
+      method: 'POST', headers: {'content-type': 'application/json'}, body: JSON.stringify({password: 'test-only'}),
+    });
+
+    // A wrong ZIP submission followed by the valid ZIP submission consumes two
+    // ZIP attempts. Discovering its encrypted PDF starts that file at zero.
+    await wait([ticket.job_id]);
+    assert.equal((await (await submit(ticket.job_id)).json()).password_attempts, 1);
+    await wait([ticket.job_id]);
+    assert.equal((await (await submit(ticket.job_id)).json()).password_attempts, 2);
+    const discovered = await wait([pdf, sibling]);
+    assert.equal(discovered.password_attempts, 2);
+    assert.equal(discovered.password_attempts_scope, 'artifact');
+    assert.equal(discovered.password_attempt_limit, 3);
+    assert.equal(discovered.total_password_submissions, 2);
+    assert.deepEqual(discovered.password_attempts_by_artifact[pdf], {attempts_used: 0, attempts_remaining: 3, limit: 3});
+    assert.deepEqual(discovered.password_attempts_by_artifact[sibling], {attempts_used: 0, attempts_remaining: 3, limit: 3});
+
+    const callsBeforeInvalid = r.calls.length;
+    const stateBeforeInvalid = await r.row(ticket.job_id);
+    // The root is owned, but it is no longer a canonical pending target.
+    assert.equal((await submit(ticket.job_id)).status, 409);
+    assert.equal((await submit('00000000-0000-5000-8000-000000000099')).status, 404);
+    assert.equal(r.calls.length, callsBeforeInvalid);
+    assert.equal((await r.row(ticket.job_id)).password_attempts, stateBeforeInvalid.password_attempts);
+    assert.deepEqual(await r.sql.exec('SELECT * FROM quota'), [{day: new Date().toISOString().slice(0, 10), jobs: 1, executions: 3}]);
+
+    for (const expected of [1, 2, 3]) {
+      const response = await submit(pdf);
+      assert.equal(response.status, 200, await response.clone().text());
+      const result = await response.json();
+      assert.equal(result.password_attempts, expected);
+      assert.equal(result.password_attempts_remaining, 3 - expected);
+      assert.equal(result.password_attempts_by_artifact[ticket.job_id].attempts_used, 2);
+      const job = await r.row(ticket.job_id);
+      const envelope = await (await r.resultStore.get(`controls/${job.id}/${job.dispatch_id}.json`)).json();
+      const control = JSON.parse(envelope.payload);
+      assert.equal(control.password_attempts_by_artifact[pdf], expected);
+      assert.equal(control.password_attempts_by_artifact[ticket.job_id], 2);
+      await wait([pdf, sibling]);
+    }
+    const countAtExhaustion = r.calls.length;
+    const exhausted = await submit(pdf);
+    assert.equal(exhausted.status, 409);
+    assert.equal((await exhausted.json()).error.code, 'password_attempt_limit');
+    assert.equal(r.calls.length, countAtExhaustion);
+    // An exhausted PDF neither consumes its sibling's attempts nor blocks its
+    // dispatch. Runtime later decides which failed targets become terminal.
+    const other = await submit(sibling);
+    assert.equal(other.status, 200);
+    assert.equal((await other.json()).password_attempts, 1);
+    await wait([pdf]);
+    const quotaBeforeRestart = await r.sql.exec('SELECT * FROM quota');
+    const monthlyBeforeRestart = await r.sql.exec('SELECT * FROM monthly_quota');
+    await r.restart();
+    const afterRestart = await (await r.owned(ticket, `/api/v1/jobs/${ticket.job_id}`)).json();
+    assert.equal(afterRestart.total_password_submissions, 6);
+    assert.equal(afterRestart.legacy_password_submissions, 0);
+    assert.deepEqual(afterRestart.password_attempts_by_artifact[pdf], {attempts_used: 3, attempts_remaining: 0, limit: 3});
+    assert.equal(afterRestart.password_attempts_by_artifact[sibling].attempts_used, 1);
+    assert.deepEqual(await r.sql.exec('SELECT * FROM quota'), quotaBeforeRestart);
+    assert.deepEqual(await r.sql.exec('SELECT * FROM monthly_quota'), monthlyBeforeRestart);
+    assert.equal((await submit(pdf)).status, 409);
+  } finally {await r.mf.dispose();}
+});
+
+test('global execution rejection does not consume a fresh nested file password submission', async () => {
+  const r = await runtime({DAILY_EXECUTION_LIMIT: '2'});
+  try {
+    const body = Buffer.from('nested-quota'), ticket = await r.ticket(body);
+    await r.upload(ticket, body);
+    await r.publish(ticket, 'password_required', [ticket.job_id]);
+    await r.owned(ticket, `/api/v1/jobs/${ticket.job_id}`);
+    const submit = id => r.owned(ticket, `/api/v1/jobs/${id}/password`, {
+      method: 'POST', headers: {'content-type': 'application/json'}, body: JSON.stringify({password: 'test-only'}),
+    });
+    assert.equal((await submit(ticket.job_id)).status, 200);
+    const pdf = '00000000-0000-5000-8000-000000000021';
+    await r.publish(ticket, 'password_required', [pdf]);
+    await r.owned(ticket, `/api/v1/jobs/${ticket.job_id}`);
+    const rejected = await submit(pdf);
+    assert.equal(rejected.status, 429);
+    assert.equal((await rejected.json()).error.code, 'daily_demo_limit_reached');
+    const status = await (await r.owned(ticket, `/api/v1/jobs/${ticket.job_id}`)).json();
+    assert.equal(status.status, 'password_required');
+    assert.equal(status.total_password_submissions, 1);
+    assert.deepEqual(status.password_attempts_by_artifact[pdf], {attempts_used: 0, attempts_remaining: 3, limit: 3});
+    assert.equal(r.calls.length, 2);
+  } finally {await r.mf.dispose();}
+});
+
+test('old root-wide counters migrate once without fabricated per-file history or quota resets', {timeout: 120000}, async () => {
+  const r = await runtime();
+  try {
+    const body = Buffer.from('legacy-counter'), ticket = await r.ticket(body);
+    await r.upload(ticket, body);
+    const pdf = '00000000-0000-5000-8000-000000000031';
+    await r.publish(ticket, 'password_required', [pdf]);
+    await r.owned(ticket, `/api/v1/jobs/${ticket.job_id}`);
+    // Recreate the deployed pre-migration SQLite shape in the real runtime.
+    await r.sql.exec('ALTER TABLE jobs DROP COLUMN password_attempts_by_artifact');
+    await r.sql.exec('ALTER TABLE jobs DROP COLUMN legacy_password_submissions');
+    await r.sql.exec('UPDATE jobs SET password_attempts = 3 WHERE id = ?', ticket.job_id);
+    await r.sql.exec('UPDATE quota SET executions = 5');
+    await r.sql.exec('UPDATE monthly_quota SET executions = 9');
+    await r.restart();
+    const status = await (await r.owned(ticket, `/api/v1/jobs/${ticket.job_id}`)).json();
+    assert.equal(status.total_password_submissions, 3);
+    assert.equal(status.legacy_password_submissions, 3);
+    assert.equal(status.password_attempts, 0);
+    assert.deepEqual(status.password_attempts_by_artifact[pdf], {attempts_used: 0, attempts_remaining: 3, limit: 3});
+    assert.equal((await r.sql.exec('SELECT executions FROM quota'))[0].executions, 5);
+    assert.equal((await r.sql.exec('SELECT executions FROM monthly_quota'))[0].executions, 9);
+    const resumed = await r.owned(ticket, `/api/v1/jobs/${pdf}/password`, {
+      method: 'POST', headers: {'content-type': 'application/json'}, body: JSON.stringify({password: 'test-only'}),
+    });
+    assert.equal(resumed.status, 200);
+    assert.equal((await resumed.json()).password_attempts, 1);
+    await r.restart();
+    const current = await (await r.owned(ticket, `/api/v1/jobs/${ticket.job_id}`)).json();
+    assert.equal(current.total_password_submissions, 4);
+    assert.equal(current.legacy_password_submissions, 3);
+    assert.equal(current.password_attempts_by_artifact[pdf].attempts_used, 1);
+    assert.equal((await r.sql.exec('SELECT executions FROM quota'))[0].executions, 6);
+    assert.equal((await r.sql.exec('SELECT executions FROM monthly_quota'))[0].executions, 10);
+  } finally {await r.mf.dispose();}
 });
 
 test('monthly execution cap blocks dispatch and cannot be bypassed by a second ticket', async () => {

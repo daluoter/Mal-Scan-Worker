@@ -59,7 +59,7 @@ def test_many_normal_schema_and_file_like_values_remain_visible_at_zero_risk() -
     assert decision.breakdown.high_gate_open is False
     assert decision.breakdown.malicious_gate_open is False
     assert decision.score_trace["components"] == []
-    assert decision.policy_version == POLICY_VERSION == "msrs-v1.1"
+    assert decision.policy_version == POLICY_VERSION == "msrs-v1.2"
 
 
 @pytest.mark.parametrize(

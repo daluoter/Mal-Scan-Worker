@@ -28,7 +28,7 @@ export default function ScoreTracePanel({ risk }: ScoreTracePanelProps) {
                         <p className="mt-1 text-xs font-mono text-slate-400">分數計算公式已記錄於報告中</p>
                     )}
                 </div>
-                <div className="grid grid-cols-2 gap-2 font-mono text-xs md:grid-cols-5">
+                <div className={`grid grid-cols-2 gap-2 font-mono text-xs ${breakdown.descendant_floor ? 'md:grid-cols-6' : 'md:grid-cols-5'}`}>
                     <div className="rounded-lg border border-white/10 bg-slate-900/50 px-3 py-2">
                         <div className="text-slate-500">本地分數</div>
                         <div className="text-white">{breakdown.local_score}</div>
@@ -45,12 +45,18 @@ export default function ScoreTracePanel({ risk }: ScoreTracePanelProps) {
                         <div className="text-slate-500">抑制因子</div>
                         <div className="text-white">{breakdown.dampener}</div>
                     </div>
+                    {!!breakdown.descendant_floor && <div className="rounded-lg border border-alert-red/40 bg-alert-red/10 px-3 py-2">
+                        <div className="text-slate-300">子檔風險下限補足</div>
+                        <div className="text-alert-red">+{breakdown.descendant_floor}</div>
+                    </div>}
                     <div className="rounded-lg border border-neon-purple/30 bg-neon-purple/10 px-3 py-2">
                         <div className="text-slate-300">最終分數</div>
                         <div className="text-neon-purple">{breakdown.final_score}</div>
                     </div>
                 </div>
             </div>
+
+            {!!breakdown.descendant_floor && <p className="mt-3 text-sm text-slate-300">整體分數至少保留已確認來源的高風險子檔分數。此補足不代表新增偵測，也不會把同一證據重複計算為獨立來源。</p>}
 
             <div className="mt-4 space-y-3">
                 {components.length > 0 ? (
@@ -71,12 +77,13 @@ export default function ScoreTracePanel({ risk }: ScoreTracePanelProps) {
                                     </span>
                                 )}
                             </div>
-                            <p className="mt-2 text-sm text-slate-300">{localizeReportText(component.reason)}</p>
+                            <p className="mt-2 text-sm text-slate-300">{component.type === 'descendant_risk_floor' ? '已驗證的高風險子檔設定整體內容風險下限。' : localizeReportText(component.reason)}</p>
                             <div className="mt-2 flex flex-wrap gap-3 font-mono text-xs text-slate-500">
                                 {component.artifact_id && <span>檔案 {component.artifact_id}</span>}
                                 {component.related_artifact_id && <span>相關檔案 {component.related_artifact_id}</span>}
                                 {typeof component.base_points === 'number' && <span>原始分數 {component.base_points}</span>}
                                 {typeof component.source_score === 'number' && <span>來源分數 {component.source_score}</span>}
+                                {component.display_path && <span className="break-all">來源路徑 {component.display_path}</span>}
                             </div>
                         </div>
                     ))

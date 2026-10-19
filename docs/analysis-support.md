@@ -28,12 +28,15 @@
 來源、預期及未完成原因見[靜態品質基準](static-quality.md)。這兩批的正式 worker／Pages 部署與三份 demo 報告已核對。
 
 2026-10-18 的 PDF 密碼恢復程式與本機驗證已完成，一般原生基準 32／32 與獨立密碼案例 12／12 通過；
-本批正式 demo 尚未更新。
+已取得使用者提供的 Job 切換與兩組原檔／解密子檔報告；Pages 與等待／錯誤畫面尚未完整核對。
 正確密碼產生獨立的解密 PDF 子檔，原檔 hash 不變，子檔重新執行實際 ClamAV／YARA 與適用靜態階段。
 解密保留可讀的 active xref 物件，包括 catalog 無法到達的物件；不可讀物件、超限或派送失敗不能顯示內容已完成分析。
 不支援的 `EFF != StmF` 與 `/EncryptMetadata=false` 在要求密碼前檢查；stream 的明確 `/Crypt` override
 則在成功解鎖後、clone 前檢查。支援方式與限制見 [PDF 密碼說明](pdf-password.md)，
-本機結果見 [2026-10-18 紀錄](milestones/2026-10-18-pdf-password.json)，正式部署／smoke 另列為進度清單 F-08。
+首批本機結果見 [2026-10-18 紀錄](milestones/2026-10-18-pdf-password.json)。
+本次回饋修正改為每個加密檔案各三次被接受的密碼補交，正確亦計次；ZIP 使用一次不扣內層 PDF 額度，
+仍受全站每日 20／每月 40 次 execution 限制。錯誤訊息在非同步分析確認後顯示，不以 POST 接受代替密碼正確。
+正式部署／smoke 仍為 F-08 進行中；本次更新順序與現有正式設定保存見 [回饋部署手冊](deploy-pdf-feedback.md)。
 
 去混淆階段預設 `DEOBFUSCATION_MAX_FILE_SIZE=10000000` bytes。大於此上限的原檔仍可完成
 ClamAV／YARA 等適用階段，但去混淆會以大小限制原因略過，static coverage 因此為 partial。
@@ -47,7 +50,7 @@ IOC 一律保留 URL／domain／IP 與可取得的 offset，不會因此下載�
 每份來源最多 50 個，遺漏／配額／派送失敗留下 partial 與原始 IOC；相同合成檔進入 ancestor
 會停止循環。動態 URL detonation 還需要已啟用且可用的 sandbox provider。
 
-評分政策 `msrs-v1.1` 不因原始 URL／domain／IP 或多種類型觀察而單獨加分；
+評分政策 `msrs-v1.2` 延續零風險 IOC 原則，不因原始 URL／domain／IP 或多種類型觀察而單獨加分；
 規則集 `1.1.0` 的 `network_iocs` 命中也保留為零風險權重的 context。
 一般網址仍可出現在報告與來源證據中；額外結構、偵測或衍生內容依各自規則判斷，沒有目的地信譽查詢。
 
@@ -56,6 +59,13 @@ IOC 一律保留 URL／domain／IP 與可取得的 offset，不會因此下載�
 來源階段與證據 IDs 分開呈現。來源缺失、失敗或不完整時仍為 unknown／partial。
 Portable runner 逐 occurrence 分析並保留各自報告。父報告會聚合已驗證子檔案的 findings 與證據，
 相同內容保留全部位置但風險只計一次，詳見[品質基準](static-quality.md)。
+
+`msrs-v1.2` 另外將已驗證的高風險子孫作為各祖先有效風險下限；解密子檔 84 分時，
+加密 PDF 及包含它的 ZIP 有效風險至少為 84 分／高風險。本檔直接分析與原始證據保留，
+報告 `risk.local_risk` 及來源樹 `local_score` 分開顯示；高風險不是已確認惡意。
+歷史報告不重寫，前端可對可核對身份的可見高風險子檔顯示醒目提醒。
+本次不修改 PDF token 被當成 Base64 候選的弱雜訊；保留的本檔 4 分另由 Q-06 追蹤。
+
 
 ## root 累計與時間窗
 

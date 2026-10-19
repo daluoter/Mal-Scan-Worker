@@ -11,6 +11,7 @@ import TopFindingsSummary from '../components/report/TopFindingsSummary'
 import AnalysisCoveragePanel from '../components/report/AnalysisCoveragePanel'
 import DynamicAnalysisPanel from '../components/report/DynamicAnalysisPanel'
 import PasswordTargetsPanel from '../components/report/PasswordTargetsPanel'
+import VerdictSummaryPanel from '../components/report/VerdictSummaryPanel'
 import { shouldRefreshReport, stageCompleted, stageCoverage } from '../components/report/reportState'
 import { localizeReportText, localizeStage, localizeVerdict } from '../components/report/reportText'
 
@@ -126,27 +127,6 @@ export default function ReportPage() {
         )
     }
 
-    const verdictLabels: Record<string, string> = {
-        clean: '未發現威脅',
-        suspicious: '可疑',
-        malicious: '惡意',
-        unknown: '未知',
-    }
-
-    const verdictIcons: Record<string, string> = {
-        clean: '✅',
-        suspicious: '⚠️',
-        malicious: '☠️',
-        unknown: '❓',
-    }
-
-    const verdictClasses: Record<string, string> = {
-        clean: 'verdict-clean',
-        suspicious: 'verdict-suspicious',
-        malicious: 'verdict-malicious',
-        unknown: 'glass-card',
-    }
-
     const stageLabels: Record<string, string> = {
         'file-type': '檔案類型判定',
         clamav: '防毒掃描',
@@ -207,23 +187,7 @@ export default function ReportPage() {
                 </Link>
             )}
 
-            {/* Verdict Card - Prominent Neon Border */}
-            <div className={`verdict-card ${report.verdict === 'clean' && report.report_complete !== true ? 'glass-card' : verdictClasses[report.verdict]} mb-6 animate-glow-pulse`}>
-                <div className="flex items-center justify-between">
-                    <div>
-                        <p className="text-sm font-mono text-slate-400 mb-1">{report.report_complete === false ? '目前成果判定（分析尚未完成）' : '已取得成果的判定'}</p>
-                        <p className="text-3xl font-bold">
-                            {verdictIcons[report.verdict]} {verdictLabels[report.verdict] || report.verdict}
-                        </p>
-                    </div>
-                    <div className="text-right">
-                        <p className="text-sm font-mono text-slate-400 mb-1">風險分數</p>
-                        <p className="text-4xl font-bold font-mono">
-                            {report.score}<span className="text-lg text-slate-400">/100</span>
-                        </p>
-                    </div>
-                </div>
-            </div>
+            <VerdictSummaryPanel report={report} />
 
             <TopFindingsSummary explainability={report.explainability} />
             <ScoreTracePanel risk={report.risk} />

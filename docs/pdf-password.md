@@ -1,13 +1,19 @@
 # PDF 密碼恢復與解密子檔
 
-更新日期：2026-10-18（Asia/Taipei）。本批已加入 PDF 密碼等待、補交與解密子檔流程，
-程式與本機驗證已完成；正式 demo 尚未部署本批。
-進度清單 [F-01](project-status.md) 記為完成（程式／本機驗證），F-08 另追蹤雲端部署與正式 smoke。
-一般原生基準 32／32、獨立 PDF 密碼案例 12／12 通過；worker 839 passed／3 skipped、backend 203 passed／1 skipped、frontend 39 passed，
-四項 skip 均為 PostgreSQL opt-in。最終加密支援檢查另核對 38 個負面案例，並重跑 AES-128 原生案例 1／1 通過；
-證據與版本見 [2026-10-18 紀錄](milestones/2026-10-18-pdf-password.json)。
-部署方式見[PDF 更新手冊](deploy-pdf-password.md)。舊版已結束的 partial 報告不會自動補做解密；
-Job 與 Pages 都部署本批後，請以新的上傳工作測試此功能。
+更新日期：2026-10-18（Asia/Taipei）。F-01 PDF 密碼恢復程式與本機驗證已完成；
+使用者已提供 Job 切換與兩組原檔／解密子檔報告，確認實際解密掃描。
+Pages 發布與等待／錯誤狀態尚未取得完整證據，F-08 正式驗收維持進行中。
+首批本機結果見 [PDF 密碼紀錄](milestones/2026-10-18-pdf-password.json)。
+
+本次依正式畫面與 JSON 回饋修正錯誤提示、每檔三次、紅色高風險及祖先風險。
+新來源使用評分政策 `msrs-v1.2`；四項修正已完成程式／本機驗證，正式上線仍待核對。
+worker 852、backend 233、frontend 52、控制層 25 項通過；四項 PostgreSQL opt-in 與一項完整 Python fixture 跳過。
+PDF v2 原生 12／12 通過，一般 32 份原生報告以最終 v4 manifest 重新核對；
+初次 per-case 政策斷言仍為舊版而失敗，修正為 1.2 後重新驗證保存的原生報告，沒有重跑偵測器。
+完整結果及限制見 [本批紀錄](milestones/2026-10-18-pdf-feedback.json)，
+分列進度清單 `F-09`、`Q-08`、`UX-06`、`UX-07`。
+依 [回饋修正部署手冊](deploy-pdf-feedback.md)以 **Job → Cloudflare Worker → Pages** 順序更新；
+舊版已結束的報告不會自動重算。
 
 ## 使用者會看到什麼
 
@@ -20,8 +26,15 @@ Job 與 Pages 都部署本批後，請以新的上傳工作測試此功能。
 空 user password 可讓 parser 直接讀取的加密 PDF 會自動產生解密子檔，不要求輸入空字串。
 有效 user／owner password 可由 `pypdf` 解鎖；本功能使用提供的密碼，不嘗試猜測密碼。
 
-雲端沿用每個 root 最多三次密碼補交，以及每日／每月 execution 額度。
-一次補交會派送一次續跑，等待時先查詢既有工作，避免重送；外層與內層的補交共用同一 root 次數。
+新版雲端以**每個加密檔案各三次被接受的密碼補交**計算，正確與錯誤都計次；被拒絕且沒有保留派送的請求不計次。
+例如外層 ZIP 正確提交一次後，ZIP 為已用 1／剩餘 2；新出現的內層 PDF 為已用 0／剩餘 3。
+PDF 錯誤一次後為已用 1／剩餘 2，再正確一次為已用 2／剩餘 1。不是一個 root 共用三次。
+某檔耗盡時，其他仍在等待的檔案可以使用各自剩餘額度。
+
+每次接受密碼會派送一次續跑，仍受全站每日 20／每月 40 次 execution 限制；新上傳每日 10 個不變。
+因此每檔還有次數，也可能因全站 execution 額度不足而暫時無法續跑。等待時先查詢既有工作，避免重送。
+新計數由更新後的 Cloudflare Worker 啟用；舊版 root 共用總數保留為歷史值，不猜測應分配給哪個檔案。
+舊工作首次轉換後從逐檔 0 開始計算後續提交一次，反覆查詢／部署不會再重設；既有日／月 execution 歷史不會清零。
 密碼不是命令列參數，也不會放入可下載報告、耐久 checkpoint 或一般 parser 日誌。
 雲端仍透過既有私有短期 control 物件傳遞密碼，沒有新增公開密碼儲存位置。
 
@@ -48,6 +61,27 @@ JavaScript／Launch 等結構證據從解密內容取得，保留在子檔並聚
 完成後再次 resume 不應重建第二個解密 occurrence。
 portable runner 可從保存在結果 store 的 checkpoint 恢復；本機 disposable cache 遺失也不應要求重新上傳。
 自架 queue worker 使用相同 PDF 分析與子檔契約。
+
+## 為什麼加密父檔和解密子檔的分數不同
+
+加密原檔的直接分析主要看到密文與外層結構，解密子檔才提供可讀的 JavaScript／Launch／自動開啟證據。
+因此兩者的**本檔分數**可以不同，但整體報告與祖先節點必須反映其包含的高風險內容。
+
+使用者提供的舊版報告中，單一加密 PDF 本檔為 4 分、聚合後 29 分／低風險，解密子檔則為 84 分／高風險；
+ZIP 內 `locked.pdf` 的報告仍為 4 分，而其 `decrypted.pdf` 為 84 分。
+該次沒有提供最外層 ZIP 完整報告，不能據此推定 ZIP 的總分。
+這反映舊版祖先聚合／節點投影的缺漏，不能解讀成加密檔比較安全。
+
+新版 `msrs-v1.2` 保留原始直接分析於 `risk.local_risk`，並讓已驗證高風險子孫成為祖先有效風險的下限。
+對本次固定樣本，解密子檔為 84 分時，包含它的 PDF 與 ZIP 有效風險至少為 84 分／高風險；
+來源樹另保留 `local_score` 等欄位，讓使用者看出本檔 4 分與整體 84 分的差別。
+這不是為父檔杜撰另一個直接命中，也不會因重複內容多次加上同一份證據。
+
+高風險使用紅色摘要／節點與來源提示，不只靠顏色辨認。
+歷史 JSON 不會改寫；新版前端可根據報告中已核對身份的可見子檔顯示風險提醒，並明示舊分數與有效呈現的差別。
+`84／高風險` 在本次合成 PDF 來自惰性 action 結構，ClamAV／YARA 未命中；
+**高風險不等於已確認惡意**，也不等於已執行 JavaScript 或驗證危害行為。
+
 
 ## 資源與能力邊界
 
@@ -98,11 +132,11 @@ poetry run python -m malscan_worker.runtime \
 
 ## 可重現驗收
 
-目前一般基準改用 [`corpus-v3.json`](../worker/quality/corpus-v3.json)，仍為 32 案例；
-原有加密 PDF 預期由舊版本的 partial 改為等待密碼，其他歷史預期仍保留在 v1／v2。
-獨立 [`pdf-password-v1.json`](../worker/quality/pdf-password-v1.json) 定義 12 個真實加密案例（suite `pdf-password-v1.1.0`）：
+目前一般基準改用 [`corpus-v4.json`](../worker/quality/corpus-v4.json)，仍為 32 案例；
+原有加密 PDF 預期由舊版本的 partial 改為等待密碼，新政策為 `msrs-v1.2`，原 v1／v2／v3 manifest 保留歷史預期。
+獨立 [`pdf-password-v2.json`](../worker/quality/pdf-password-v2.json) 定義 12 個真實加密案例（suite `pdf-password-v2.0.0`）：
 RC4／AES 正常與惰性 action、空 user password、不同密碼 AES ZIP → AES PDF，
-以及 active xref 中沒有被 catalog 引用的加密 stream。12／12 原生案例通過，版本、雜湊與逐案結果由本批驗證紀錄保存。
+以及 active xref 中沒有被 catalog 引用的加密 stream。固定 bytes 沿用首批；本次以新政策與逐層風險預期重新跑完原生 12／12，不能沿用首批數字代替。
 另有 user／owner password、輸出限制、逾時／取消與派送失敗等回歸測試。
 
 固定 fixture 的 salts／keys／IVs 已凍結為版本化 bytes，生成時只需 Python 標準函式庫，
@@ -115,7 +149,7 @@ CLAMAV_MODE=cli \
 CLAMAV_DATABASE_PATH=/absolute/path/to/verified-clamav-databases \
 SANDBOX_ENABLED=false \
 poetry run python -m malscan_worker.quality.pdf_password_acceptance \
-  --manifest quality/pdf-password-v1.json \
+  --manifest quality/pdf-password-v2.json \
   --jobs 1 \
   --output-dir /absolute/path/to/new-pdf-password-run
 ```

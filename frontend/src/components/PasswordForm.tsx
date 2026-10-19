@@ -83,7 +83,7 @@ export default function PasswordForm({
             </form>
 
             {error && (
-                <div className="mt-3 rounded-md border border-alert-red bg-alert-red/10 px-3 py-2 text-sm text-alert-red">
+                <div role="alert" aria-live="assertive" className="mt-3 rounded-md border border-alert-red bg-alert-red/10 px-3 py-2 text-sm font-semibold text-alert-red">
                     {localizeReportText(error)}
                 </div>
             )}

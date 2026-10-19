@@ -374,15 +374,15 @@ def test_api_rollup_publishes_combined_trace_and_keeps_local_components(
         },
     }
     rolled = _apply_tree_risk_rollup(report, tree)
-    assert rolled["score"] == (85 if second_malicious else 60)
+    assert rolled["score"] == 95
     risk = rolled["risk"]
     assert risk["breakdown"]["high_gate_open"] == risk["high_gate_open"] is True
     assert risk["breakdown"]["malicious_gate_open"] == risk["malicious_gate_open"]
-    assert risk["malicious_gate_open"] is second_malicious
+    assert risk["malicious_gate_open"] is True
     assert risk["breakdown"]["independent_source_count"] == risk["independent_source_count"] == 2
     trace = rolled["risk"]["score_trace"]
     assert trace["gates"]["high_gate_open"] is True
     assert trace["gates"]["local_capped_by"] == "weak_only"
-    assert trace["gates"]["capped_by"] == (None if second_malicious else "no_malicious_gate")
+    assert trace["gates"]["capped_by"] is None
     assert trace["components"][0]["type"] == "local_marker"
     assert trace["components"][1]["type"] == "descendant_inheritance"

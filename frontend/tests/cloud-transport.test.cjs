@@ -118,6 +118,7 @@ test('root signed password IDs authorize child polling and child password POST w
             assert.deepEqual(JSON.parse(options.body), { password: 'inner password' })
             return json({ job_id: CHILD, status: 'queued', password_attempts: 2, password_attempts_remaining: 1 })
         }
+        if (url.includes('/reports/')) return json(report())
         assert.equal(url, `${BASE}/api/v1/jobs/${ROOT}`)
         return json(status())
     })
@@ -127,7 +128,7 @@ test('root signed password IDs authorize child polling and child password POST w
     assert.equal(child.parent_job_id, ROOT)
     assert.equal(child.password_attempts_remaining, 2)
     assert.equal((await client.submitPassword(CHILD, 'inner password')).password_attempts_remaining, 1)
-    assert.equal(calls.length, 3)
+    assert.equal(calls.length, 4)
 })
 
 test('encrypted PDF password retries use the existing target route and original root ownership', async (t) => {
@@ -177,6 +178,97 @@ test('encrypted PDF password retries use the existing target route and original 
     assert.deepEqual(queued.password_required_artifacts, [])
     assert.equal(queued.results.format_analysis.features.content_access, 'wrong_password')
     assert.equal(calls.filter((url) => url.endsWith('/password')).length, 1)
+})
+
+test('status-page polling exposes wrong PDF password and refreshes only when a new submission completes', async (t) => {
+    const client = new CloudTransport(BASE, ownedStorage())
+    let submitted = 0
+    let active = false
+    let reportReads = 0
+    t.mock.method(global, 'fetch', async (url, options) => {
+        if (options.method === 'POST') {
+            submitted++
+            active = true
+            return json({ job_id: ROOT, status: 'queued', password_attempts: submitted, password_attempts_remaining: 3 - submitted })
+        }
+        if (url.includes('/reports/')) {
+            reportReads++
+            return json(report({
+                file: { original_filename: 'locked.pdf' }, password_required_artifacts: [ROOT],
+                artifact_tree: { id: ROOT, job_id: ROOT, filename: 'locked.pdf', job_status: 'password_required', children: [] },
+                artifacts: [{ artifact_id: ROOT, status: 'password_required', reason: submitted ? 'wrong_password' : 'password_required' }],
+            }))
+        }
+        return json(status({ status: active ? 'queued' : 'password_required', error_message: null,
+            password_required_artifacts: [ROOT], password_attempts: submitted, password_attempts_remaining: 3 - submitted,
+            password_attempts_scope: 'artifact', total_password_submissions: submitted }))
+    })
+    const initial = await client.getJobStatus(ROOT)
+    assert.equal(initial.error_message, null)
+    assert.equal(initial.password_target.filename, 'locked.pdf')
+    await client.getJobStatus(ROOT)
+    assert.equal(reportReads, 1)
+    await client.submitPassword(ROOT, 'incorrect-public-fixture-credential')
+    assert.equal((await client.getJobStatus(ROOT)).error_message, null)
+    active = false
+    const rejected = await client.getJobStatus(ROOT)
+    assert.equal(rejected.error_message, 'wrong_password')
+    assert.equal(rejected.password_attempts_remaining, 2)
+    assert.equal(reportReads, 2)
+})
+
+test('nested file status uses its own three submissions rather than the already-unlocked ZIP count', async (t) => {
+    const client = new CloudTransport(BASE, ownedStorage())
+    let count = 0
+    t.mock.method(global, 'fetch', async (url) => {
+        if (url.includes('/reports/')) return json(report({ artifacts: [{ artifact_id: CHILD, status: 'password_required', reason: count ? 'wrong_password' : 'password_required' }] }))
+        return json(status({ password_attempts: 1, password_attempts_remaining: 2, error_message: null,
+            password_attempts_scope: 'artifact', total_password_submissions: 1 + count,
+            password_attempts_by_artifact: {
+                [ROOT]: { attempts_used: 1, attempts_remaining: 2, limit: 3 },
+                [CHILD]: { attempts_used: count, attempts_remaining: 3 - count, limit: 3 },
+            } }))
+    })
+    await client.getJobStatus(ROOT)
+    const initial = await client.getJobStatus(CHILD)
+    assert.equal(initial.password_attempts, 0)
+    assert.equal(initial.password_attempts_remaining, 3)
+    count = 1
+    const rejected = await client.getJobStatus(CHILD)
+    assert.equal(rejected.password_attempts, 1)
+    assert.equal(rejected.password_attempts_remaining, 2)
+    assert.equal(rejected.error_message, 'wrong_password')
+    assert.equal(rejected.password_target.path, undefined)
+    assert.equal(rejected.password_target.filename, 'inner.zip')
+})
+
+test('temporary report failure preserves a password wait without inventing a wrong-password result', async (t) => {
+    const client = new CloudTransport(BASE, ownedStorage())
+    t.mock.method(global, 'fetch', async (url) => url.includes('/reports/') ? json({ error: 'unavailable' }, 503)
+        : json(status({ error_message: null })))
+    const job = await client.getJobStatus(ROOT)
+    assert.equal(job.status, 'password_required')
+    assert.match(job.error_message, /重新查詢/)
+    assert.notEqual(job.error_message, 'wrong_password')
+})
+
+test('downloadable reports retain per-file audit counts and child projections include only their subtree', async (t) => {
+    const client = new CloudTransport(BASE, ownedStorage())
+    const counts = {
+        [ROOT]: { attempts_used: 1, attempts_remaining: 2, limit: 3 },
+        [CHILD]: { attempts_used: 2, attempts_remaining: 1, limit: 3 },
+        [OTHER]: { attempts_used: 0, attempts_remaining: 3, limit: 3 },
+    }
+    t.mock.method(global, 'fetch', async (url) => url.includes('/reports/') ? json(report())
+        : json(status({ password_attempts_by_artifact: counts, password_attempts_scope: 'artifact',
+            total_password_submissions: 3, legacy_password_submissions: 0 })))
+    const root = await client.getReport(ROOT)
+    assert.deepEqual(root.password_attempts_by_artifact, counts)
+    assert.equal(root.password_attempts_scope, 'artifact')
+    assert.equal(root.total_password_submissions, 3)
+    const child = await client.getReport(CHILD)
+    assert.deepEqual(child.password_attempts_by_artifact, { [CHILD]: counts[CHILD] })
+    assert.equal(child.password_attempts_scope, 'artifact')
 })
 
 test('a child reload fetches the root snapshot rather than a nonexistent child GET route', async (t) => {

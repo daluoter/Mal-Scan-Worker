@@ -188,6 +188,7 @@ class RiskBreakdown(BaseModel):
 
     local_score: int
     inherited_score: int
+    descendant_floor: int = 0
     synergy_bonus: int
     dampener: int
     final_score: int
@@ -208,6 +209,7 @@ class RiskSummary(BaseModel):
     top_evidence: list[RiskEvidence] = Field(default_factory=list)
     descendant_summary: dict[str, Any] = Field(default_factory=dict)
     score_trace: dict[str, Any] = Field(default_factory=dict)
+    local_risk: dict[str, Any] = Field(default_factory=dict)
 
 
 class ExplainabilitySummary(BaseModel):
@@ -336,6 +338,9 @@ class ArtifactTreeNode(BaseModel):
     verdict: str | None = None
     score: int | None = None
     risk_level: str | None = None
+    local_score: int | None = None
+    local_risk_level: str | None = None
+    local_verdict: str | None = None
     policy_version: str | None = None
     job_id: str | None = None
     root_artifact_id: str | None = None

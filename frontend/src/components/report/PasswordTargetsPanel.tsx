@@ -63,7 +63,9 @@ export default function PasswordTargetsPanel({ report, onSubmitted }: { report: 
                         {jobs[target.jobId]?.status === 'password_required' ? <PasswordForm
                             filename={target.filename}
                             artifactPath={target.path}
-                            attemptsScope={apiClient.isCloudDemo() ? '雲端 demo 的密碼重試次數由整個上傳工作共用。' : undefined}
+                            attemptsScope={jobs[target.jobId].password_attempts_scope === 'artifact' || !apiClient.isCloudDemo()
+                                ? '每個檔案各自最多提交三次密碼；解開 ZIP 不會扣掉內層 PDF 的次數。'
+                                : '目前服務仍使用整個上傳工作共用的密碼次數；更新控制層後才會改成逐檔計算。'}
                             attemptsUsed={jobs[target.jobId].password_attempts}
                             attemptsRemaining={jobs[target.jobId].password_attempts_remaining}
                             onSubmit={(password) => submit(target.jobId, password)}

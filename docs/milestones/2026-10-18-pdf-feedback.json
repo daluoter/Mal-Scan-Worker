@@ -1,0 +1,179 @@
+{
+  "schema_version": 1,
+  "milestone": "PDF password feedback and descendant risk",
+  "recorded_date": "2026-10-18",
+  "recorded_timezone": "Asia/Taipei",
+  "scope": "Code and local verification of four user-reported cloud demo issues; production rollout remains separate",
+  "cloud_run_executed": false,
+  "production_deployment_verified": false,
+  "cloud_deployment_checklist_id": "F-08",
+  "completed_code_local_checklist_ids": [
+    "F-09",
+    "Q-08",
+    "UX-06",
+    "UX-07"
+  ],
+  "policy_version": "msrs-v1.2",
+  "new_manifests": {
+    "corpus-v4.json": {
+      "sha256": "214fe1427b7f1902a4f14471c581a7f5c3bed7d8d0e769dae794fbfc0e7383d1"
+    },
+    "pdf-password-v2.json": {
+      "sha256": "17e9070f8b360de742d946db381e07b289eef01de097a9dc75340a308bc53908"
+    }
+  },
+  "previous_manifests_modified": false,
+  "user_supplied_evidence": {
+    "completed_reports_reviewed": 4,
+    "raw_reports_republished": false,
+    "direct_pdf": {
+      "old_effective_score": 29,
+      "local_breakdown_score": 4,
+      "inherited_score": 25,
+      "decrypted_child_score": 84,
+      "decrypted_child_risk_level": "high"
+    },
+    "nested_pdf_subtree": {
+      "old_effective_score": 4,
+      "decrypted_child_score": 84,
+      "decrypted_child_risk_level": "high"
+    },
+    "decrypted_content": {
+      "bytes": 888,
+      "sha256": "dd693c1fee0403207af729668c58b550e6420331065e11ab3157af0a3aa44cf5",
+      "matches_local_native_fixture": true
+    },
+    "high_risk_sources": [
+      "PDF launch action",
+      "embedded JavaScript",
+      "automatic open action"
+    ],
+    "clamav_infected": false,
+    "yara_hits": [],
+    "limitations": [
+      "Completed reports contain no password retry/error history",
+      "Full ZIP root report was not attached",
+      "Provided Cloud Shell transcript verifies earlier PDF Job promotion but contains no Pages publication result",
+      "Reports do not verify physical retention, billed cost, actual rollback or scheduled database updates"
+    ]
+  },
+  "verified_contracts": [
+    "Each encrypted artifact occurrence has three independently counted accepted password submissions; correct and wrong submissions both count only for that artifact",
+    "Successful ZIP password does not consume inner PDF attempts; original root aggregate audit and global daily/monthly execution counters persist",
+    "Existing root-shared retry history remains as unattributed legacy audit; new per-artifact counters initialize once without resetting global quotas",
+    "Real workerd SQLite migration/restart, independent siblings, exhausted artifact rejection and global quota reservation are tested",
+    "Signed private controls validate per-artifact retry policy before execution; old controls remain accepted by updated runner",
+    "Third rejected password terminates only its artifact; preserved remote checkpoint continues other pending artifacts",
+    "Progress polling refreshes rejection reason after async password validation and displays accessible red wrong-password feedback for the correct target",
+    "Known verified high/malicious descendant risk sets a floor for every ancestor subtree, root, child report and artifact-tree node",
+    "Direct local score and effective subtree score remain separate; no duplicated evidence or double scoring on repeated rollup",
+    "Foreign or identity-mismatched descendant evidence cannot raise authoritative subtree risk",
+    "High risk uses prominent red UI with source path; high risk does not imply a confirmed malicious verdict",
+    "Legacy report display can surface visible verified descendants without rewriting original JSON scores or claiming an aggregate is a direct score"
+  ],
+  "unchanged_global_limits": {
+    "new_jobs_per_day": 10,
+    "executions_per_day": 20,
+    "executions_per_month": 40
+  },
+  "native_runtime": {
+    "base_image_config_id": "sha256:c68556066d9443cf701fefa9faeb6b8296b0e610d80622ad537489b979f10467",
+    "worker_backend_source_and_rules_mounted_read_only": true,
+    "network": "none",
+    "read_only_root": true,
+    "unprivileged": true,
+    "cpu_per_full_suite": 2,
+    "memory": "4GiB",
+    "tmpfs": "256MiB",
+    "fresh_database_update_performed": false
+  },
+  "tool_versions": {
+    "clamav": "ClamAV 1.4.3/28152/Tue Oct 13 06:26:14 2026",
+    "yara": "4.5.4",
+    "pypdf": "4.3.1",
+    "cryptography": "50.0.2"
+  },
+  "pdf_password_native_run": {
+    "suite_version": "pdf-password-v2.0.0",
+    "scope": "local_real_pdf_password_acceptance",
+    "manifest_sha256": "17e9070f8b360de742d946db381e07b289eef01de097a9dc75340a308bc53908",
+    "started_at": "2026-10-18T14:56:53.678820+00:00",
+    "finished_at": "2026-10-18T14:59:46.450433+00:00",
+    "cloud_run_executed": false,
+    "passed": true,
+    "case_count": 12,
+    "passed_count": 12,
+    "accuracy_claim": "Synthetic format and resume contracts; no real-world detection-rate claim"
+  },
+  "nested_native_attempt_counts": {
+    "zip": 1,
+    "pdf_wrong_then_correct": 2,
+    "source_result_sha256": "e94c2ad8b4353c056f9c25d46012428279d9ddf5c60eff5b0c30faebf453ba94"
+  },
+  "general_native_run": {
+    "corpus_version": "static-quality-v4.0.0",
+    "started_at": "2026-10-18T14:56:53.398048+00:00",
+    "finished_at": "2026-10-18T15:01:57.917509+00:00",
+    "native_case_count": 32,
+    "initial_aggregate_passed": false,
+    "initial_aggregate_sha256": "a1fcebdba51dc5760c482c55444d56a391dc5619fbc52ac5ed4f8900ff3e4925",
+    "initial_manifest_sha256": "181d9d3f3cf32cba44db7f44070cc32fe8b165b041b50eaaeda1b7990c9ca6f8",
+    "validation_manifest_sha256": "214fe1427b7f1902a4f14471c581a7f5c3bed7d8d0e769dae794fbfc0e7383d1",
+    "retained_native_reports_revalidated": 32,
+    "passed_after_revalidation": 32,
+    "revalidation_record_sha256": "377285e27009df202fb1a3aee81dbf88e584d484466d94018668feb17d6decf5",
+    "detectors_rerun": false,
+    "reason": "Initial v4 manifest retained per-case msrs-v1.1 assertions despite deliberate v1.2 policy bump. Corrected exact policy-version assertions; all frozen fixture bytes, native reports and detector results are unchanged. Original failing aggregate preserved.",
+    "accuracy_claim": "Synthetic format and report-contract controls; no real-world detection-rate claim"
+  },
+  "regression_tests": {
+    "worker": {
+      "passed": 852,
+      "skipped": 3,
+      "junit_sha256": "60be94851affe6a974e4e66a729bcff7faa12eb4e14c3ecdf795ebd948cedb63"
+    },
+    "backend": {
+      "passed": 233,
+      "skipped": 1,
+      "junit_sha256": "c0f0452feb046b4d61243be792e2318809b1d58543c9c958b0b99337822cb28a"
+    },
+    "frontend": {
+      "passed": 52,
+      "skipped": 0
+    },
+    "cloudflare_control": {
+      "passed": 25,
+      "skipped": 1,
+      "skipped_scope": "Existing opt-in full Python container fixture; real workerd/SQLite control tests ran"
+    },
+    "skips": "4 PostgreSQL opt-in tests plus 1 existing full Python container fixture",
+    "ruff": "passed",
+    "strict_mypy": {
+      "status": "passed",
+      "worker_source_files": 88,
+      "backend_source_files": 27
+    },
+    "frontend_typecheck_lint_cloud_demo_build": "passed"
+  },
+  "deployment_order": [
+    "Cloud Run Job",
+    "Cloudflare Worker preserving deployed configuration",
+    "Cloudflare Pages",
+    "Fresh upload smoke acceptance"
+  ],
+  "remaining_limits": [
+    "This batch has not been deployed or smoke-tested in production",
+    "Older completed reports are not backfilled; use fresh uploads for authoritative msrs-v1.2 acceptance",
+    "The local native database was not refreshed; its Oct 13 date is not a claim about current cloud database freshness",
+    "PDF keyword fragments producing weak Base64 score noise remain tracked in Q-06",
+    "Existing global execution budget remains in force despite independent per-file attempts"
+  ],
+  "operational_tasks_still_pending": [
+    "P0-06 Durable Object physical row cleanup",
+    "P0-11 actual cloud rollback exercise",
+    "P0-12 scheduled signed database updates",
+    "P0-14 long-term billed cost",
+    "P0-15 Cloudflare cost evidence",
+    "P0-18 retention evidence for subsequent cloud acceptance jobs"
+  ]
+}

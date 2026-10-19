@@ -14,7 +14,7 @@ from malscan_worker.quality.corpus import (
 )
 from malscan_worker.rule_provenance import load_rule_bundle
 
-CORPUS = Path(__file__).parents[1] / "quality" / "corpus-v3.json"
+CORPUS = Path(__file__).parents[1] / "quality" / "corpus-v4.json"
 RULES = Path(__file__).parents[1] / "rules"
 
 

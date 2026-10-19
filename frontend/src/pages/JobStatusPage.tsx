@@ -202,10 +202,13 @@ export default function JobStatusPage() {
                 {jobNeedsPassword(job) && (
                     <div className="mt-6">
                         <PasswordForm
-                            filename={fileInfo.fileName}
+                            filename={job.password_target?.filename ?? fileInfo.fileName}
+                            artifactPath={job.password_target?.path}
                             attemptsUsed={job.password_attempts}
                             attemptsRemaining={job.password_attempts_remaining}
-                            attemptsScope={apiClient.isCloudDemo() ? '雲端 demo 最多三次密碼重試，由整個上傳工作共用。' : undefined}
+                            attemptsScope={job.password_attempts_scope === 'artifact' || !apiClient.isCloudDemo()
+                                ? '這個檔案最多可提交三次密碼；其他檔案各自計算。成功或錯誤的提交都會計入本檔次數。'
+                                : '目前服務仍使用整個上傳工作共用的密碼次數；更新控制層後才會改成逐檔計算。'}
                             onSubmit={handlePasswordSubmit}
                             error={passwordSubmitError ?? job.error_message ?? null}
                         />
@@ -213,7 +216,7 @@ export default function JobStatusPage() {
                 )}
                 {apiClient.isCloudDemo() && job.status === 'password_required' && job.password_required_artifacts?.some((id) => id !== job.job_id) && (
                     <div className="mt-6 rounded-lg border border-caution-yellow/40 p-4">
-                        <p className="mb-3 text-sm text-caution-yellow">子檔需要密碼，請開啟指定檔案提交。整個上傳工作共用剩餘 {job.password_attempts_remaining} 次密碼重試。</p>
+                        <p className="mb-3 text-sm text-caution-yellow">子檔需要密碼，請開啟指定檔案提交；次數與剩餘額度以該檔案的密碼表單為準。</p>
                         <div className="flex flex-col gap-2">{job.password_required_artifacts.filter((id) => id !== job.job_id).map((id) => <Link key={id} className="break-all text-sm text-neon-cyan hover:text-neon-purple" to={`/jobs/${id}`}>等待密碼的子檔：{id}</Link>)}</div>
                     </div>
                 )}

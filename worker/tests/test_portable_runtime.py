@@ -128,7 +128,7 @@ async def test_real_archive_duplicate_entries_keep_occurrences_and_accounting(tm
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("child_count,expected_level", [(1, "high"), (2, "malicious")])
+@pytest.mark.parametrize("child_count,expected_level", [(1, "malicious"), (2, "malicious")])
 async def test_child_detection_rollup_keeps_public_risk_verdict_and_gates_consistent(
     tmp_path, child_count, expected_level
 ):
@@ -154,10 +154,10 @@ async def test_child_detection_rollup_keeps_public_risk_verdict_and_gates_consis
     assert report["risk_level"] == expected_level
     assert report["risk"]["risk_level"] == report["risk_level"]
     assert report["risk"]["risk_score"] == report["score"]
-    expected_verdict = "malicious" if child_count == 2 else "suspicious"
+    expected_verdict = "malicious"
     assert report["verdict"] == report["risk"]["legacy_verdict"] == expected_verdict
     assert report["risk"]["high_gate_open"] is True
-    assert report["risk"]["malicious_gate_open"] is (child_count == 2)
+    assert report["risk"]["malicious_gate_open"] is True
     breakdown = report["risk"]["breakdown"]
     assert breakdown["high_gate_open"] == report["risk"]["high_gate_open"]
     assert breakdown["malicious_gate_open"] == report["risk"]["malicious_gate_open"]

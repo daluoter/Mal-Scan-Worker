@@ -12,7 +12,7 @@ from typing import Any, TypeAlias
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, Request
-from sqlalchemy import select, text
+from sqlalchemy import or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 from sse_starlette.sse import EventSourceResponse
@@ -39,9 +39,8 @@ from malscan.schemas.requests import (
     ReportResponse,
     UploadResponse,
 )
-from malscan.scoring.models import RiskDecision, ScoreBreakdown
 from malscan.scoring.policy import POLICY_VERSION
-from malscan.scoring.tree import merge_with_descendants
+from malscan.scoring.tree import apply_descendant_risk, local_decision_from_report
 from malscan.storage import upload_file_path as upload_to_minio
 
 router = APIRouter()
@@ -843,9 +842,19 @@ async def _build_artifact_tree(
     """Build hierarchical artifact tree from flat records."""
     from uuid import UUID
 
+    requested_id = UUID(root_job_id)
+    enclosing_root = (
+        select(Artifact.root_job_id)
+        .where(Artifact.job_id == requested_id)
+        .limit(1)
+        .correlate(None)
+        .scalar_subquery()
+    )
     stmt = (
         select(Artifact)
-        .where(Artifact.root_job_id == UUID(root_job_id))
+        .where(
+            or_(Artifact.root_job_id == requested_id, Artifact.root_job_id == enclosing_root)
+        )
         .options(joinedload(Artifact.job))
         .order_by(Artifact.depth, Artifact.created_at)
     )
@@ -876,10 +885,13 @@ async def _build_artifact_tree(
             if art.depth == 0
             else None
         )
+        stored_root_job = getattr(art, "root_job_id", None)
         node: JsonObject = {
             "id": str(art.id),
             "root_artifact_id": root_artifact_id,
-            "root_job_id": root_job_id,
+            "root_job_id": str(stored_root_job)
+            if isinstance(stored_root_job, (UUID, str))
+            else root_job_id,
             "filename": art.original_filename,
             "sha256": art.sha256,
             "mime": art.mime,
@@ -919,14 +931,36 @@ async def _build_artifact_tree(
 
     if root is not None:
         resolve_artifact_analysis_references(root, reports_by_artifact)
+        requested = next(
+            (node for node in nodes.values() if node.get("job_id") == root_job_id), None
+        )
+        if requested is not None and requested is not root:
+            expected_root_job = root.get("job_id")
+
+            def same_scope(node: JsonObject) -> bool:
+                children = node.get("children")
+                assert isinstance(children, list)
+                return (
+                    node.get("root_artifact_id") == root["id"]
+                    and node.get("root_job_id") == expected_root_job
+                    and all(isinstance(child, dict) and same_scope(child) for child in children)
+                )
+
+            if (
+                root.get("root_job_id") != expected_root_job
+                or not same_scope(requested)
+            ):
+                return None
+            return requested
     return root
 
 
 def _apply_tree_risk_rollup(
     report: dict[str, Any],
     artifact_tree: dict[str, Any] | None,
+    artifact_reports: dict[str, dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
-    """Apply canonical descendant rollup to a stored local-risk report."""
+    """Apply canonical subtree risk without replacing any direct evidence."""
     report = _ensure_report_risk_shape(report)
     risk = report.get("risk")
     if not artifact_tree or not isinstance(risk, dict):
@@ -936,79 +970,112 @@ def _apply_tree_risk_rollup(
     if not isinstance(breakdown, dict):
         return report
 
-    local = RiskDecision(
-        risk_score=int(risk.get("risk_score") or 0),
-        risk_level=str(risk.get("risk_level") or "clean"),
-        legacy_verdict=str(risk.get("legacy_verdict") or report.get("verdict") or "clean"),
-        evidence=[],
-        top_evidence=[],
-        breakdown=ScoreBreakdown(
-            local_score=int(breakdown.get("local_score") or 0),
-            inherited_score=int(breakdown.get("inherited_score") or 0),
-            synergy_bonus=int(breakdown.get("synergy_bonus") or 0),
-            dampener=int(breakdown.get("dampener") or 0),
-            final_score=int(breakdown.get("final_score") or 0),
-            malicious_gate_open=bool(risk.get("malicious_gate_open", False)),
-            high_gate_open=bool(risk.get("high_gate_open", False)),
-            independent_source_count=int(risk.get("independent_source_count") or 0),
-        ),
-        policy_version=str(risk.get("policy_version") or POLICY_VERSION),
-        score_trace=deepcopy(risk.get("score_trace") or {}),
-    )
+    artifact_reports = artifact_reports or {}
+    # Capture original local values before changing any parent. A child's
+    # aggregate must not become a second copy of its own descendant evidence.
+    direct_nodes: dict[str, dict[str, Any]] = {}
 
-    descendants: list[dict[str, Any]] = []
-    root_depth = int(artifact_tree.get("depth") or 0)
-
-    def _collect(node: dict[str, Any]) -> None:
+    def _capture(node: dict[str, Any]) -> None:
+        direct_report = artifact_reports.get(str(node["id"]))
+        local_value = local_decision_from_report(direct_report) if direct_report else None
+        direct_nodes[str(node["id"])] = {
+            "score": local_value.risk_score if local_value else int(node.get("score") or 0),
+            "risk_level": local_value.risk_level if local_value else _artifact_level(node),
+            "verdict": local_value.legacy_verdict if local_value else node.get("verdict"),
+        }
         for child in node.get("children", []):
-            if child.get("synthetic_root"):
-                continue
             if not child.get("synthetic_root"):
+                _capture(child)
+
+    _capture(artifact_tree)
+
+    def _rollup(node: dict[str, Any], local_report: dict[str, Any] | None = None) -> None:
+        descendants: list[dict[str, Any]] = []
+        root_depth = int(node.get("depth") or 0)
+
+        def _collect(parent: dict[str, Any], parent_path: str) -> None:
+            for child in parent.get("children", []):
+                if child.get("synthetic_root"):
+                    continue
+                direct = direct_nodes[str(child["id"])]
+                reference = child.get("analysis_reference") or {}
+                referenced_risk = reference.get("risk") or {}
+                child_path = child.get("display_path") or (
+                    parent_path + "!/" + str(child.get("origin_path") or child.get("filename"))
+                )
                 descendants.append(
                     {
                         "artifact_id": child["id"],
                         "sha256": child["sha256"],
                         "relative_depth": max(1, int(child.get("depth") or 0) - root_depth),
-                        "risk_level": _artifact_level(child),
-                        "risk_score": int(child.get("score") or 0),
+                        "risk_level": direct["risk_level"],
+                        "risk_score": direct["score"],
                         "origin_path": child.get("origin_path"),
-                        "verdict": child.get("verdict"),
+                        "verdict": direct["verdict"],
                         "extraction_note": child.get("extraction_note"),
                         "size": child.get("size"),
                         "job_status": child.get("job_status"),
                         "job_id": child.get("job_id"),
                         "analysis_status": child.get("analysis_status"),
                         "analysis_reference": child.get("analysis_reference"),
-                        "display_path": child.get("display_path")
-                        or child.get("origin_path")
-                        or child.get("filename"),
+                        "risk_verified": (
+                            reference.get("mode") == "direct"
+                            and reference.get("status") == "verified"
+                            and reference.get("source_artifact_id") == child["id"]
+                            and reference.get("source_sha256") == child.get("sha256")
+                            and reference.get("source_size") == child.get("size")
+                            and reference.get("source_job_id") == child.get("job_id")
+                            and isinstance(referenced_risk.get("score"), int)
+                            and not isinstance(referenced_risk.get("score"), bool)
+                            and referenced_risk.get("score") == direct["score"]
+                            and referenced_risk.get("risk_level") == direct["risk_level"]
+                            and referenced_risk.get("verdict") == direct["verdict"]
+                            and reference.get("source_root_artifact_id")
+                            == (artifact_tree.get("root_artifact_id") or artifact_tree["id"])
+                            and reference.get("source_root_job_id")
+                            == (artifact_tree.get("root_job_id") or artifact_tree.get("job_id"))
+                        ),
+                        "display_path": child_path,
                     }
                 )
-            _collect(child)
+                _collect(child, child_path)
 
-    _collect(artifact_tree)
-    final = merge_with_descendants(local=local, descendants=descendants)
+        _collect(node, str(node.get("display_path") or node.get("filename") or ""))
+        for child in node.get("children", []):
+            if not child.get("synthetic_root"):
+                _rollup(child, artifact_reports.get(str(child["id"])))
+        if not local_report:
+            return
+        local = local_decision_from_report(local_report)
+        effective = apply_descendant_risk(
+            local_report if local_report is report else deepcopy(local_report),
+            local=local,
+            descendants=descendants,
+        )
+        node.update(
+            score=effective["score"],
+            verdict=effective["verdict"],
+            risk_level=effective["risk_level"],
+            policy_version=POLICY_VERSION,
+            local_score=local.risk_score,
+            local_verdict=local.legacy_verdict,
+            local_risk_level=local.risk_level,
+        )
 
-    report["score"] = final.risk_score
-    report["verdict"] = final.legacy_verdict
-    report["risk_level"] = final.risk_level
-    risk["risk_score"] = final.risk_score
-    risk["risk_level"] = final.risk_level
-    risk["legacy_verdict"] = final.legacy_verdict
-    risk["malicious_gate_open"] = final.breakdown.malicious_gate_open
-    risk["high_gate_open"] = final.breakdown.high_gate_open
-    risk["independent_source_count"] = final.breakdown.independent_source_count
-    breakdown["inherited_score"] = final.breakdown.inherited_score
-    breakdown["final_score"] = final.breakdown.final_score
-    breakdown["malicious_gate_open"] = final.breakdown.malicious_gate_open
-    breakdown["high_gate_open"] = final.breakdown.high_gate_open
-    breakdown["independent_source_count"] = final.breakdown.independent_source_count
-    risk["descendant_summary"] = final.descendant_summary
-    risk["score_trace"] = final.score_trace
-    artifact_tree["score"] = final.risk_score
-    artifact_tree["verdict"] = final.legacy_verdict
-    artifact_tree["risk_level"] = final.risk_level
-    artifact_tree["policy_version"] = final.policy_version
+    _rollup(artifact_tree, report)
+    effective_by_job: dict[str, Any] = {}
+
+    def _collect_verdicts(node: dict[str, Any]) -> None:
+        if isinstance(node.get("job_id"), str):
+            effective_by_job[node["job_id"]] = node.get("verdict")
+        for child in node.get("children", []):
+            if not child.get("synthetic_root"):
+                _collect_verdicts(child)
+
+    _collect_verdicts(artifact_tree)
+    for child_job in report.get("child_jobs", []):
+        if child_job.get("job_id") in effective_by_job:
+            child_job["verdict"] = effective_by_job[child_job["job_id"]]
     return report
 
 
@@ -1153,7 +1220,7 @@ async def get_report(job_id: str, db: AsyncSession = Depends(get_db)) -> dict[st
     # Build artifact tree (returns None for non-archive files)
     artifact_reports: dict[str, dict[str, Any]] = {}
     report["artifact_tree"] = await _build_artifact_tree(str(job.id), db, artifact_reports)
-    report = _apply_tree_risk_rollup(report, report["artifact_tree"])
+    report = _apply_tree_risk_rollup(report, report["artifact_tree"], artifact_reports)
     report["artifact_tree"] = ensure_artifact_tree_root(report, report["artifact_tree"])
     descendant_statuses: list[str] = []
 

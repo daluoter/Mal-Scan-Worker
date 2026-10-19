@@ -136,7 +136,7 @@ test('a supported encrypted PDF waits in the generic file password form', () => 
     assert.doesNotMatch(html, /需要解壓密碼|輸入壓縮檔密碼|Office/)
 })
 
-test('nested PDF wrong passwords remain attached to the target and cloud root-wide retry budget', () => {
+test('nested PDF wrong passwords remain attached to the target and per-file retry budget', () => {
     const child = report({ job_id: 'pdf-child', job_status: 'password_required',
         file: { original_filename: 'locked.pdf' },
         results: { format_analysis: { analyzer: 'pdf', features: { encrypted: true, content_access: 'wrong_password' } } },
@@ -153,13 +153,15 @@ test('nested PDF wrong passwords remain attached to the target and cloud root-wi
     assert.equal(passwordTargetError(nested, 'root-job'), undefined)
     assert.equal(passwordTargetError(child, 'pdf-child'), 'wrong_password')
     const html = render(PasswordForm, { filename: 'locked.pdf', artifactPath: 'outer.zip/locked.pdf',
-        attemptsUsed: 1, attemptsRemaining: 2, attemptsScope: '雲端 demo 的密碼重試次數由整個上傳工作共用。',
+        attemptsUsed: 1, attemptsRemaining: 2, attemptsScope: '每個檔案各自最多提交三次密碼。',
         error: passwordTargetError(nested, 'pdf-child'), onSubmit: async () => {},
     })
     assert.match(html, /outer.zip\/locked.pdf/)
     assert.match(html, /密碼不正確/)
+    assert.match(html, /role="alert"/)
+    assert.match(html, /aria-live="assertive"/)
     assert.match(html, /剩餘次數: 2/)
-    assert.match(html, /整個上傳工作共用/)
+    assert.match(html, /每個檔案各自/)
     const exhausted = render(PasswordForm, { filename: 'locked.pdf', attemptsUsed: 3, attemptsRemaining: 0,
         error: 'password_attempt_limit', onSubmit: async () => {},
     })
@@ -208,10 +210,10 @@ test('uncertain dispatches and a newer completed status keep polling the prior p
     assert.equal(shouldRefreshReport(report({ job_status: 'done', report_complete: false, analysis: { dynamic: { status: 'disabled' } } })), true)
 })
 
-test('exhausted cloud password controls explain the root-wide limit and disable submission', () => {
+test('exhausted file password controls explain the per-file limit and disable submission', () => {
     const html = render(PasswordForm, { attemptsUsed: 3, attemptsRemaining: 0, onSubmit: async () => {},
-        attemptsScope: '雲端 demo 最多三次密碼重試，由整個上傳工作共用。', filename: 'inner.zip' })
-    assert.match(html, /整個上傳工作共用/)
+        attemptsScope: '每個檔案各自最多提交三次密碼。', filename: 'inner.zip' })
+    assert.match(html, /每個檔案各自/)
     assert.match(html, /已達密碼嘗試上限/)
     assert.match(html, /disabled=""/)
     assert.match(html, /inner.zip/)

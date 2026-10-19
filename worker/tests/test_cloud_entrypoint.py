@@ -156,6 +156,54 @@ def test_control_signature_rejects_tampering_before_parsing_passwords():
 
 
 @pytest.mark.asyncio
+async def test_signed_per_file_attempt_policy_is_forwarded_to_runner(tmp_path, monkeypatch):
+    monkeypatch.setenv("SANDBOX_ENABLED", "false")
+    config, _manifest, control, key, source, result = setup_control(tmp_path)
+    control.update(
+        password_attempts_scope="artifact",
+        password_attempt_limit=3,
+        password_attempts_by_artifact={config.root_job_id: 2},
+    )
+    result.documents[config.control_key] = seal(control, key)
+    calls = []
+
+    class Runner:
+        def __init__(self, **kwargs):
+            calls.append(kwargs)
+
+        async def run(self, *, resume):
+            return {"report_revision": 1, "artifacts": [], "batch_analysis": {"status": "complete"}}
+
+    await execute_cloud(
+        config, source_store=source, result_store=result, key=key, runner_type=Runner
+    )
+    assert calls[0]["password_attempts_by_artifact"] == {config.root_job_id: 2}
+    assert calls[0]["password_attempt_limit"] == 3
+    assert "never-expose-this-password" not in json.dumps(result.documents)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("invalid", [True, -1, 4, "2", None])
+async def test_malformed_signed_attempt_count_never_runs_or_consumes_control(tmp_path, invalid):
+    config, _manifest, control, key, source, result = setup_control(tmp_path)
+    control.update(
+        password_attempts_scope="artifact",
+        password_attempt_limit=3,
+        password_attempts_by_artifact={config.root_job_id: invalid},
+    )
+    result.documents[config.control_key] = seal(control, key)
+    with pytest.raises(ValueError, match="per-file password attempt"):
+        await execute_cloud(
+            config,
+            source_store=source,
+            result_store=result,
+            key=key,
+            runner_type=lambda **_: pytest.fail("Must not run"),
+        )
+    assert not result.deleted
+
+
+@pytest.mark.asyncio
 async def test_expired_control_is_consumed_without_analysis_or_persistent_writes(tmp_path):
     config, _manifest, control, key, source, result = setup_control(tmp_path)
     control["expires_at"] = int(time.time() * 1000) - 1

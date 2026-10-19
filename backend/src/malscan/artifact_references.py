@@ -130,7 +130,9 @@ def resolve_artifact_analysis_references(
     have a completed job and actual successful stage evidence; an explicit stored
     ``complete`` flag without stages cannot authorize a duplicate's coverage.
     """
-    root_id = str(tree["id"])
+    # A nested report can show only its requested subtree while retaining the
+    # authoritative enclosing-root binding from persisted artifact records.
+    root_id = str(tree.get("root_artifact_id") or tree["id"])
     root_job_id = tree.get("root_job_id") or tree.get("job_id")
     nodes: dict[str, dict[str, Any]] = {}
 

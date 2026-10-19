@@ -39,6 +39,7 @@ class EvidenceRecord:
 class ScoreBreakdown:
     local_score: int = 0
     inherited_score: int = 0
+    descendant_floor: int = 0
     synergy_bonus: int = 0
     dampener: int = 0
     final_score: int = 0

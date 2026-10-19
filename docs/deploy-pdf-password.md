@@ -1,13 +1,14 @@
 # 將 PDF 密碼恢復更新到既有雲端 demo
 
-更新日期：2026-10-18（Asia/Taipei）。本批程式與本機驗證已完成，結果見
-[2026-10-18 紀錄](milestones/2026-10-18-pdf-password.json)；正式 demo 尚未更新本批。
-依本批發布訊息核對 commit／CI 後再執行以下部署。功能與限制見 [PDF 密碼說明](pdf-password.md)，狀態見
-[F-01／F-08 進度清單](project-status.md)。
+此文件保留 **PDF 密碼恢復首批**的 Job／Pages 部署步驟。使用者已提供 Job 切換及完成報告，
+Pages 發布與等待／錯誤狀態尚未取得完整證據，F-08 仍進行中。
 
-這次更新既有 `malscan-v2-static-demo` Cloud Run Job 的 worker 映像與 `malscan-v2-demo` Pages 前端。
-既有 Cloudflare Worker API、DO、dispatcher 不需重新部署；不建立新 bucket、secret 或 service account。
-使用原本已登入 Google Cloud／Cloudflare 的 Cloud Shell，逐段執行；每段失敗時保留輸出先核對。
+**目前請依 [PDF 回饋修正部署手冊](deploy-pdf-feedback.md)** 更新：本次還包含逐檔密碼計數的 Cloudflare Worker 改動，
+順序為 Job → Worker → Pages，並從目前正式部署下載設定，保留 `PUBLIC_UPLOADS`、origin、dispatcher、DO／R2 與額度。
+不要把本文件首批「Worker 不需更新」的範圍套到後續版本，也不要直接發布 repository 的 placeholder 範本。
+
+首批程式／本機驗證結果見 [2026-10-18 紀錄](milestones/2026-10-18-pdf-password.json)；
+功能見 [PDF 密碼說明](pdf-password.md)，狀態見 [進度清單](project-status.md)。以下首批步驟與 manifest 留作歷史及 fixture 生成參考。
 
 ## 1. 新目錄取得發布版，保存獨立路徑
 
@@ -175,7 +176,7 @@ action PDF 只有惰性的 `void 0;` 與不存在的文字檔名稱，樣本不�
 | AES ZIP → AES-128 PDF | 先以 `quality-archive-only` 解開 ZIP，確認等待的是內層 PDF；對 PDF 先輸入一次外層密碼，應顯示錯誤，再輸入 `quality-pdf-only`。最後來源樹應為 ZIP → 加密 PDF → 解密 PDF，累計額度沒有重置 |
 
 兩個工作若走完上述錯誤對照，預計共七次 execution（兩次初始上傳＋五次密碼續跑）。
-root 最多三次密碼補交、每日 20 次／每月 40 次 execution 及每日 10 個新工作的既有上限不變；
+首批 root 共用三次補交為歷史規則；本次新版改為每檔各三次，依回饋修正手冊操作。每日 20 次／每月 40 次 execution 及每日 10 個新工作不變；
 先確認仍有額度，不為測試調高上限。
 
 舊版已結束的 partial 報告不會自動補做解密；請在 Job 與 Pages 都更新後建立新的上傳工作。

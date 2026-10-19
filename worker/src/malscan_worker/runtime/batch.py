@@ -9,6 +9,7 @@ import re
 import shutil
 import tempfile
 from collections.abc import Awaitable, Callable
+from copy import deepcopy
 from dataclasses import asdict
 from datetime import datetime, timezone
 from pathlib import Path
@@ -23,10 +24,11 @@ from malscan.analysis_contract import (
 from malscan.report_explainability import build_explainability
 from malscan.scoring.adapters import build_direct_evidence
 from malscan.scoring.engine import score_direct_evidence
-from malscan.scoring.tree import merge_with_descendants
+from malscan.scoring.tree import apply_descendant_risk
 
 from malscan_worker.budget import BudgetExceeded, BudgetLimits, InMemoryRootBudget
 from malscan_worker.exceptions import ArchivePasswordRequiredError, ArchiveWrongPasswordError
+from malscan_worker.reporting import build_password_attempts_exhausted_report
 from malscan_worker.runtime.checkpoint import load_secret, sign_state, verify_state
 from malscan_worker.runtime.dispatch import BatchDispatcher
 from malscan_worker.runtime.manifest import AnalysisManifest, file_identity
@@ -67,6 +69,8 @@ class RootBatchRunner:
         limits: BudgetLimits | None = None,
         max_depth: int = 3,
         passwords: dict[str, str] | None = None,
+        password_attempts_by_artifact: dict[str, int] | None = None,
+        password_attempt_limit: int | None = None,
         checkpoint_key: str | None = None,
         parallel_stages: list[Any] | None = None,
         format_stage: Any = None,
@@ -96,6 +100,20 @@ class RootBatchRunner:
         self.budget = InMemoryRootBudget(limits or BudgetLimits())
         self.max_depth = max_depth
         self.passwords = passwords or {}
+        if password_attempts_by_artifact is not None:
+            if (
+                not isinstance(password_attempt_limit, int)
+                or password_attempt_limit != 3
+                or any(
+                    not isinstance(count, int) or isinstance(count, bool) or not 0 <= count <= 3
+                    for count in password_attempts_by_artifact.values()
+                )
+            ):
+                raise ValueError("Invalid per-file password attempt policy")
+        elif password_attempt_limit is not None:
+            raise ValueError("Password attempt counts are required")
+        self.password_attempts_by_artifact = dict(password_attempts_by_artifact or {})
+        self.password_attempt_limit = password_attempt_limit
         self.dispatcher = BatchDispatcher()
         self.parallel_stages = parallel_stages
         self.format_stage = format_stage
@@ -426,6 +444,24 @@ class RootBatchRunner:
                 if isinstance(exc, ArchiveWrongPasswordError)
                 else "password_required"
             )
+            if (
+                self.password_attempt_limit is not None
+                and artifact_id in self.passwords
+                and self.password_attempts_by_artifact.get(artifact_id, 0)
+                >= self.password_attempt_limit
+            ):
+                artifact["status"] = "failed"
+                artifact["reason"] = "password_attempts_exhausted"
+                artifact["report"] = build_password_attempts_exhausted_report(
+                    {
+                        "job_id": artifact_id,
+                        "file_id": artifact_id,
+                        "sha256": artifact["sha256"],
+                        "original_filename": artifact["original_filename"],
+                    },
+                    existing_report=artifact.get("report"),
+                )
+                artifact["stage_results"] = artifact["report"]["stages"]
         except BudgetExceeded as exc:
             artifact["status"] = "limited"
             artifact["reason"] = exc.reason
@@ -437,8 +473,68 @@ class RootBatchRunner:
 
     def _report(self) -> dict[str, Any]:
         root = self.artifacts[self.manifest.root_job_id]
-        report = dict(
-            root.get("report")
+        effective_reports: dict[str, dict[str, Any]] = {}
+
+        def display_path(item: dict[str, Any]) -> str:
+            parts = []
+            current = item
+            while current["parent_id"] is not None:
+                parts.append(current.get("origin_path") or current["original_filename"])
+                current = self.artifacts[current["parent_id"]]
+            parts.append(current["original_filename"])
+            return "!/".join(reversed(parts))
+
+        # Every parent gets a subtree decision, including encrypted documents
+        # nested in archives. Always aggregate original direct stage reports:
+        # reusing an already aggregated parent would count its children twice.
+        for artifact in self.artifacts.values():
+            direct_report = artifact.get("report")
+            if not isinstance(direct_report, dict):
+                continue
+            descendants = []
+            for item in self.artifacts.values():
+                parent_id = item["parent_id"]
+                while parent_id is not None and parent_id != artifact["artifact_id"]:
+                    parent_id = self.artifacts[parent_id]["parent_id"]
+                if parent_id is None:
+                    continue
+                child_report = item.get("report") or {}
+                file_info = child_report.get("file") or {}
+                descendants.append(
+                    {
+                        "artifact_id": item["artifact_id"],
+                        "sha256": item["sha256"],
+                        "size": item["size"],
+                        "relative_depth": item["depth"] - artifact["depth"],
+                        "risk_score": child_report.get("score", 0),
+                        "risk_level": child_report.get("risk_level", "unknown"),
+                        "verdict": child_report.get("verdict", "unknown"),
+                        "origin_path": item.get("origin_path"),
+                        "display_path": display_path(item),
+                        "risk_verified": (
+                            child_report.get("job_id") == item["artifact_id"]
+                            and isinstance(file_info.get("size"), int)
+                            and not isinstance(file_info.get("size"), bool)
+                            and file_info.get("sha256") == item["sha256"]
+                            and file_info.get("size") == item["size"]
+                            and file_info.get("original_filename") == item["original_filename"]
+                        ),
+                    }
+                )
+            local = score_direct_evidence(
+                direct_evidence=build_direct_evidence(
+                    artifact_id=artifact["artifact_id"],
+                    stage_findings={
+                        item["stage_name"]: item["findings"] for item in artifact["stage_results"]
+                    },
+                )
+            )
+            effective_reports[artifact["artifact_id"]] = apply_descendant_risk(
+                deepcopy(direct_report), local=local, descendants=descendants
+            )
+        report = deepcopy(
+            effective_reports.get(root["artifact_id"])
+            or root.get("report")
             or {
                 "report_schema_version": REPORT_SCHEMA_VERSION,
                 "job_id": self.manifest.root_job_id,
@@ -468,7 +564,7 @@ class RootBatchRunner:
                 for key, value in artifact.items()
                 if key not in {"ancestor_hashes", "stage_results", "report"}
             }
-            node["report"] = artifact.get("report")
+            node["report"] = effective_reports.get(artifact["artifact_id"])
             nodes.append(node)
             if artifact["status"] != "done":
                 incomplete.append(
@@ -500,48 +596,6 @@ class RootBatchRunner:
                         "reason": "stage_incomplete",
                     }
                 )
-        # The existing tree policy, including hash deduplication, scores descendants.
-        if root.get("report"):
-            stage_findings = {
-                item["stage_name"]: item["findings"] for item in root["stage_results"]
-            }
-            local = score_direct_evidence(
-                direct_evidence=build_direct_evidence(
-                    artifact_id=root["artifact_id"],
-                    stage_findings=stage_findings,
-                )
-            )
-            descendants = [
-                {
-                    "artifact_id": item["artifact_id"],
-                    "sha256": item["sha256"],
-                    "relative_depth": item["depth"],
-                    "risk_score": (item.get("report") or {}).get("score", 0),
-                    "risk_level": (item.get("report") or {}).get("risk_level", "unknown"),
-                    "verdict": (item.get("report") or {}).get("verdict", "unknown"),
-                }
-                for item in self.artifacts.values()
-                if item["parent_id"] is not None
-            ]
-            decision = merge_with_descendants(local=local, descendants=descendants)
-            report.update(
-                verdict=decision.legacy_verdict,
-                score=decision.risk_score,
-                risk_level=decision.risk_level,
-            )
-            risk = dict(report.get("risk") or {})
-            risk.update(
-                risk_score=decision.risk_score,
-                risk_level=decision.risk_level,
-                legacy_verdict=decision.legacy_verdict,
-                malicious_gate_open=decision.breakdown.malicious_gate_open,
-                high_gate_open=decision.breakdown.high_gate_open,
-                independent_source_count=decision.breakdown.independent_source_count,
-                breakdown=asdict(decision.breakdown),
-                descendant_summary=decision.descendant_summary,
-                score_trace=decision.score_trace,
-            )
-            report["risk"] = risk
         report.update(
             root_artifact_id=self.manifest.root_job_id,
             attempt_id=self.manifest.attempt_id,
@@ -589,7 +643,7 @@ class RootBatchRunner:
                     "filename": item["original_filename"],
                     "sha256": item["sha256"],
                     "status": item["status"],
-                    "verdict": (item.get("report") or {}).get("verdict"),
+                    "verdict": effective_reports.get(item["artifact_id"], {}).get("verdict"),
                 }
                 for item in self.artifacts.values()
                 if item["parent_id"] is not None
@@ -598,7 +652,8 @@ class RootBatchRunner:
         report["analysis"] = analysis_from_report(report, status)
         tree_nodes: dict[str, dict[str, Any]] = {}
         for artifact in self.artifacts.values():
-            child_report = artifact.get("report") or {}
+            child_report = effective_reports.get(artifact["artifact_id"], {})
+            local_risk = child_report.get("risk", {}).get("local_risk", {})
             child_analysis = analysis_from_report(child_report, artifact["status"])
             if artifact["status"] == "limited":
                 child_analysis["static"]["status"] = "partial"
@@ -620,6 +675,9 @@ class RootBatchRunner:
                 "score": child_report.get("score"),
                 "verdict": child_report.get("verdict"),
                 "risk_level": child_report.get("risk_level"),
+                "local_score": local_risk.get("score"),
+                "local_verdict": local_risk.get("verdict"),
+                "local_risk_level": local_risk.get("risk_level"),
                 "children": [],
                 "finding_ids": [],
                 "uncertainty_ids": [],

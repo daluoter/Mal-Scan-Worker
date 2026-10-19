@@ -23,6 +23,12 @@ export interface JobStatus {
     error_message: string | null
     password_attempts: number
     password_attempts_remaining: number
+    password_attempts_scope?: 'artifact' | 'root'
+    password_attempt_limit?: number
+    password_attempts_by_artifact?: Record<string, { attempts_used: number; attempts_remaining: number; limit: number }>
+    total_password_submissions?: number
+    legacy_password_submissions?: number
+    password_target?: { filename: string; path?: string | null }
     report_available?: boolean
     password_required_artifacts?: string[]
     dispatch_uncertain?: boolean
@@ -112,6 +118,7 @@ export interface StageTiming {
 export interface RiskBreakdown {
     local_score: number
     inherited_score: number
+    descendant_floor?: number
     synergy_bonus: number
     dampener: number
     final_score: number
@@ -149,6 +156,7 @@ export interface ScoreTraceComponent {
     applied_points?: number | null
     relative_depth?: number | null
     source_score?: number | null
+    display_path?: string | null
     reason: string
 }
 
@@ -171,6 +179,11 @@ export interface RiskSummary {
     evidence: RiskEvidence[]
     top_evidence: RiskEvidence[]
     descendant_summary: Record<string, unknown>
+    local_risk?: {
+        score?: number | null
+        risk_level?: string | null
+        verdict?: string | null
+    }
     score_trace?: ScoreTrace
 }
 
@@ -188,6 +201,9 @@ export interface ArtifactTreeNode {
     verdict?: string | null
     score?: number | null
     risk_level?: string | null
+    local_score?: number | null
+    local_risk_level?: string | null
+    local_verdict?: string | null
     policy_version?: string | null
     job_id?: string | null
     display_path?: string | null
@@ -381,6 +397,10 @@ export interface Report {
     pending_descendants?: number
     password_required_artifacts?: string[]
     execution_active?: boolean | null
+    password_attempts_by_artifact?: JobStatus['password_attempts_by_artifact']
+    password_attempts_scope?: JobStatus['password_attempts_scope']
+    total_password_submissions?: number
+    legacy_password_submissions?: number
     requires_reconciliation?: boolean
     error_message?: string | null
     artifacts?: Array<{ artifact_id: string; status: string; reason?: string | null; report: Report | null }>

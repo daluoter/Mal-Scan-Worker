@@ -1,6 +1,8 @@
 import type { ArtifactAnalysisReference, ArtifactTreeNode, ExplainabilityBlock } from '../../api/types'
 import { Link } from 'react-router-dom'
 import { localizeAnalyzer, localizeReportText, localizeStage, localizeStatus, localizeVerdict } from './reportText'
+import { artifactReferenceIsVerified, artifactRiskPresentations, riskBadgeClass, riskIsElevated, riskLabel } from './reportRisk'
+import type { ArtifactRiskPresentation } from './reportRisk'
 
 interface ArtifactTreePanelProps {
     tree?: ArtifactTreeNode | null
@@ -8,15 +10,15 @@ interface ArtifactTreePanelProps {
 }
 
 function riskClass(riskLevel?: string | null): string {
-    if (riskLevel === 'malicious') return 'border-alert-red/30 text-alert-red'
-    if (riskLevel === 'high' || riskLevel === 'suspicious') return 'border-caution-yellow/30 text-caution-yellow'
+    if (riskLevel === 'malicious' || riskLevel === 'high') return 'border-alert-red/60 text-alert-red'
+    if (riskLevel === 'medium' || riskLevel === 'suspicious') return 'border-caution-yellow/30 text-caution-yellow'
     if (riskLevel === 'clean') return 'border-matrix-green/30 text-matrix-green'
     return 'border-white/10 text-slate-300'
 }
 
-function AnalysisReference({ reference }: { reference?: ArtifactAnalysisReference }) {
+function AnalysisReference({ reference, identityVerified }: { reference?: ArtifactAnalysisReference; identityVerified: boolean }) {
     if (!reference) return null
-    if (reference.status !== 'verified' || reference.mode === 'unresolved') {
+    if (!identityVerified || reference.status !== 'verified' || reference.mode === 'unresolved') {
         return <div className="mt-3 rounded-lg border border-caution-yellow/20 p-3 text-xs text-caution-yellow">分析來源尚未確認；此節點的覆蓋範圍仍不完整。{reference.reason && <p className="mt-1 break-words">{localizeReportText(reference.reason)}</p>}</div>
     }
     if (reference.mode !== 'direct' && reference.mode !== 'inherited') return null
@@ -38,17 +40,23 @@ function AnalysisReference({ reference }: { reference?: ArtifactAnalysisReferenc
     )
 }
 
-function ArtifactNode({ node }: { node: ArtifactTreeNode }) {
+function ArtifactNode({ node, risks }: { node: ArtifactTreeNode; risks: Map<ArtifactTreeNode, ArtifactRiskPresentation> }) {
     const inherited = node.analysis_reference?.status === 'verified' && node.analysis_reference.mode === 'inherited'
+    const risk = risks.get(node)!
+    const elevated = riskIsElevated(risk.effective)
+    const riskyDescendant = risk.descendant && riskIsElevated(risk.descendant)
+    const noDirectJudgment = inherited && !node.risk_level && !risk.localRiskKnown
+    const localLabel = noDirectJudgment ? '本節點無直接判定' : riskLabel(risk.localRiskKnown ? risk.local : risk.recorded)
+    const localScoreLabel = risk.localRiskKnown ? '本檔直接分數' : inherited && risk.recorded.score === null ? '直接分數' : '舊報告記錄分數'
     return (
         <li className="relative pl-5">
             <div className="absolute left-0 top-3 h-full w-px bg-white/10" />
             <div className="absolute left-0 top-3 h-px w-3 bg-white/10" />
-            <div className="rounded-xl border border-white/10 bg-slate-900/60 p-4">
+            <div className={`rounded-xl border p-4 ${elevated ? 'border-alert-red/60 bg-alert-red/10 shadow-neon-red' : 'border-white/10 bg-slate-900/60'}`}>
                 <div className="flex flex-wrap items-center gap-2">
-                    {node.job_id ? <Link className="font-bold text-white hover:text-neon-cyan" to={`/jobs/${node.job_id}`}>{node.filename}</Link> : <span className="font-bold text-white">{node.filename}</span>}
-                    <span className={`rounded-full border px-2 py-0.5 font-mono text-[11px] ${riskClass(node.risk_level)}`}>
-                        {inherited && !node.risk_level ? '本節點無直接判定' : localizeVerdict(node.risk_level || 'unknown')}
+                    {node.job_id ? <Link className={`font-bold hover:text-neon-cyan ${elevated ? 'text-alert-red' : 'text-white'}`} to={`/jobs/${node.job_id}`}>{node.filename}</Link> : <span className={`font-bold ${elevated ? 'text-alert-red' : 'text-white'}`}>{node.filename}</span>}
+                    <span className={`rounded-full border px-2 py-0.5 font-mono text-[11px] ${riskBadgeClass(risk.effective)}`}>
+                        {elevated && '⚠️ '}{riskLabel(risk.effective)}{riskyDescendant ? '（含內層內容）' : ''}
                     </span>
                     <span className="rounded-full border border-white/10 px-2 py-0.5 text-[11px] text-slate-300">
                         靜態：{localizeStatus(node.analysis?.static?.status || node.analysis_status || 'unknown')}
@@ -73,11 +81,18 @@ function ArtifactNode({ node }: { node: ArtifactTreeNode }) {
                         <div className="mt-1 font-mono text-[11px] text-slate-500">{node.sha256}</div>
                     </div>
                     <div className="text-right font-mono text-xs text-slate-400">
-                        <div>{inherited ? '直接分數' : '分數'} {node.score ?? '—'}</div>
+                        <div className={elevated ? 'font-bold text-alert-red' : ''}>{riskyDescendant ? '包含內容分數' : '分數'} {risk.effective.score ?? '—'}</div>
+                        <div>{localScoreLabel} {risk.localRiskKnown ? risk.local.score ?? '—' : risk.recorded.score ?? '—'}</div>
                         <div>深度 {node.depth}</div>
                     </div>
                 </div>
-                <AnalysisReference reference={node.analysis_reference} />
+                <p className="mt-2 text-xs text-slate-400">{risk.localRiskKnown || noDirectJudgment ? '本檔直接判定' : '舊報告記錄判定'}：{localLabel}。{riskyDescendant && `外層檔案的${risk.localRiskKnown ? '直接' : '記錄'}判定不代表內層內容安全。`}</p>
+                {riskyDescendant && <div className="mt-3 rounded-lg border border-alert-red/40 bg-alert-red/10 p-3 text-sm text-alert-red">
+                    <p className="font-bold">⚠️ 內含{riskLabel(risk.descendant!)}檔案：{risk.descendant?.sourceFilename}（{risk.descendant?.score ?? '—'}/100）</p>
+                    <p className="mt-1 break-all font-mono text-xs">{risk.descendant?.sourcePath}</p>
+                    {risk.legacyDescendantFallback && <p className="mt-2 text-xs text-slate-300">舊版報告：顯示已知子檔最高風險，未改寫原始分數。</p>}
+                </div>}
+                <AnalysisReference reference={node.analysis_reference} identityVerified={artifactReferenceIsVerified(node)} />
                 {(node.top_finding_titles ?? []).length > 0 && (
                     <div className="mt-3 flex flex-wrap gap-2">
                         {node.top_finding_titles.map((title) => (
@@ -94,7 +109,7 @@ function ArtifactNode({ node }: { node: ArtifactTreeNode }) {
             {(node.children ?? []).length > 0 && (
                 <ul className="mt-3 space-y-3">
                     {node.children.map((child) => (
-                        <ArtifactNode key={child.id} node={child} />
+                        <ArtifactNode key={child.id} node={child} risks={risks} />
                     ))}
                 </ul>
             )}
@@ -106,6 +121,7 @@ export default function ArtifactTreePanel({ tree, coverage }: ArtifactTreePanelP
     if (!tree) {
         return null
     }
+    const risks = artifactRiskPresentations(tree)
 
     return (
         <section className="glass-card p-6 mb-4">
@@ -117,7 +133,7 @@ export default function ArtifactTreePanel({ tree, coverage }: ArtifactTreePanelP
             </div>
             {coverage && [coverage.occurrences, coverage.direct, coverage.inherited, coverage.unresolved].every(Number.isSafeInteger) && <p className="mb-4 text-sm text-slate-300">檔案節點 {coverage.occurrences} 個：直接分析 {coverage.direct}、沿用分析 {coverage.inherited}、來源未確認 {coverage.unresolved}。節點數包含相同內容在不同路徑的出現位置。</p>}
             <ul className="space-y-3">
-                <ArtifactNode node={tree} />
+                <ArtifactNode node={tree} risks={risks} />
             </ul>
         </section>
     )

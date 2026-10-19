@@ -127,10 +127,13 @@ async def execute_case(
     result_dir = directory / "analysis"
     observations: list[dict[str, Any]] = []
     completed: dict[tuple[str, str], dict[str, Any]] = {}
+    password_attempts: dict[str, int] = {}
 
     async def attempt(
         label: str, passwords: dict[str, str] | None = None, *, resume: bool = False
     ) -> dict[str, Any]:
+        for artifact_id in passwords or {}:
+            password_attempts[artifact_id] = password_attempts.get(artifact_id, 0) + 1
         runner = RootBatchRunner(
             manifest=manifest,
             source_store=LocalObjectStore(directory, read_only=True),
@@ -139,6 +142,8 @@ async def execute_case(
             limits=BudgetLimits(30, 5_000_000, 120),
             max_depth=3,
             passwords=passwords,
+            password_attempts_by_artifact=password_attempts,
+            password_attempt_limit=3,
         )
         report = await runner.run(resume=resume)
         state = json.loads((state_dir / "checkpoint.json").read_text())
@@ -262,6 +267,22 @@ async def execute_case(
         if {stage["stage"] for stage in stages} != REQUIRED_STAGES:
             raise ValueError("A decrypted occurrence lacks required native stage coverage")
     if case["active_actions"]:
+        indexed = {node["artifact_id"]: node for node in final["artifacts"]}
+        ancestor = parent
+        while True:
+            effective = ancestor["report"]
+            if (
+                effective.get("score", 0) < child_report["score"]
+                or effective.get("risk_level") not in {"high", "malicious"}
+                or not isinstance(effective.get("risk", {}).get("local_risk"), dict)
+            ):
+                raise ValueError("An encrypted ancestor hides its verified high-risk plaintext")
+            parent_id = ancestor.get("parent_id")
+            if parent_id is None:
+                break
+            ancestor = indexed[parent_id]
+        if case["scenario"] == "nested" and sorted(password_attempts.values()) != [1, 2]:
+            raise ValueError("Outer ZIP and inner PDF password attempts were not independent")
         if features.get("js_code") != ["void 0;"] or features.get("launch_actions") != [
             "quality-fixture-never-execute.txt"
         ]:
@@ -294,6 +315,7 @@ async def execute_case(
         "fixture_sha256": case["sha256"],
         "scenario": case["scenario"],
         "persistent_checkpoint_recovery": case["scenario"] != "empty",
+        "password_attempts_by_artifact": dict(password_attempts),
         "attempts": observations,
         "decrypted_child_sha256": child["sha256"],
         **evaluation,

@@ -194,6 +194,32 @@ def validate_control(
             or not 1 <= len(password) <= 512
         ):
             raise ValueError("Invalid password challenge")
+    policy_fields = {
+        "password_attempts_by_artifact",
+        "password_attempt_limit",
+        "password_attempts_scope",
+    }
+    if policy_fields & control.keys():
+        counts = control.get("password_attempts_by_artifact")
+        if (
+            control.get("password_attempts_scope") != "artifact"
+            or not isinstance(control.get("password_attempt_limit"), int)
+            or control.get("password_attempt_limit") != 3
+            or not isinstance(counts, dict)
+            or len(counts) > 100
+        ):
+            raise ValueError("Invalid per-file password attempt policy")
+        for artifact_id, count in counts.items():
+            if (
+                not isinstance(artifact_id, str)
+                or str(UUID(artifact_id)) != artifact_id
+                or not isinstance(count, int)
+                or isinstance(count, bool)
+                or not 0 <= count <= 3
+            ):
+                raise ValueError("Invalid per-file password attempt count")
+        if any(not 1 <= counts.get(artifact_id, 0) <= 3 for artifact_id in passwords):
+            raise ValueError("Password submission is missing its attempt count")
     return passwords
 
 
@@ -366,6 +392,8 @@ async def execute_cloud(
             limits=limits,
             max_depth=depth,
             passwords=passwords,
+            password_attempts_by_artifact=control.get("password_attempts_by_artifact"),
+            password_attempt_limit=control.get("password_attempt_limit"),
             checkpoint_key=control["checkpoint_key"],
             checkpoint_secret=key,
             on_report=publish,

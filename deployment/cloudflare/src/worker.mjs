@@ -5,6 +5,7 @@ import {DurableObject} from 'cloudflare:workers';
 
 const MAX_BYTES = 20_000_000;
 const MAX_REPORT_BYTES = 8 * 1024 * 1024;
+const PASSWORD_ATTEMPT_LIMIT = 3;
 const encoder = new TextEncoder();
 const UUID = /^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/;
 const ARTIFACT = /^[a-f0-9]{8}-[a-f0-9]{4}-[45][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/;
@@ -140,7 +141,9 @@ export class DemoControl extends DurableObject {
       cleanup_after INTEGER NOT NULL,
       attempt_id TEXT NOT NULL, dispatch_id TEXT, dispatch_sequence INTEGER NOT NULL DEFAULT 0,
       dispatch_deadline_at INTEGER, dispatch_request_sha256 TEXT, dispatch_claimed_at INTEGER,
-      password_attempts INTEGER NOT NULL DEFAULT 0, manifest_key TEXT NOT NULL,
+      password_attempts INTEGER NOT NULL DEFAULT 0,
+      password_attempts_by_artifact TEXT NOT NULL DEFAULT '{}',
+      legacy_password_submissions INTEGER NOT NULL DEFAULT 0, manifest_key TEXT NOT NULL,
       manifest_sha256 TEXT, status_key TEXT, report_key TEXT NOT NULL, report_sha256 TEXT, accepted_report_key TEXT,
       accepted_revision INTEGER NOT NULL DEFAULT 0,
       password_artifacts TEXT NOT NULL DEFAULT '[]', operation_name TEXT, error_code TEXT,
@@ -150,10 +153,38 @@ export class DemoControl extends DurableObject {
     const columns = new Set(this.sql.exec('PRAGMA table_info(jobs)').toArray().map(column => column.name));
     if (!columns.has('dispatch_request_sha256')) this.sql.exec('ALTER TABLE jobs ADD COLUMN dispatch_request_sha256 TEXT');
     if (!columns.has('dispatch_claimed_at')) this.sql.exec('ALTER TABLE jobs ADD COLUMN dispatch_claimed_at INTEGER');
+    // Older deployments only recorded a root-wide total. Keep that audit total
+    // and snapshot its unattributable part once; never invent per-file history
+    // or reset the independent daily/monthly execution admission counters.
+    this.ctx.storage.transactionSync(() => {
+      if (!columns.has('password_attempts_by_artifact')) this.sql.exec("ALTER TABLE jobs ADD COLUMN password_attempts_by_artifact TEXT NOT NULL DEFAULT '{}'");
+      if (!columns.has('legacy_password_submissions')) {
+        this.sql.exec('ALTER TABLE jobs ADD COLUMN legacy_password_submissions INTEGER NOT NULL DEFAULT 0');
+        this.sql.exec('UPDATE jobs SET legacy_password_submissions = password_attempts');
+      }
+    });
     this.sql.exec('CREATE TABLE IF NOT EXISTS quota (day TEXT PRIMARY KEY, jobs INTEGER NOT NULL DEFAULT 0, executions INTEGER NOT NULL DEFAULT 0)');
     this.sql.exec('CREATE TABLE IF NOT EXISTS monthly_quota (month TEXT PRIMARY KEY, executions INTEGER NOT NULL DEFAULT 0)');
   }
   job(id) {return this.sql.exec('SELECT * FROM jobs WHERE id = ?', id).toArray()[0];}
+  passwordCounts(row) {
+    const counts = JSON.parse(row.password_attempts_by_artifact);
+    if (!counts || typeof counts !== 'object' || Array.isArray(counts)
+      || Object.entries(counts).some(([id, count]) => !ARTIFACT.test(id)
+        || !Number.isSafeInteger(count) || count < 0 || count > PASSWORD_ATTEMPT_LIMIT)) throw new Error('invalid_password_attempt_state');
+    return counts;
+  }
+  passwordSummary(row, id = row.id) {
+    const counts = this.passwordCounts(row);
+    const ids = [...new Set([row.id, ...JSON.parse(row.password_artifacts), ...Object.keys(counts)])].sort();
+    const attempts = counts[id] ?? 0;
+    return {password_attempts: attempts, password_attempts_remaining: Math.max(0, PASSWORD_ATTEMPT_LIMIT - attempts),
+      password_attempts_by_artifact: Object.fromEntries(ids.map(artifactId => {
+        const used = counts[artifactId] ?? 0;
+        return [artifactId, {attempts_used: used, attempts_remaining: Math.max(0, PASSWORD_ATTEMPT_LIMIT - used), limit: PASSWORD_ATTEMPT_LIMIT}];
+      })), password_attempt_limit: PASSWORD_ATTEMPT_LIMIT, password_attempts_scope: 'artifact',
+      total_password_submissions: row.password_attempts, legacy_password_submissions: row.legacy_password_submissions};
+  }
   owned(id, capabilityHash, allowChild = false) {
     const row = this.sql.exec('SELECT * FROM jobs WHERE capability_hash = ?', capabilityHash).toArray()[0];
     if (!row || row.expires_at <= Date.now() || (row.id !== id && (!allowChild || !JSON.parse(row.password_artifacts).includes(id)))) return null;
@@ -220,10 +251,20 @@ export class DemoControl extends DurableObject {
       if (!fresh || fresh.expires_at <= Date.now()) throw new Error('job_retention_expired');
       const expected = passwords ? 'password_required' : 'uploading';
       if (fresh.status !== expected || fresh.dispatch_sequence !== row.dispatch_sequence) throw new Error('dispatch_already_reserved');
-      if (passwords && fresh.password_attempts >= 3) throw new Error('password_attempt_limit');
+      const counts = this.passwordCounts(fresh);
+      if (passwords) {
+        const targets = Object.keys(passwords);
+        // Revalidate the canonical pending target inside the same durable
+        // transaction that reserves its submission and a global execution.
+        if (targets.length !== 1 || !ARTIFACT.test(targets[0])
+          || !JSON.parse(fresh.password_artifacts).includes(targets[0])) throw new Error('archive_not_waiting');
+        const target = targets[0];
+        if ((counts[target] ?? 0) >= PASSWORD_ATTEMPT_LIMIT) throw new Error('password_attempt_limit');
+        counts[target] = (counts[target] ?? 0) + 1;
+      }
       this.reserve('executions');
-      this.sql.exec("UPDATE jobs SET status = 'dispatching', dispatch_id = ?, dispatch_sequence = ?, dispatch_deadline_at = ?, dispatch_request_sha256 = NULL, dispatch_claimed_at = NULL, accepted_revision = 0, password_attempts = password_attempts + ? WHERE id = ?",
-        dispatch, sequence, Date.now() + 1200000, passwords ? 1 : 0, row.id);
+      this.sql.exec("UPDATE jobs SET status = 'dispatching', dispatch_id = ?, dispatch_sequence = ?, dispatch_deadline_at = ?, dispatch_request_sha256 = NULL, dispatch_claimed_at = NULL, accepted_revision = 0, password_attempts = password_attempts + ?, password_attempts_by_artifact = ? WHERE id = ?",
+        dispatch, sequence, Date.now() + 1200000, passwords ? 1 : 0, JSON.stringify(counts), row.id);
     });} catch (exception) {
       if (!passwords && ['daily_demo_limit_reached', 'monthly_demo_limit_reached'].includes(exception.message)) {
         this.sql.exec("UPDATE jobs SET status = 'failed', error_code = 'execution_admission_limit' WHERE id = ? AND status = 'uploading'", row.id);
@@ -241,7 +282,9 @@ export class DemoControl extends DurableObject {
       await this.env.UPLOADS.put(row.manifest_key, JSON.stringify(manifest), {httpMetadata: {contentType: 'application/json'}});
       const control = {control_version: 1, manifest_sha256: fingerprint,
         checkpoint_key: `checkpoints/${row.id}/${row.attempt_id}.json`, resume: !!passwords,
-        passwords: passwords ?? {}, status_key: statusKey, dispatch_id: dispatch, sequence, expires_at: row.expires_at};
+        passwords: passwords ?? {}, password_attempts_by_artifact: this.passwordCounts(this.job(row.id)),
+        password_attempt_limit: PASSWORD_ATTEMPT_LIMIT, password_attempts_scope: 'artifact',
+        status_key: statusKey, dispatch_id: dispatch, sequence, expires_at: row.expires_at};
       await this.env.RESULTS.put(controlKey, JSON.stringify(await signed(this.env, control)), {httpMetadata: {contentType: 'application/json'}});
       const now = Date.now();
       const payload = {dispatch_version: 1, job_name: googleJob(this.env), issued_at: now,
@@ -327,7 +370,7 @@ export class DemoControl extends DurableObject {
     return {job_id: id, parent_job_id: id === row.id ? null : row.id, status,
       progress: {current_stage: status, stages_done: status === 'done' ? 1 : 0, stages_total: 1, percent: status === 'done' ? 100 : 0},
       updated_at: new Date().toISOString(), error_message: ticketExpired ? 'upload_ticket_expired' : row.error_code,
-      password_attempts: row.password_attempts, password_attempts_remaining: Math.max(0, 3 - row.password_attempts),
+      ...this.passwordSummary(row, id),
       password_required_artifacts: JSON.parse(row.password_artifacts),
       report_available: !!row.report_sha256, dispatch_uncertain: row.status === 'dispatch_uncertain',
       retention_expires_at: new Date(row.expires_at).toISOString()};
@@ -378,12 +421,11 @@ export class DemoControl extends DurableObject {
       if (input.action === 'password') {
         if (row.status !== 'password_required' || !JSON.parse(row.password_artifacts).includes(input.id)) return error('archive_not_waiting', 409);
         const next = await this.dispatch(row, {[input.id]: input.password});
-        return json({job_id: input.id, status: this.summary(next).status, password_attempts: next.password_attempts,
-          password_attempts_remaining: Math.max(0, 3 - next.password_attempts)});
+        return json({job_id: input.id, status: this.summary(next).status, ...this.passwordSummary(next, input.id)});
       }
       return error('invalid_internal_request', 400);
     } catch (exception) {
-      const known = ['daily_demo_limit_reached', 'monthly_demo_limit_reached', 'dispatch_already_reserved', 'password_attempt_limit', 'job_retention_expired'];
+      const known = ['daily_demo_limit_reached', 'monthly_demo_limit_reached', 'dispatch_already_reserved', 'password_attempt_limit', 'job_retention_expired', 'archive_not_waiting'];
       const code = known.includes(exception.message) ? exception.message : 'control_operation_failed';
       return error(code, code.endsWith('_demo_limit_reached') ? 429 : code === 'control_operation_failed' ? 503 : code === 'job_retention_expired' ? 410 : 409);
     }

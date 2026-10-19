@@ -14,7 +14,7 @@ from malscan_worker.quality.pdf_password_acceptance import (
 )
 from malscan_worker.quality.pdf_password_fixtures import PDF_PASSWORD
 
-_MANIFEST = Path(__file__).parents[1] / "quality" / "pdf-password-v1.json"
+_MANIFEST = Path(__file__).parents[1] / "quality" / "pdf-password-v2.json"
 
 
 def test_pdf_password_suite_pins_every_crypto_profile() -> None:

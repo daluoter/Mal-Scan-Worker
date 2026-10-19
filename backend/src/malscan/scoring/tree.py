@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import re
+from copy import deepcopy
+from dataclasses import asdict
 from math import floor
 from typing import Any
 
@@ -12,7 +14,78 @@ from malscan.scoring.policy import (
     INHERITANCE_BASE,
     INHERITED_SCORE_CAP,
     LEGACY_VERDICT_MAP,
+    POLICY_VERSION,
 )
+
+
+def local_decision_from_report(report: dict[str, Any]) -> RiskDecision:
+    """Recover direct risk without feeding a prior aggregate back into scoring."""
+    risk = report.get("risk") or {}
+    direct = risk.get("local_risk") or risk
+    breakdown = direct.get("breakdown") or {}
+    score = int(direct.get("score", direct.get("risk_score", report.get("score"))) or 0)
+    level = str(direct.get("risk_level") or report.get("risk_level") or "clean")
+    return RiskDecision(
+        risk_score=score,
+        risk_level=level,
+        legacy_verdict=str(
+            direct.get("verdict")
+            or direct.get("legacy_verdict")
+            or report.get("verdict")
+            or "clean"
+        ),
+        evidence=[],
+        top_evidence=[],
+        breakdown=ScoreBreakdown(
+            local_score=int(breakdown.get("local_score", score) or 0),
+            synergy_bonus=int(breakdown.get("synergy_bonus") or 0),
+            dampener=int(breakdown.get("dampener") or 0),
+            final_score=score,
+            high_gate_open=bool(direct.get("high_gate_open", level in {"high", "malicious"})),
+            malicious_gate_open=bool(direct.get("malicious_gate_open", level == "malicious")),
+            independent_source_count=int(direct.get("independent_source_count") or 0),
+        ),
+        policy_version=POLICY_VERSION,
+        score_trace=deepcopy(direct.get("score_trace") or {}),
+    )
+
+
+def apply_descendant_risk(
+    report: dict[str, Any], *, local: RiskDecision, descendants: list[dict[str, Any]]
+) -> dict[str, Any]:
+    """Apply effective subtree risk while retaining the direct decision verbatim."""
+    decision = merge_with_descendants(local=local, descendants=descendants)
+    risk = dict(report.get("risk") or {})
+    risk["local_risk"] = {
+        "score": local.risk_score,
+        "risk_level": local.risk_level,
+        "verdict": local.legacy_verdict,
+        "policy_version": local.policy_version,
+        "breakdown": asdict(local.breakdown),
+        "high_gate_open": local.breakdown.high_gate_open,
+        "malicious_gate_open": local.breakdown.malicious_gate_open,
+        "independent_source_count": local.breakdown.independent_source_count,
+        "score_trace": deepcopy(local.score_trace),
+    }
+    risk.update(
+        policy_version=POLICY_VERSION,
+        risk_score=decision.risk_score,
+        risk_level=decision.risk_level,
+        legacy_verdict=decision.legacy_verdict,
+        malicious_gate_open=decision.breakdown.malicious_gate_open,
+        high_gate_open=decision.breakdown.high_gate_open,
+        independent_source_count=decision.breakdown.independent_source_count,
+        breakdown=asdict(decision.breakdown),
+        descendant_summary=decision.descendant_summary,
+        score_trace=decision.score_trace,
+    )
+    report.update(
+        score=decision.risk_score,
+        risk_level=decision.risk_level,
+        verdict=decision.legacy_verdict,
+        risk=risk,
+    )
+    return report
 
 
 def _level_from_score(score: int) -> str:
@@ -180,10 +253,61 @@ def merge_with_descendants(
     if not high_gate_open:
         final_score = min(final_score, 59)
 
+    # A known high-risk plaintext remains high risk when represented by its
+    # encrypted parent or an enclosing archive. This floor reuses that verified
+    # decision; it does not manufacture another direct detection/source or score
+    # the same ancestor decision again. Older/unverified tree hints still use
+    # the existing discounted inheritance policy above.
+    verified_high = [
+        item
+        for item in candidates
+        if item.get("risk_verified") is True
+        and isinstance(item.get("risk_score"), int)
+        and not isinstance(item.get("risk_score"), bool)
+        and 60 <= item["risk_score"] <= 100
+        and item.get("risk_level") == _level_from_score(item["risk_score"])
+        and item.get("risk_level") in {"high", "malicious"}
+        and item.get("verdict") == LEGACY_VERDICT_MAP[item["risk_level"]]
+        and isinstance(item.get("sha256"), str)
+        and re.fullmatch(r"[a-f0-9]{64}", item["sha256"]) is not None
+        and isinstance(item.get("size"), int)
+        and not isinstance(item.get("size"), bool)
+        and item["size"] >= 0
+    ]
+    strongest = max(
+        verified_high,
+        key=lambda item: (
+            item["risk_score"],
+            -int(item.get("relative_depth") or 0),
+            str(item.get("artifact_id") or ""),
+        ),
+        default=None,
+    )
+    descendant_floor = 0
+    if strongest is not None:
+        descendant_floor = max(0, strongest["risk_score"] - final_score)
+        final_score += descendant_floor
+        high_gate_open = True
+        malicious_gate_open = malicious_gate_open or strongest["risk_level"] == "malicious"
+        if descendant_floor:
+            descendant_components.append(
+                {
+                    "type": "descendant_risk_floor",
+                    "related_artifact_id": strongest.get("artifact_id"),
+                    "display_path": strongest.get("display_path") or strongest.get("origin_path"),
+                    "source_score": strongest["risk_score"],
+                    "applied_points": descendant_floor,
+                    "reason": (
+                        "verified high-risk descendant sets the minimum effective subtree risk"
+                    ),
+                }
+            )
+
     final_level = _level_from_score(final_score)
     breakdown = ScoreBreakdown(
         local_score=local.breakdown.local_score,
         inherited_score=inherited_score,
+        descendant_floor=descendant_floor,
         synergy_bonus=local.breakdown.synergy_bonus,
         dampener=local.breakdown.dampener,
         final_score=final_score,
@@ -205,10 +329,30 @@ def merge_with_descendants(
             "malicious_descendants": malicious_descendants,
             "high_descendants": high_descendants,
             "top_descendants": top_descendants[:3],
+            "strongest_verified_descendant": (
+                {
+                    key: strongest.get(key)
+                    for key in (
+                        "artifact_id",
+                        "sha256",
+                        "relative_depth",
+                        "risk_score",
+                        "risk_level",
+                        "verdict",
+                        "display_path",
+                        "origin_path",
+                    )
+                }
+                if strongest is not None
+                else None
+            ),
         },
         policy_version=local.policy_version,
         score_trace={
-            "formula": local.score_trace.get("formula", ""),
+            "formula": (
+                "effective = max(local and discounted descendant policy, "
+                "verified high-risk descendant score)"
+            ),
             "components": [*list(local.score_trace.get("components", [])), *descendant_components],
             "gates": {
                 **dict(local.score_trace.get("gates", {})),
@@ -226,6 +370,7 @@ def merge_with_descendants(
             "breakdown": {
                 "local_score": local.breakdown.local_score,
                 "inherited_score": inherited_score,
+                "descendant_floor": descendant_floor,
                 "synergy_bonus": local.breakdown.synergy_bonus,
                 "dampener": local.breakdown.dampener,
                 "final_score": final_score,
