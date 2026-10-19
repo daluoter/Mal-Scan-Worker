@@ -119,7 +119,21 @@ PY_STATE
 )
 ```
 
-若未登入，在同一目錄執行 `npx --no-install wrangler login --device --no-browser` 完成授權。
+上面的括號區塊結束後會回到原目錄；不要依賴先前的 `cd`，也不要在 `~` 用 `npx` 尋找專案內的 Wrangler。
+若未登入，或正式發布時停在嘗試開啟 localhost OAuth 登入，先按 Ctrl+C，再獨立執行以下裝置登入：
+
+```bash
+(
+  set -e
+  V2_PDF_FIX_SOURCE=$(cat "$HOME/malscan-v2-pdf-feedback-source-path.txt")
+  "$V2_PDF_FIX_SOURCE/deployment/cloudflare/node_modules/.bin/wrangler" \
+    login --device --no-browser
+  "$V2_PDF_FIX_SOURCE/deployment/cloudflare/node_modules/.bin/wrangler" whoami
+)
+```
+
+依終端機產生的新指示，在自己的瀏覽器完成授權，直到顯示登入成功；登入碼與 OAuth 網址不放入 Git 或 issue。
+重新連線後若授權未生效，重做此登入即可，不重建 Job、重新下載備份或安裝另一個 Wrangler 版本。
 單一帳戶由 Wrangler 使用既有 OAuth 登入選取；多帳戶時，在自己的 Cloud Shell 設定 `CLOUDFLARE_ACCOUNT_ID`，
 不把實際值寫入手冊、程式或 commit。然後執行：
 
