@@ -30,26 +30,32 @@ class _CountingStage:
 
 
 class _PasswordFormat(_CountingStage):
-    def __init__(self):
+    def __init__(self, kind):
+        self.kind = kind
         super().__init__(
             "format-analysis",
-            {"analyzer": "pdf", "features": {"content_access": "decrypted_child"}},
+            {"analyzer": kind, "features": {"content_access": "decrypted_child"}},
         )
 
     async def execute(self, ctx):
         self.calls += 1
         if ctx.archive_password is None:
-            raise DocumentPasswordRequiredError("pdf")
-        if ctx.archive_password != "correct-pdf-test-credential":
+            raise DocumentPasswordRequiredError(self.kind)
+        if ctx.archive_password != f"correct-{self.kind}-test-credential":
             # Deliberately unsafe exception text verifies it is never persisted.
-            raise DocumentWrongPasswordError(f"reject {ctx.archive_password}")
+            raise DocumentWrongPasswordError(
+                "office" if self.kind == "office" else f"reject {ctx.archive_password}"
+            )
         now = datetime.now(timezone.utc)
         return StageResult(self.name, "ok", now, now, 1, self.findings, [])
 
 
 @pytest.mark.asyncio
-async def test_required_wrong_and_correct_pdf_resume_keep_completed_scan_results(tmp_path, capsys):
-    sample = tmp_path / "encrypted.pdf"
+@pytest.mark.parametrize("kind", ["pdf", "office"])
+async def test_required_wrong_and_correct_document_resume_keep_completed_scan_results(
+    tmp_path, capsys, kind
+):
+    sample = tmp_path / f"encrypted.{kind}"
     sample.write_bytes(b"original immutable encrypted PDF fixture identity")
     original = sample.read_bytes()
     ctx = StageContext(
@@ -69,7 +75,7 @@ async def test_required_wrong_and_correct_pdf_resume_keep_completed_scan_results
         _CountingStage("ioc-extract"),
         _CountingStage("deobfuscation"),
     ]
-    formatter = _PasswordFormat()
+    formatter = _PasswordFormat(kind)
     sequential = [_CountingStage("archive-extract"), _CountingStage("document-analysis")]
     checkpoints = []
 
@@ -78,7 +84,7 @@ async def test_required_wrong_and_correct_pdf_resume_keep_completed_scan_results
 
     for password, error, content_access in (
         (None, DocumentPasswordRequiredError, "password_required"),
-        ("wrong-pdf-test-credential", DocumentWrongPasswordError, "wrong_password"),
+        (f"wrong-{kind}-test-credential", DocumentWrongPasswordError, "wrong_password"),
     ):
         ctx.archive_password = password
         initial = _restore_checkpoint(checkpoints[-1], ctx) if checkpoints else []
@@ -95,17 +101,18 @@ async def test_required_wrong_and_correct_pdf_resume_keep_completed_scan_results
         assert blocked.stage_name == "format-analysis"
         assert blocked.status == "password_required"
         assert blocked.findings == {
-            "analyzer": "pdf",
-            "format_type": "PDF",
+            "analyzer": kind,
+            "format_type": kind.upper(),
             "features": {"encrypted": True, "content_access": content_access},
-            "password_kind": "pdf",
-            "reason": "PDF password was rejected" if password else "PDF password is required",
+            "password_kind": kind,
+            "reason": ("Office" if kind == "office" else "PDF")
+            + (" password was rejected" if password else " password is required"),
         }
         assert checkpoints[-1]["analysis"]["static"]["status"] == "password_required"
         assert all(stage.calls == 1 for stage in parallel)
         assert all(stage.calls == 0 for stage in sequential)
 
-    ctx.archive_password = "correct-pdf-test-credential"
+    ctx.archive_password = f"correct-{kind}-test-credential"
     final = await execute_analysis_stages(
         ctx,
         initial_results=_restore_checkpoint(checkpoints[-1], ctx),
@@ -121,11 +128,14 @@ async def test_required_wrong_and_correct_pdf_resume_keep_completed_scan_results
     assert sample.read_bytes() == original
     captured = capsys.readouterr()
     serialized = json.dumps(checkpoints) + captured.out + captured.err
-    assert "correct-pdf-test-credential" not in serialized
-    assert "wrong-pdf-test-credential" not in serialized
+    assert f"correct-{kind}-test-credential" not in serialized
+    assert f"wrong-{kind}-test-credential" not in serialized
 
 
-def test_pdf_password_exhaustion_blocks_format_without_erasing_existing_detections(tmp_path):
+@pytest.mark.parametrize("kind", ["pdf", "office"])
+def test_document_password_exhaustion_blocks_format_without_erasing_existing_detections(
+    tmp_path, kind
+):
     from malscan_worker.reporting import build_password_attempts_exhausted_report
 
     sample = tmp_path / "sample.pdf"
@@ -154,9 +164,9 @@ def test_pdf_password_exhaustion_blocks_format_without_erasing_existing_detectio
                 now,
                 0,
                 {
-                    "analyzer": "pdf",
-                    "format_type": "PDF",
-                    "password_kind": "pdf",
+                    "analyzer": kind,
+                    "format_type": kind.upper(),
+                    "password_kind": kind,
                     "features": {"encrypted": True, "content_access": "wrong_password"},
                 },
                 [],
@@ -178,7 +188,7 @@ def test_pdf_password_exhaustion_blocks_format_without_erasing_existing_detectio
         stage for stage in final["stages"] if stage["stage_name"] == "format-analysis"
     )
     assert format_stage["status"] == "blocked"
-    assert format_stage["findings"]["password_kind"] == "pdf"
+    assert format_stage["findings"]["password_kind"] == kind
     assert not any(stage["status"] == "password_required" for stage in final["stages"])
     assert final["analysis"]["static"]["status"] == "partial"
     diagnostics = final["explainability"]["failure_diagnostics"]

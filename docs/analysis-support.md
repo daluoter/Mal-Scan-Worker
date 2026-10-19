@@ -8,7 +8,7 @@
 | --- | --- | --- | --- |
 | 一般檔案 | 檔案型別／hash、ClamAV、YARA、IOC、去混淆候選 | 需要可用的 ClamAV 和 YARA 規則 | 沒有專用格式分析器，不代表其他階段沒有分析；無規則／工具失敗不能當成已掃描未命中 |
 | Windows PE | headers、imports／exports、sections、entropy、resources、TLS、debug、overlay、packer clues 與啟發式 | `pefile` | 100 MiB 處理上限；overlay／resources 結構偵測不等於將所有內容提取為遞迴子檔；沒有程式執行或保證完整反編譯 |
-| Office OLE／OOXML／RTF | 巨集、外部關聯、DDE／Equation Editor 等跡象、支援的嵌入物件提取及遞迴子檔 | `oletools` | 加密 Office 解密與補交密碼尚未提供；parser fallback／ZIP／XML 失敗、metadata 限制或 VBA project 存在但來源不可解析時為 partial |
+| Office OLE／OOXML／RTF | 巨集、外部關聯、DDE／Equation Editor 等跡象、支援的嵌入物件提取及遞迴子檔；限定現代加密 OOXML 補交密碼後產生另行掃描的明文子檔 | `oletools`；解密明確固定 `msoffcrypto-tool==6.0.0`，原 lock 中既有 101 個依賴版本不變 | 固定加密 fixture 為 Agile AES-256、Standard AES-128，含 DOCX／XLSX／PPTX 與 DOCM／XLSM／PPTM；其餘可接受 header 與本機案例覆蓋分開看待。舊式 DOC／XLS／PPT 加密、IRM、其他演算法不支援；損壞、metadata／預算限制或 VBA 來源不可解析仍為 partial。見 [Office 密碼流程](office-password.md)；正式 Office smoke 尚待 F-10 |
 | PDF | pages、metadata、actions／JavaScript、forms、嵌入檔描述及啟發式；解密後衍生子檔重新掃描 | `pypdf`／AES crypto backend；使用者提供的密碼可補交並從 checkpoint 續跑；RC4-40、AES-128、AES-256 R5／R6 有固定 fixture | 輸入上限 50 MiB；等待密碼、不支援加密、解析／資源限制保留未完成原因。`EFF != StmF`、stream 的 `/Filter /Crypt` override（含 `/Name /Identity`）或 `/EncryptMetadata=false` 目前不支援；建立明文子檔前回報 unavailable／partial，不建立子檔或反覆要求錯誤密碼。原始加密檔與解密子檔分開；PDF 附件尚未提取掃描。詳見 [PDF 密碼流程](pdf-password.md) |
 | Windows LNK | 目標／參數等結構與啟發式 | `LnkParse3` | 不解析所有 shell extension，不執行捷徑 |
 | Scripts | 支援副檔名與語法模式的指標、去混淆、IOC、啟發式 | 相應 Python 分析器 | 不執行 scripts；解碼候選不代表已完整還原程式 |
@@ -26,6 +26,14 @@
 外部關聯以 XML 結構解析，註解內文字不作 active target。合成 PE 沒有 executable section，
 文件的指標內容也不執行。這批樣本不能代表所有真實 PE、Office 或 PDF 版本，
 來源、預期及未完成原因見[靜態品質基準](static-quality.md)。這兩批的正式 worker／Pages 部署與三份 demo 報告已核對。
+
+2026-10-19 F-02 將 OLE 容器內的 `EncryptionInfo`／`EncryptedPackage` 接上共用密碼恢復。
+解密不轉檔、不重寫 OOXML；每個 ZIP member 讀取並檢查 CRC、OPC content types 與主文件關聯後，
+保留套件原始明文 bytes，依內容命名為 `decrypted.docx` 等子檔，不信任上傳副檔名（包含 `.bin`）。
+Agile 必須驗證 HMAC；Standard 格式本身沒有認證完整性，ZIP CRC 只能發現部分損壞，不能當作 HMAC。
+子檔重新執行實際 AV／YARA 與適用的格式／文件階段；父檔與子檔都不執行巨集、DDE 或其他程式內容，
+不開啟外部範本網址。缺密碼、錯誤密碼、不支援、損壞與資源限制使用不同狀態／原因，已有成果保留。
+本批程式與本機驗證狀態見 F-02，正式 Job→Pages 與三案 smoke 獨立列為待辦 F-10，沒有新雲端報告可據以宣稱完成。
 
 2026-10-18 的 PDF 密碼恢復程式與本機驗證已完成，一般原生基準 32／32 與獨立密碼案例 12／12 通過；
 首批已取得使用者提供的 Job 切換與兩組原檔／解密子檔報告，證明實際解密掃描。
@@ -89,7 +97,12 @@ deadline 是**每次 execution attempt 的共用時間窗**：該 attempt 所有
 
 ## 提取邊界與未完成報告
 
-archive、Office／RTF 提取與 PDF 解密在 Linux 的獨立 process group 中執行。parent 在寫出前接收 reservation，原子更新 root budget；已預扣的大小涵蓋後續 streaming chunks。超出 deadline 或外層 stage 被取消時，parent 終止 parser 及同一 process group 的外部 decoder helpers。這個邊界可以停止提取，不依賴 `wait_for(to_thread(...))` 的表面 timeout。
+archive、Office／RTF 提取、Office 及 PDF 解密在 Linux 的獨立 process group 中執行。parent 在寫出前接收 reservation，原子更新 root budget；已預扣的大小涵蓋後續 streaming chunks。超出 deadline 或外層 stage 被取消時，parent 終止 parser 及同一 process group 的外部 decoder helpers。這個邊界可以停止提取，不依賴 `wait_for(to_thread(...))` 的表面 timeout。
+
+Office 加密輸入上限 50 MiB；明文輸出取 50 MiB 與現有單檔／單次提取上限的較小值，
+另受 root 累計檔數／bytes、深度及時間窗限制。demo 仍為 20,000,000-byte 上傳、整樹 20 檔／100,000,000 bytes／深度 3。
+套件內部完整性檢查另受 member 數、metadata／XML 大小、展開量與 spin count 限制，不會放寬 root 額度。
+重試與續跑保留已使用的 high-water reservation；完成後 resume 不新增第二個解密 occurrence。
 
 OOXML 嵌入檔先保留宣告大小，再以限制讀取；關聯 XML 有獨立 parse cap。第三方 parser 的 internal allocations、metadata 解析和其他分析器的記憶體，仍需 worker／container 的記憶體上限；提取 bytes budget 不是 parser heap 上限。Linux process boundary 是目前支援的執行環境，未提供 Windows／其他平台相同的強制終止能力。Stage／budget checkpoint 可以恢復持久化成果，但終止時尚未完成的 output 不會被誤稱已分析。
 

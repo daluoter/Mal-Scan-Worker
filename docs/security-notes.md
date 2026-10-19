@@ -28,6 +28,11 @@
 
 ## 其他密碼來源的處理原則
 
+F-02 的 [`office_password_fixtures.py`](../worker/src/malscan_worker/quality/office_password_fixtures.py)
+也包含明確標示為公開測試用途的 Office／ZIP 密碼。它們只解開同模組凍結的合成檔案，
+不授予雲端或服務存取權。Office 驗收器另檢查這些值沒有寫入報告、日誌與 checkpoint；
+沒有新增 Generic Password 或整個 fixture 檔案的忽略規則。未來若收到其他通知，仍須逐筆核對位置與用途。
+
 - 公開 fixture 密碼不授予服務存取權；不得拿它當真實系統密碼。
 - Compose 的固定開發預設密碼用於資料庫／物件儲存／佇列；若沿用在可連線的主機上，它們會成為真實可利用的憑證，部署者應另設強密碼及存取限制。沒有因此認定目前雲端 demo 使用這些值。
 - 真實 API Token、資料庫密碼、HMAC 或私鑰若曾公開，應撤銷／輪替、更新私有設定並檢查使用紀錄；只刪除檔案或後續 commit 不會讓舊憑證失效。歷史重寫另行評估，不自動 force push。

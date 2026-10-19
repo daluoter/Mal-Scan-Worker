@@ -8,11 +8,15 @@ A file analysis platform built around static analysis: upload files, trace archi
 
 ## Current milestone
 
+**2026-10-19: F-02 Office password recovery is implemented; local verification is recorded separately from cloud rollout.** Supported modern encrypted OOXML accepts a user password, preserves exact decrypted package bytes, and submits a typed child to the shared static pipeline. Missing/wrong passwords retain partial results and durable checkpoints; ZIP and each Office file use independent existing three-submission allowances. Agile AES and Standard AES have different integrity guarantees. Legacy encrypted DOC/XLS/PPT and IRM remain unsupported. See the [support boundaries](docs/office-password.md), [local evidence](docs/milestones/2026-10-19-office-password.json), and [Job→Pages deployment guide](docs/deploy-office-password.md). Production Office acceptance remains open as **F-10**.
+
+The PDF/Base64 noise batch has also passed its three cloud smoke controls (0/29/84 points); see the [separate acceptance record](docs/milestones/2026-10-19-base64-cloud-acceptance.json). Historical reports remain unchanged.
+
 **2026-10-19: the PDF password and risk feedback fixes passed this cloud manual acceptance batch.** The user confirmed wrong-password feedback, three submissions per file and high-risk parent/child presentation. The new screenshot shows a red error with one submission used and two remaining. Two new JSON reports confirm `msrs-v1.2`, a local PDF score of 4 with an effective score of 84, a decrypted child at 84 and completed static scans. See the [cloud acceptance record](docs/milestones/2026-10-19-pdf-feedback-acceptance.json).
 Acceptance combines the user's manual confirmation, screenshot and completed reports; independent counters and the third-attempt limit rely on that confirmation, without new automated cloud tests. The outer ZIP's full report and Pages deployment ID were not supplied, so their values are not inferred. F-08 is complete for this acceptance scope.
 The batch's local validation remains worker 852, backend 233, frontend 52 and control-plane 25 tests passed, with five opt-in skips; 12 native PDF cases passed and all 32 general native reports were revalidated against the final manifest. The [2026-10-18 record](docs/milestones/2026-10-18-pdf-feedback.json) remains unchanged.
 A ZIP submission does not consume its PDF child's allowance; global execution quotas still apply. Local scores and effective subtree risks remain separate. See the [PDF workflow](docs/pdf-password.md) and [Job→Worker→Pages rollout guide](docs/deploy-pdf-feedback.md).
-The [status checklist](docs/project-status.md) tracks 47 IDs, including open DO cleanup, long-term costs, live rollback and automatic database refresh. The first batch's 32 general cases, 12 PDF password cases and historical test counts remain in its [record](docs/milestones/2026-10-18-pdf-password.json); they do not replace validation of these fixes.
+The [status checklist](docs/project-status.md) tracks 49 IDs, including open DO cleanup, long-term costs, live rollback and automatic database refresh. The first batch's 32 general cases, 12 PDF password cases and historical test counts remain in its [record](docs/milestones/2026-10-18-pdf-password.json); they do not replace validation of these fixes.
 
 **2026-10-17: the second P1 static-quality batch is validated.** The corpus defines 32 cases / 28 pinned fixtures, including PE, Office and PDF structural and failure controls; all 32 native-engine cases passed. User-provided worker/Pages deployment outputs and three production demo reports have been checked for both batches. PDF password recovery is a separate subsequent batch. See the [static quality baseline](docs/static-quality.md) and [status checklist](docs/project-status.md) for evidence, completed scope and remaining work.
 
@@ -33,13 +37,13 @@ The earlier **20,000,000-byte upload / R2 download / scanning PoC** passed separ
 | General static analysis | File type and hashes, ClamAV, YARA, IOCs, deobfuscation candidates and heuristic evidence |
 | Format analysis | Windows PE, Office OLE/OOXML/RTF, PDF, LNK and supported scripts; depth varies by format |
 | Recursive artifacts | ZIP, 7z, RAR, TAR, gzip, bzip2 and supported embedded document objects, with parent-to-child lineage |
-| Passwords and resume | Password submission for supported archives and PDF, different nested passwords, completed-stage checkpoints and cumulative extraction budgets; PDF passwords, per-file counters and risk feedback passed this cloud manual acceptance batch |
+| Passwords and resume | Password submission for supported archives, PDF and limited modern OOXML, different nested passwords, completed-stage checkpoints and cumulative extraction budgets; PDF passwords, per-file counters and risk feedback passed this cloud manual acceptance batch |
 | Explainable reports | Stage states, tool/rule versions, direct and descendant risk evidence, partial results and unfinished-work reasons |
 | Optional dynamic analysis | A self-hosted CAPEv2 integration adds available process, file, registry and network evidence |
 
 Reports distinguish no detections from tool errors, missing rules, password waits, budget limits and unsupported formats. `complete` means the declared scope for that analysis finished; no detections do not guarantee a file is safe.
 
-Encrypted Office decryption, ISO extraction and dedicated deep analysis for ELF, Mach-O, email and APK are not implemented. PDF password recovery and its feedback fixes passed this cloud manual acceptance batch (F-08). RAR capabilities depend on an available external extractor. PDF attachment descriptions do not mean those attachments were extracted and scanned. Consult the [support matrix](docs/analysis-support.md) and each report's coverage.
+Legacy encrypted DOC/XLS/PPT, IRM, ISO extraction and dedicated deep analysis for ELF, Mach-O, email and APK remain unsupported. Modern OOXML password recovery has separate local and production acceptance scopes (F-02/F-10). PDF password recovery and its feedback fixes passed this cloud manual acceptance batch (F-08). RAR capabilities depend on an available external extractor. PDF attachment descriptions do not mean those attachments were extracted and scanned. Consult the [support matrix](docs/analysis-support.md) and each report's coverage.
 
 ## Choose a deployment mode
 
@@ -121,7 +125,7 @@ export YARA_RULES_PATH="$PWD/rules"
 poetry run python -m malscan_worker.runtime --file /path/sample.zip --output-dir /path/analysis
 # Resume with the same source, output directory and retained checkpoint
 poetry run python -m malscan_worker.runtime --file /path/sample.zip --output-dir /path/analysis --resume
-# Enter a root archive or PDF password at a hidden prompt
+# Enter a root archive, PDF or supported Office password at a hidden prompt
 poetry run python -m malscan_worker.runtime --file /path/sample.zip --output-dir /path/analysis --resume --ask-password
 ```
 
@@ -175,4 +179,4 @@ Current source uses ruleset `1.1.0` and scoring policy `msrs-v1.2`. Verified hig
 
 Local validation covers backend/worker/frontend tests, real PostgreSQL budgets and attempts, real ZIP/7z different-password recovery, full-container/S3 checkpoints and Worker-to-Python-dispatcher HTTP integration. Consult the [validation record](docs/v2-validation.md) for counts, commands and evidence boundaries. These tests do not replace live-provider or billing acceptance.
 
-The next priority is Q-06: reduce the four-point noise from weak PDF-token/Base64 candidates with benign, indicator and failure controls, followed by F-02 Office passwords, document attachments and measured performance improvements. DO cleanup, long-term costs, a real cloud rollback and automated signed antivirus database updates remain separate follow-ups. Live CAPE acceptance depends on available infrastructure. Every batch updates the [status checklist](docs/project-status.md); the [roadmap](docs/roadmap.md) defines the order and acceptance criteria.
+The next step is F-10 production Office password acceptance, followed by F-03 document attachments and embedded-object depth. Q-06 continues with more format controls and real-source samples, followed by measured performance improvements. DO cleanup, long-term costs, a real cloud rollback and automated signed antivirus database updates remain separate follow-ups. Live CAPE acceptance depends on available infrastructure. Every batch updates the [status checklist](docs/project-status.md); the [roadmap](docs/roadmap.md) defines the order and acceptance criteria.

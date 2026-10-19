@@ -844,7 +844,14 @@ async def execute_analysis_stages(
                     exc, (DocumentPasswordRequiredError, DocumentWrongPasswordError)
                 )
                 wrong_password = isinstance(exc, ArchiveWrongPasswordError)
-                kind = "PDF" if document_password else "Archive"
+                # Only recognized kind tokens may influence public findings;
+                # older document exceptions can contain arbitrary error text.
+                password_kind = "office" if exc.args == ("office",) else "pdf"
+                kind = (
+                    ("Office" if password_kind == "office" else "PDF")
+                    if document_password
+                    else "Archive"
+                )
                 findings: dict[str, Any] = {
                     "reason": f"{kind} password was rejected"
                     if wrong_password
@@ -856,15 +863,15 @@ async def execute_analysis_stages(
                     # a stage checkpoint; the existing per-artifact transport
                     # supplies the password again for a later attempt.
                     findings.update(
-                        analyzer="pdf",
-                        format_type="PDF",
+                        analyzer=password_kind,
+                        format_type=password_kind.upper(),
                         features={
                             "encrypted": True,
                             "content_access": "wrong_password"
                             if wrong_password
                             else "password_required",
                         },
-                        password_kind="pdf",
+                        password_kind=password_kind,
                     )
                 now = datetime.now(timezone.utc)
                 blocked = StageResult(

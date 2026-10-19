@@ -104,7 +104,8 @@ stream 明確指定 `/Filter /Crypt`（包含 `/Name /Identity`）的 override �
 此檢查需要成功解鎖後、建立解密子檔前執行，因此可能先要求密碼，隨後回報 unavailable／partial，
 不產生解密子檔，也不轉成反覆輸入錯誤密碼的流程。預設 metadata 加密的固定對照不受上述限制影響。
 RC4 與 revision 5 僅作舊格式相容性測試。
-Office 解密與 PDF 附件提取仍是獨立待辦；附件描述不等於附件已掃描。
+限定現代 OOXML 的解密與續跑見 [Office 密碼流程](office-password.md)；舊式 Office 二進位加密仍不支援。
+PDF 附件提取仍是獨立待辦；附件描述不等於附件已掃描。
 
 ## 本機 CLI
 

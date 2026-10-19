@@ -16,9 +16,10 @@ def build_password_attempts_exhausted_report(
 ) -> dict[str, Any]:
     """Preserve available detections when file password attempts are exhausted."""
     previous_format = (existing_report or {}).get("results", {}).get("format_analysis", {})
-    pdf_password = password_kind == "pdf" or previous_format.get("password_kind") == "pdf"
-    blocked_stage_name = "format-analysis" if pdf_password else "archive-extract"
-    result_key = "format_analysis" if pdf_password else "archive_extract"
+    document_kind = password_kind or previous_format.get("password_kind")
+    document_password = document_kind in {"pdf", "office"}
+    blocked_stage_name = "format-analysis" if document_password else "archive-extract"
+    result_key = "format_analysis" if document_password else "archive_extract"
     report = {
         "report_schema_version": REPORT_SCHEMA_VERSION,
         "job_id": job_data["job_id"],
@@ -147,23 +148,24 @@ def build_password_attempts_exhausted_report(
         },
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
-    if pdf_password:
+    if document_password:
+        label = "Office" if document_kind == "office" else "PDF"
         report["results"][result_key] = {
-            "analyzer": "pdf",
-            "format_type": "PDF",
+            "analyzer": document_kind,
+            "format_type": document_kind.upper(),
             "features": {"encrypted": True, "content_access": "password_attempts_exhausted"},
-            "password_kind": "pdf",
-            "reason": "連續 3 次密碼錯誤，PDF 解密失敗。",
+            "password_kind": document_kind,
+            "reason": f"連續 3 次密碼錯誤，{label} 解密失敗。",
             "decryption_failed": True,
         }
         summary = report["explainability"]["summary"]
-        summary["headline"] = "因密碼嘗試次數耗盡，PDF 加密內容未被分析。"
+        summary["headline"] = f"因密碼嘗試次數耗盡，{label} 加密內容未被分析。"
         diagnostics = report["explainability"]["failure_diagnostics"]
-        diagnostics["headline"] = "PDF 加密內容因密碼耗盡而無法分析。"
+        diagnostics["headline"] = f"{label} 加密內容因密碼耗盡而無法分析。"
         diagnostics["diagnostics"][0]["message"] = report["results"][result_key]["reason"]
-        diagnostics["suspected_miss_stages"][0][
-            "reason"
-        ] = "PDF 內容未曾被解密，因此未進入明文分析流程。"
+        diagnostics["suspected_miss_stages"][0]["reason"] = (
+            f"{label} 內容未曾被解密，因此未進入明文分析流程。"
+        )
     if isinstance(existing_report, dict):
         # Exhausting the password budget blocks descendants; it must not erase
         # detections and evidence obtained from the outer file.

@@ -25,6 +25,15 @@ from malscan_worker.utils.submission import InternalJobSubmitter
 
 log = structlog.get_logger()
 
+_OFFICE_CONTENT_TYPES = {
+    ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    ".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    ".docm": "application/vnd.ms-word.document.macroEnabled.12",
+    ".xlsm": "application/vnd.ms-excel.sheet.macroEnabled.12",
+    ".pptm": "application/vnd.ms-powerpoint.presentation.macroEnabled.12",
+}
+
 
 class FormatAnalysisStage(Stage):
     """Run format-specific analyzer and submit extracted artifacts."""
@@ -70,37 +79,57 @@ class FormatAnalysisStage(Stage):
         sub_jobs_created = 0
         errors = list(analysis.errors)
         analyzer_error_count = len(errors)
-        decrypted_pdf = (
-            analysis.analyzer_name == "pdf"
+        decrypted_document = (
+            analysis.analyzer_name in {"pdf", "office"}
             and analysis.features.get("content_access") == "decrypted_child"
         )
+        decrypted_office = decrypted_document and analysis.analyzer_name == "office"
+        artifacts = analysis.extracted_artifacts
+        if decrypted_office and (
+            len(artifacts) != 1 or artifacts[0].get("source") != "office-decrypted"
+        ):
+            errors.append("decrypted_office_output_invalid")
+            artifacts = []
+        if decrypted_office and artifacts:
+            child = analysis.features.get("decrypted_child")
+            if not isinstance(child, dict) or any(
+                child.get(key) != artifacts[0].get(key) for key in ("sha256", "size")
+            ):
+                errors.append("decrypted_office_output_identity_mismatch")
+                artifacts = []
 
-        if analysis.extracted_artifacts and (ctx.job or ctx.analysis_services):
-            try:
-                (
-                    sub_jobs_created,
-                    artifact_ids,
-                    submit_errors,
-                ) = await self._submit_artifacts(
-                    ctx,
-                    analysis.extracted_artifacts,
-                    analysis.analyzer_name or analyzer.name,
-                )
-                errors.extend(submit_errors)
-            except Exception as exc:
-                detail = type(exc).__name__ if decrypted_pdf else str(exc)
-                log.error(
-                    "format_analysis_artifact_submission_failed",
-                    job_id=ctx.job_id,
-                    error=detail,
-                )
-                errors.append(f"artifact submission failed: {detail}")
+        try:
+            if artifacts and (ctx.job or ctx.analysis_services):
+                try:
+                    (
+                        sub_jobs_created,
+                        artifact_ids,
+                        submit_errors,
+                    ) = await self._submit_artifacts(
+                        ctx,
+                        artifacts,
+                        analysis.analyzer_name or analyzer.name,
+                    )
+                    errors.extend(submit_errors)
+                except Exception as exc:
+                    detail = type(exc).__name__ if decrypted_document else str(exc)
+                    log.error(
+                        "format_analysis_artifact_submission_failed",
+                        job_id=ctx.job_id,
+                        error=detail,
+                    )
+                    errors.append(f"artifact submission failed: {detail}")
+        finally:
+            if decrypted_office:
+                # Submission ports persist bytes before returning; cancellation
+                # and failed submission must also remove local plaintext.
+                self._cleanup_office_plaintext(ctx, analysis.extracted_artifacts)
 
-        if decrypted_pdf:
+        if decrypted_document:
             # Unlocking is not a successful content scan. The plaintext must be
             # linked to a child which the normal pipeline can actually analyze.
-            if not analysis.extracted_artifacts or not artifact_ids:
-                errors.append("decrypted_pdf_child_not_submitted")
+            if not artifacts or not artifact_ids or (decrypted_office and not sub_jobs_created):
+                errors.append(f"decrypted_{analysis.analyzer_name}_child_not_submitted")
             child = analysis.features.get("decrypted_child")
             if isinstance(child, dict):
                 child["artifact_ids"] = list(artifact_ids)
@@ -111,6 +140,9 @@ class FormatAnalysisStage(Stage):
                     if artifact_ids
                     else "not_submitted"
                 )
+            if decrypted_office:
+                if errors:
+                    analysis.features["content_access"] = "unavailable"
 
         findings = {
             "analyzer": analysis.analyzer_name or analyzer.name,
@@ -142,6 +174,24 @@ class FormatAnalysisStage(Stage):
         return self._result(
             started_at, "partial" if limited or errors else "ok", findings, artifacts=artifact_ids
         )
+
+    @staticmethod
+    def _cleanup_office_plaintext(ctx: StageContext, artifacts: list[AnalyzerArtifact]) -> None:
+        for artifact in artifacts:
+            raw_path = artifact.get("path")
+            if artifact.get("source") != "office-decrypted" or not raw_path:
+                continue
+            try:
+                output = Path(raw_path)
+                if (
+                    ctx.file_path
+                    and not output.is_symlink()
+                    and output.resolve() == ctx.file_path.resolve()
+                ):
+                    continue
+                output.unlink(missing_ok=True)
+            except OSError:
+                log.warning("office_plaintext_cleanup_failed", job_id=ctx.job_id)
 
     @staticmethod
     def _get_mime(ctx: StageContext) -> str:
@@ -208,14 +258,28 @@ class FormatAnalysisStage(Stage):
         submitter: InternalJobSubmitter | None = None
 
         for art in artifacts:
+            source = str(art.get("source", ""))
+            decrypted_kind = (
+                analyzer_name
+                if analyzer_name in {"pdf", "office"} and source == f"{analyzer_name}-decrypted"
+                else None
+            )
             art_path_raw = art.get("path", "")
             if not isinstance(art_path_raw, str) or not art_path_raw:
                 continue
 
             art_path = Path(art_path_raw)
             if not art_path.exists():
-                if analyzer_name == "pdf":
-                    errors.append("decrypted_pdf_output_missing")
+                if decrypted_kind:
+                    errors.append(f"decrypted_{decrypted_kind}_output_missing")
+                continue
+
+            if decrypted_kind == "office" and (
+                not art_path.is_file()
+                or art_path.is_symlink()
+                or (ctx.file_path and art_path.resolve() == ctx.file_path.resolve())
+            ):
+                errors.append("decrypted_office_output_identity_mismatch")
                 continue
 
             file_sha256 = str(art.get("sha256", "")).strip()
@@ -230,15 +294,26 @@ class FormatAnalysisStage(Stage):
             file_size = art_path.stat().st_size
             filename = str(art.get("filename", art_path.name))
             source = str(art.get("source", filename))
-            if analyzer_name == "pdf" and source == "pdf-decrypted":
+            content_type = (
+                _OFFICE_CONTENT_TYPES.get(Path(filename).suffix.lower(), "application/octet-stream")
+                if decrypted_kind == "office"
+                else "application/octet-stream"
+            )
+            if decrypted_kind:
                 actual_hash = self._hash_file_sha256(art_path)
-                if file_sha256 != actual_hash or art.get("size") != file_size:
-                    errors.append("decrypted_pdf_output_identity_mismatch")
+                if (
+                    file_sha256 != actual_hash
+                    or art.get("size") != file_size
+                    or (decrypted_kind == "office" and not art.get("sha256"))
+                ):
+                    errors.append(f"decrypted_{decrypted_kind}_output_identity_mismatch")
                     continue
             if ctx.root_budget:
                 try:
                     await ctx.root_budget.reserve(
-                        art.get("budget_key")
+                        reservation_key(ctx.job_id, "format-analysis", source)
+                        if decrypted_kind == "office"
+                        else art.get("budget_key")
                         or reservation_key(ctx.job_id, "format-analysis", source),
                         1,
                         file_size,
@@ -251,7 +326,7 @@ class FormatAnalysisStage(Stage):
                 child = await ctx.analysis_services.submit_child(
                     file_path=str(art_path),
                     filename=filename,
-                    content_type="application/octet-stream",
+                    content_type=content_type,
                     sha256_hash=file_sha256,
                     file_size=file_size,
                     parent_job_id=parent_job_id,
@@ -267,8 +342,8 @@ class FormatAnalysisStage(Stage):
                 if child:
                     created_ids.append(str(child))
                     submitted += not (duplicate or cycle)
-                elif analyzer_name == "pdf":
-                    errors.append("decrypted_pdf_child_not_submitted")
+                elif decrypted_kind:
+                    errors.append(f"decrypted_{decrypted_kind}_child_not_submitted")
                 continue
 
             record = await create_artifact(
@@ -303,7 +378,7 @@ class FormatAnalysisStage(Stage):
                 sub_job_id = await submitter.submit_subjob(
                     file_path=str(art_path),
                     filename=filename,
-                    content_type="application/octet-stream",
+                    content_type=content_type,
                     sha256_hash=file_sha256,
                     file_size=file_size,
                     parent_job_id=parent_job_id,
@@ -315,10 +390,10 @@ class FormatAnalysisStage(Stage):
                 )
                 if sub_job_id:
                     submitted += 1
-                elif analyzer_name == "pdf":
-                    errors.append("decrypted_pdf_child_not_submitted")
+                elif decrypted_kind:
+                    errors.append(f"decrypted_{decrypted_kind}_child_not_submitted")
             except Exception as exc:
-                detail = type(exc).__name__ if analyzer_name == "pdf" else str(exc)
+                detail = type(exc).__name__ if decrypted_kind else str(exc)
                 log.error(
                     "format_analysis_subjob_failed",
                     job_id=ctx.job_id,

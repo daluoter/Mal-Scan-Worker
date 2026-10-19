@@ -44,7 +44,7 @@ export default function PasswordForm({
             <h2 className="text-lg font-semibold text-caution-yellow">需要檔案密碼</h2>
             {filename && <p className="mt-2 break-all font-mono text-sm text-white">{artifactPath || filename}</p>}
             <p className="mt-2 text-sm text-slate-300">
-                這個檔案需要密碼才能繼續分析。請輸入加密壓縮檔或 PDF 的密碼；已完成的分析成果會保留。
+                這個檔案需要密碼才能繼續分析。請輸入加密壓縮檔、PDF 或支援的 Office 文件密碼；已完成的分析成果會保留。
             </p>
 
             <div className="mt-3 font-mono text-sm text-slate-300">

@@ -29,7 +29,7 @@ artifact 是來源與報告的單位，execution 是執行／恢復單位。port
 
 ## 完整靜態分析的契約
 
-「完整」表示在已宣告支援範圍提供可核對的結果與未完成原因，不表示保證偵測所有威脅或解密所有格式。[支援矩陣](analysis-support.md)列出目前 PE／Office／PDF／LNK／scripts、ZIP／7z／RAR／TAR／gzip／bzip2 的實際能力、外部依賴與限制；ISO 仍為 stub，加密 Office／PDF 解密與 ELF／Mach-O／郵件／APK 專用深度分析尚未提供。
+「完整」表示在已宣告支援範圍提供可核對的結果與未完成原因，不表示保證偵測所有威脅或解密所有格式。[支援矩陣](analysis-support.md)列出目前 PE／Office／PDF／LNK／scripts、ZIP／7z／RAR／TAR／gzip／bzip2 的實際能力、外部依賴與限制。限定 PDF 及現代 OOXML 支援補交密碼、建立解密子檔與續跑，詳見 [PDF](pdf-password.md) 與 [Office](office-password.md)；舊式 Office 二進位加密不支援。ISO 仍為 stub，ELF／Mach-O／郵件／APK 專用深度分析尚未提供。
 
 每個原檔、解壓檔、嵌入檔及衍生內容保留來源關係。相同內容在不同路徑仍保留出現位置；同名 ZIP／7z entries 不互相覆寫。風險證據分直接與繼承來源，與執行覆蓋分開處理。
 

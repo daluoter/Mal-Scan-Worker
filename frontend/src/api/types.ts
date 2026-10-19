@@ -495,7 +495,7 @@ export interface HealthResponse {
 }
 
 export interface PasswordSubmitRequest {
-    /** Password for this supported encrypted archive or PDF; never persisted in a report. */
+    /** Password for this supported encrypted archive, PDF or Office document; never persisted in a report. */
     password: string
 }
 

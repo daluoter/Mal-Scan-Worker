@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from malscan_worker.analyzers.base import AnalyzerIndicator, AnalyzerResult, FormatAnalyzer
+from malscan_worker.analyzers.office_decryption import analyze_encrypted_office
 from malscan_worker.heuristics.models import HeuristicHit, make_hit
 from malscan_worker.stages.base import StageContext
 from malscan_worker.stages.document_analysis import DocumentAnalysisStage, detect_document_type
@@ -37,6 +38,9 @@ class OfficeAnalyzerAdapter(FormatAnalyzer):
         return True
 
     async def analyze(self, file_path: Path, ctx: StageContext) -> AnalyzerResult:
+        encrypted_result = await analyze_encrypted_office(file_path, ctx)
+        if encrypted_result is not None:
+            return encrypted_result
         stage_ctx = replace(ctx, file_path=file_path, skip_artifact_submission=True)
         stage_result = await DocumentAnalysisStage().execute(stage_ctx)
         findings = stage_result.findings

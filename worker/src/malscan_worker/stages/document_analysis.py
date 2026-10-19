@@ -321,6 +321,28 @@ class DocumentAnalysisStage(Stage):
         if not ctx.file_path or not ctx.file_path.exists():
             return self._result(started_at, "skipped", {"reason": "File not found"})
 
+        for result in ctx.previous_results:
+            if (
+                result.stage_name != "format-analysis"
+                or result.findings.get("analyzer") != "office"
+            ):
+                continue
+            features = result.findings.get("features", {})
+            if not features.get("encrypted"):
+                continue
+            access = features.get("content_access")
+            return self._result(
+                started_at,
+                "skipped",
+                {
+                    "reason": "Encrypted Office content delegated to analysis child"
+                    if access == "decrypted_child"
+                    else "Encrypted Office content unavailable for document parsing",
+                    "encrypted": True,
+                    "content_access": access,
+                },
+            )
+
         # Determine document type using magic bytes + MIME from earlier stage
         mime = self._get_mime(ctx)
         doc_type = detect_document_type(ctx.file_path, mime)

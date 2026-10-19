@@ -2089,7 +2089,6 @@ description = "Python tool and library for decrypting and encrypting MS Office f
 optional = false
 python-versions = "<4.0,>=3.10"
 groups = ["main"]
-markers = "platform_python_implementation != \"PyPy\" or platform_system != \"Windows\" and platform_system != \"Darwin\""
 files = [
     {file = "msoffcrypto_tool-6.0.0-py3-none-any.whl", hash = "sha256:46c394ed5d9641e802fc79bf3fb0666a53748b23fa8c4aa634ae9d30d46fe397"},
     {file = "msoffcrypto_tool-6.0.0.tar.gz", hash = "sha256:9a5ebc4c0096b42e5d7ebc2350afdc92dc511061e935ca188468094fdd032bbe"},
@@ -4336,4 +4335,4 @@ propcache = ">=0.2.1"
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.11"
-content-hash = "b04dcb41cfbf51ba6e6154694ffcfe3a9623175a99fbda77e1bf93afa15aef0e"
+content-hash = "4ec5c268aa744bd6c66b1a56f8d6671d5cda2b23d9fa69771d42810f1275e4ca"

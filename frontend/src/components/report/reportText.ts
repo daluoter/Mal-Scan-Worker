@@ -153,6 +153,8 @@ const directTextMap: Record<string, string> = {
     wrong_password: '密碼不正確，請確認這個檔案的密碼後再試一次。',
     'Archive password was rejected': '密碼不正確，請確認這個檔案的密碼後再試一次。',
     'Archive password is required': '此檔案需要密碼才能繼續分析。',
+    'Office password was rejected': '密碼不正確，請確認這個 Office 文件的密碼後再試一次。',
+    'Office password is required': '此 Office 文件需要密碼才能繼續分析。',
     Explainability: '可解釋性',
     'Explainability summary is available for this report.': '此報告已產生可解釋性摘要。',
     'One nested artifact drove the final suspicious verdict.': '一個巢狀內層檔案主導了最終的可疑判定。',

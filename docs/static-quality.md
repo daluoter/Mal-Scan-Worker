@@ -1,7 +1,15 @@
 # 靜態分析品質基準
 
 更新日期：2026-10-19（Asia/Taipei）。目標是讓偵測結果、分析範圍與子檔案證據可以重現及核對。
-目前一般基準為 `corpus-v5.json`（40 案／36 fixture、`msrs-v1.2`），PDF 密碼另用 `pdf-password-v2.json`（12 案）。
+目前一般基準為 `corpus-v5.json`（40 案／36 fixture、`msrs-v1.2`），PDF 密碼另用 `pdf-password-v2.json`（12 案），
+Office 密碼另用 `office-password-v1.json`（14 個 profile）。F-02 本批已完成程式／本機驗證，F-10 正式雲端 smoke 待辦。
+本批 Office 14／14、一般 v5 40／40、PDF v2 12／12 原生案例已重新執行並通過；另有 57 組真實加密演算法測試。
+Office 固定完整流程與演算法單元覆蓋分開記錄，見[本批紀錄](milestones/2026-10-19-office-password.json)。
+以下 Q-06 的測試數字屬於前一批，不能代替本輪 Office 結果。
+本輪後端 233、前端 54 項通過；worker 完整回歸為 1,202 通過、3 項 PostgreSQL opt-in 跳過，
+一項新增測試的 fixture 密碼預期修正後，所屬 3 項續跑測試補驗通過，共 1,203 個不同測試已有通過證據。
+完整執行及補驗分開記錄，沒有宣稱一次完整執行全綠；Ruff、strict mypy、lock、前端型別／lint／build 均通過。
+
 Q-06 本批以固定來源快照重新執行一般 40／40、PDF 密碼 12／12 原生案例，沒有改寫歷史 manifest。
 worker 930 passed／4 skipped，補驗缺 PATH 的 7z 一案通過；餘三項 PostgreSQL opt-in 未執行。
 Ruff／strict mypy 通過；本批未修改 frontend、backend、控制層，不以舊測試數字代替新驗證。
@@ -148,6 +156,27 @@ poetry run python -m malscan_worker.quality \
 完整執行命令及資源／相容性邊界見 [PDF 密碼說明](pdf-password.md)。
 這套原生測試與一般 40 案例分開記錄，不以一般 corpus 通過代替密碼恢復通過。
 
+## Office 密碼流程的獨立驗收
+
+[`office-password-v1.json`](../worker/quality/office-password-v1.json) 定義 14 個固定 profile（suite `office-password-v1.0.0`）。
+真實加密 bytes 為 Agile AES-256 與 Standard AES-128；涵蓋 DOCX／XLSX／PPTX、
+DOCM／XLSM／PPTM 的惰性巨集格式旗標、`.invalid` 外部範本、不同密碼 AES ZIP→Office、
+雙 Office sibling、使用第二組 Office 密碼的 DOCX，以及不支援加密、損壞套件、損壞 Agile XML。
+固定 bytes 包含不由主文件引用的 binary／embedding members，核對解密後整份 OOXML 的 bytes／SHA-256，
+不能只以可見頁面或主 XML 相符代替保存原始明文。`.bin` 名稱亦依 package content types 派生正確子檔副檔名。
+
+每個需密碼案例檢查 missing→wrong→correct、持久 checkpoint、原檔與已完成 stages 不變，
+解密子檔的實際 AV／YARA 與適用格式／文件階段、來源關係、有效風險及完成後 resume 不新增 occurrence。
+不同密碼與 sibling 案例用來核對密碼只送往目標 artifact，以及 ZIP／各 Office 的獨立三次契約；
+不支援／損壞應保留 partial，不變成錯誤密碼或 clean。
+Agile 成功必須通過 HMAC；Standard 只有 ZIP CRC 等結構檢查，格式本身沒有認證完整性。
+不能因兩種固定加密案例通過，就宣稱其他可接受 AES／SHA header 或所有 Office 版本已原生驗證。
+
+fixture 由版本化模組以標準函式庫還原，公開密碼只適用這些合成測試檔；不執行巨集、DDE、範本或檔案內容。
+原生驗收另需真實 ClamAV／YARA，不以單元測試的 scanner transport stub 當成原生 AV 通過。
+資源邊界、執行命令與狀態欄位見 [Office 密碼說明](office-password.md)，正式 smoke 見 [Job→Pages 手冊](deploy-office-password.md)。
+本批本機結果與 F-10 雲端結果各自保留證據；沒有部署輸出與新報告前，F-10 維持待辦。
+
 ## PDF 正式回饋與風險呈現
 
 收到的舊版完成 JSON 顯示：單一加密 PDF 本檔 4 分、聚合 29 分／低風險，解密子檔 84 分／高風險；
@@ -215,7 +244,8 @@ ClamAV 報告另外提供 `engine_version`、`database_version` 與 `database_ti
 
 前兩批品質變更已完成本機驗證與三份正式 demo 報告核對；PDF 密碼與回饋修正的本機回歸、
 部署結果與 2026-10-19 雲端人工驗收分開記錄。病毒庫新鮮度、DO 清理、長期成本與真實回退仍獨立追蹤；新增工作的保留期尚未驗證。
-下一批優先補 Q-06 的正常 PDF token／Base64 對照並處理本檔 4 分弱雜訊，再接續 F-02 Office 密碼。
+Q-06 正常 PDF token／Base64 弱候選批次已完成本機及三案雲端 smoke；更多格式雜訊仍持續追蹤。
+F-02 Office 密碼本批程式／本機驗證與 F-10 正式雲端 smoke 分開結案，不將固定 suite 的範圍擴大為全部 Office 相容性。
 後續增加具有來源與預期的 LNK、更多 Office／PDF 變種、文件附件，以及更大正常對照集。
 增加規則或 parser 前，都應同時增加正常對照與失敗案例。
 真實惡意樣本偵測率、所有格式相容性與動態沙箱仍需要各自的驗收，不包含在本批合成案例的結論內。

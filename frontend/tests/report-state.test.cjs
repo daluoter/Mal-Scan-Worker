@@ -128,12 +128,12 @@ test('a supported encrypted PDF waits in the generic file password form', () => 
     assert.deepEqual(passwordTargets(pdf), [{ jobId: 'root-job', filename: 'locked.pdf' }])
     const html = render(PasswordForm, { filename: 'locked.pdf', attemptsUsed: 0, attemptsRemaining: 3, onSubmit: async () => {} })
     assert.match(html, /需要檔案密碼/)
-    assert.match(html, /加密壓縮檔或 PDF/)
+    assert.match(html, /加密壓縮檔、PDF 或支援的 Office 文件/)
     assert.match(html, /已完成的分析成果會保留/)
     assert.match(html, /aria-label="檔案密碼"/)
     assert.match(html, /placeholder="輸入檔案密碼"/)
     assert.match(html, /locked.pdf/)
-    assert.doesNotMatch(html, /需要解壓密碼|輸入壓縮檔密碼|Office/)
+    assert.doesNotMatch(html, /需要解壓密碼|輸入壓縮檔密碼/)
 })
 
 test('nested PDF wrong passwords remain attached to the target and per-file retry budget', () => {
@@ -452,4 +452,38 @@ test('direct artifact details preserve partial and failed coverage rather than i
     assert.match(html, /部分完成/)
     assert.match(html, /YARA 規則比對：失敗/)
     assert.doesNotMatch(html, /沿用相同內容/)
+})
+
+test('nested Office password feedback binds to that file and preserves its retry allowance', () => {
+    const office = { artifact_id: 'office-child', reason: 'wrong_password', report: {
+        job_id: 'office-child', results: { format_analysis: {
+            analyzer: 'office', password_kind: 'office',
+            features: { encrypted: true, content_access: 'wrong_password' },
+        } },
+    } }
+    const nested = report({ job_status: 'password_required', password_required_artifacts: ['office-child'],
+        artifacts: [office], child_jobs: [{ job_id: 'office-child', filename: 'locked.docx', status: 'password_required' }],
+    })
+    assert.deepEqual(passwordTargets(nested), [{ jobId: 'office-child', filename: 'locked.docx' }])
+    assert.equal(passwordTargetError(nested, 'root-job'), undefined)
+    assert.equal(passwordTargetError(nested, 'office-child'), 'wrong_password')
+    const html = render(PasswordForm, { filename: 'locked.docx', attemptsUsed: 1, attemptsRemaining: 2,
+        error: 'Office password was rejected', onSubmit: async () => {} })
+    assert.match(html, /Office 文件/)
+    assert.match(html, /密碼不正確/)
+    assert.match(html, /locked.docx/)
+    assert.match(html, /role="alert"/)
+    assert.doesNotMatch(html, /Office password was rejected/)
+})
+
+test('unsupported Office encryption remains partial and cannot authorize a password submission', () => {
+    const unsupported = report({ job_status: 'done', report_complete: true, password_required_artifacts: [],
+        file: { original_filename: 'unsupported.docx' },
+        results: { format_analysis: { analyzer: 'office', features: { encrypted: true, content_access: 'unsupported' } } },
+        analysis: { static: { status: 'partial', stage_coverage: [{ stage: 'format-analysis', status: 'partial', reason: 'unsupported_office_encryption' }] }, dynamic: { status: 'disabled' } },
+    })
+    assert.deepEqual(passwordTargets(unsupported), [])
+    assert.equal(passwordTargetError(unsupported, unsupported.job_id), undefined)
+    assert.equal(stageCompleted(unsupported, 'format-analysis'), false)
+    assert.match(render(CoveragePanel, { analysis: unsupported.analysis, complete: true }), /部分完成/)
 })
