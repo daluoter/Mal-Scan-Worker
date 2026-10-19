@@ -28,7 +28,7 @@
 來源、預期及未完成原因見[靜態品質基準](static-quality.md)。這兩批的正式 worker／Pages 部署與三份 demo 報告已核對。
 
 2026-10-18 的 PDF 密碼恢復程式與本機驗證已完成，一般原生基準 32／32 與獨立密碼案例 12／12 通過；
-已取得使用者提供的 Job 切換與兩組原檔／解密子檔報告；Pages 與等待／錯誤畫面尚未完整核對。
+首批已取得使用者提供的 Job 切換與兩組原檔／解密子檔報告，證明實際解密掃描。
 正確密碼產生獨立的解密 PDF 子檔，原檔 hash 不變，子檔重新執行實際 ClamAV／YARA 與適用靜態階段。
 解密保留可讀的 active xref 物件，包括 catalog 無法到達的物件；不可讀物件、超限或派送失敗不能顯示內容已完成分析。
 不支援的 `EFF != StmF` 與 `/EncryptMetadata=false` 在要求密碼前檢查；stream 的明確 `/Crypt` override
@@ -36,7 +36,10 @@
 首批本機結果見 [2026-10-18 紀錄](milestones/2026-10-18-pdf-password.json)。
 本次回饋修正改為每個加密檔案各三次被接受的密碼補交，正確亦計次；ZIP 使用一次不扣內層 PDF 額度，
 仍受全站每日 20／每月 40 次 execution 限制。錯誤訊息在非同步分析確認後顯示，不以 POST 接受代替密碼正確。
-正式部署／smoke 仍為 F-08 進行中；本次更新順序與現有正式設定保存見 [回饋部署手冊](deploy-pdf-feedback.md)。
+2026-10-19 使用者人工確認錯誤提示、逐檔三次及父子檔高風險呈現通過，F-08 在本輪範圍完成。
+新畫面及兩份完成 JSON 核對 `msrs-v1.2`、本檔 4 分／整體 84 分、解密子檔 84 分與逐檔已用 2／剩餘 1。
+逐檔獨立及第三次限制依人工確認，沒有新增自動化雲端測試；最外層 ZIP 完整報告及 Pages deployment ID 未提供。
+詳見 [雲端驗收紀錄](milestones/2026-10-19-pdf-feedback-acceptance.json)；其他部署的更新順序與正式設定保存見 [回饋部署手冊](deploy-pdf-feedback.md)。
 
 去混淆階段預設 `DEOBFUSCATION_MAX_FILE_SIZE=10000000` bytes。大於此上限的原檔仍可完成
 ClamAV／YARA 等適用階段，但去混淆會以大小限制原因略過，static coverage 因此為 partial。

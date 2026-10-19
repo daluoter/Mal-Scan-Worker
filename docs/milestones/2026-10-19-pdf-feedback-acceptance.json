@@ -1,0 +1,155 @@
+{
+  "schema_version": 1,
+  "milestone": "PDF password feedback cloud manual acceptance",
+  "recorded_date": "2026-10-19",
+  "recorded_timezone": "Asia/Taipei",
+  "scope": "Two fixed AES-128 PDF fixture flows: direct PDF and encrypted ZIP containing the PDF",
+  "acceptance_status": "passed_for_declared_cases",
+  "evidence_basis": [
+    "User explicitly reports manual pass for wrong-password feedback, independent per-file three-submission policy and parent/child high-risk display",
+    "Attached screenshot visibly shows direct PDF red wrong-password feedback with used 1 and remaining 2",
+    "Two new completed JSON reports reviewed against policy, counters, subtree identity and score contracts",
+    "Previously supplied Job promotion and Worker publication output"
+  ],
+  "agent_executed_cloud_tests": false,
+  "remote_provider_api_independently_queried": false,
+  "raw_user_reports_republished": false,
+  "raw_screenshot_republished": false,
+  "production_pages_deployment_id_collected": false,
+  "runtime_release_commit": "353bc7f60303c6e77896f48c9a425f7712527891",
+  "deployment_helper_commit": "4c9ac7657dca51894dccad295e6ad0f9a5500297",
+  "completed_checklist_ids": [
+    "F-08",
+    "F-09",
+    "Q-08",
+    "UX-06",
+    "UX-07"
+  ],
+  "cases": [
+    {
+      "case": "direct_aes128_pdf",
+      "scope": "root_report",
+      "raw_document_sha256": "6428823a5c46ceb68a302cd045b724c617cd6fce7c10bc98cf3f08dc7ab83d89",
+      "report_schema_version": "mswr-report-v3",
+      "job_status": "done",
+      "report_complete": true,
+      "pending_descendants": 0,
+      "requires_reconciliation": false,
+      "policy_version": "msrs-v1.2",
+      "local_score": 4,
+      "effective_score": 84,
+      "risk_level": "high",
+      "verdict": "suspicious",
+      "breakdown": {
+        "local_score": 4,
+        "inherited_score": 25,
+        "descendant_floor": 55,
+        "final_score": 84
+      },
+      "password_attempts_scope": "artifact",
+      "own_pdf_attempts": {
+        "attempts_used": 2,
+        "attempts_remaining": 1,
+        "limit": 3
+      },
+      "encrypted_source_bytes": 1413,
+      "encrypted_source_sha256": "e149d9fe9a04e6695a93f733ef055a775966332d7dc6e90ba361295ba0d6abef",
+      "decrypted_child_bytes": 888,
+      "decrypted_child_sha256": "dd693c1fee0403207af729668c58b550e6420331065e11ab3157af0a3aa44cf5",
+      "decrypted_child_score": 84,
+      "decrypted_child_risk_level": "high",
+      "tree_risk_matches_report": true
+    },
+    {
+      "case": "nested_locked_pdf_subtree",
+      "scope": "nested_pdf_subtree_report",
+      "raw_document_sha256": "cede2c741740a5855bccbab25a1093961c2918cb6e979e2beb4ee6485f1a15ff",
+      "report_schema_version": "mswr-report-v3",
+      "job_status": "done",
+      "report_complete": true,
+      "pending_descendants": 0,
+      "requires_reconciliation": false,
+      "policy_version": "msrs-v1.2",
+      "local_score": 4,
+      "effective_score": 84,
+      "risk_level": "high",
+      "verdict": "suspicious",
+      "breakdown": {
+        "local_score": 4,
+        "inherited_score": 25,
+        "descendant_floor": 55,
+        "final_score": 84
+      },
+      "password_attempts_scope": "artifact",
+      "own_pdf_attempts": {
+        "attempts_used": 2,
+        "attempts_remaining": 1,
+        "limit": 3
+      },
+      "encrypted_source_bytes": 1413,
+      "encrypted_source_sha256": "e149d9fe9a04e6695a93f733ef055a775966332d7dc6e90ba361295ba0d6abef",
+      "decrypted_child_bytes": 888,
+      "decrypted_child_sha256": "dd693c1fee0403207af729668c58b550e6420331065e11ab3157af0a3aa44cf5",
+      "decrypted_child_score": 84,
+      "decrypted_child_risk_level": "high",
+      "tree_risk_matches_report": true
+    }
+  ],
+  "user_manual_attestation": {
+    "wrong_password_message_passed": true,
+    "per_file_three_submission_policy_passed": true,
+    "zip_and_inner_pdf_counters_independent_passed": true,
+    "parent_child_high_risk_visibility_passed": true,
+    "scope": "User statement of manual verification; not additional agent-run automated provider tests"
+  },
+  "screenshot_evidence": {
+    "wrong_password_feedback_visible": true,
+    "red_alert_visible": true,
+    "attempts_used": 1,
+    "attempts_remaining": 2,
+    "per_file_policy_text_visible": true,
+    "root_matches_direct_report": true
+  },
+  "observed_scan_behavior": {
+    "decrypted_child_static_coverage": [
+      "file-type",
+      "clamav",
+      "yara",
+      "ioc-extract",
+      "deobfuscation",
+      "format-analysis"
+    ],
+    "clamav_infected": false,
+    "yara_hits": [],
+    "high_risk_sources": [
+      "PDF launch action",
+      "embedded JavaScript",
+      "automatic open action"
+    ],
+    "dynamic_analysis_status": "disabled",
+    "source_unchanged_and_child_hash_matches_pinned_fixture": true,
+    "active_xref_coverage": {
+      "indexed_objects": 7,
+      "preserved_objects": 6,
+      "structural_objects_omitted": 1,
+      "unreadable_or_ambiguous_objects": 0
+    }
+  },
+  "limits": [
+    "The outer ZIP root report was not attached; attached nested PDF report proves the PDF subtree, not every outer ZIP field",
+    "Completed JSON cannot replay wrong-password history or the third rejected submission; UI/manual findings are recorded as user attestation",
+    "The nested subtree deliberately filters password counters to itself; ZIP counter independence is based on user manual verification",
+    "Pages deployment ID and management API output were not collected; updated UI behavior is established by user statement and screenshot",
+    "No broad real-world detection-rate, all PDF encryption formats, physical cleanup, billed usage, actual rollback or scheduled database refresh conclusion follows from these cases",
+    "PDF token fragments still cause the known weak Base64 score noise; Q-06 remains open"
+  ],
+  "operational_tasks_still_pending": [
+    "P0-06 Durable Object physical row cleanup",
+    "P0-11 actual cloud rollback exercise",
+    "P0-12 scheduled signed database refresh",
+    "P0-14 long-term billed cost",
+    "P0-15 Cloudflare usage and cost evidence",
+    "P0-18 retention of later cloud jobs including these new acceptance roots"
+  ],
+  "next_quality_priority": "Q-06 weak Base64 candidates and benign PDF controls, then F-02 Office password recovery"
+}

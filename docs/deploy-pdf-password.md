@@ -1,7 +1,9 @@
 # 將 PDF 密碼恢復更新到既有雲端 demo
 
-此文件保留 **PDF 密碼恢復首批**的 Job／Pages 部署步驟。使用者已提供 Job 切換及完成報告，
-Pages 發布與等待／錯誤狀態尚未取得完整證據，F-08 仍進行中。
+此文件保留 **PDF 密碼恢復首批**的 Job／Pages 部署步驟。
+2026-10-19 後續回饋版本已完成本輪 F-08 雲端人工驗收：使用者確認錯誤提示、逐檔三次與高風險呈現，
+並提供新畫面及兩份完成報告，見 [雲端驗收紀錄](milestones/2026-10-19-pdf-feedback-acceptance.json)。
+此結論不改寫首批歷史結果，也不代表所有格式或維護待辦完成。
 
 **目前請依 [PDF 回饋修正部署手冊](deploy-pdf-feedback.md)** 更新：本次還包含逐檔密碼計數的 Cloudflare Worker 改動，
 順序為 Job → Worker → Pages，並從目前正式部署下載設定，保留 `PUBLIC_UPLOADS`、origin、dispatcher、DO／R2 與額度。

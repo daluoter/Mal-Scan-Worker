@@ -8,8 +8,9 @@
 
 ## 目前里程碑
 
-**2026-10-18：PDF 密碼恢復與正式 demo 回饋修正。** 首批程式／本機驗證完成，使用者已提供 Job 切換及兩組原檔／解密子檔 JSON，確認實際解密掃描；Pages 發布及等待／錯誤狀態仍待完整核對。
-本次修正明確的錯誤密碼提示、每個加密檔案各三次補交、紅色高風險呈現，以及 `msrs-v1.2` 的子檔風險逐層回傳；worker 852、backend 233、frontend 51、控制層 25 項通過，另有五項 opt-in skip；PDF 原生 12／12，32 份一般原生報告以最終 manifest 重新核對通過。詳見 [本批紀錄](docs/milestones/2026-10-18-pdf-feedback.json)，正式修正版本尚未上線。
+**2026-10-19：PDF 密碼與風險回饋修正完成本輪雲端人工驗收。** 使用者確認錯誤密碼提示、逐檔三次與父子檔高風險顯示通過；新畫面顯示紅色錯誤訊息及已用 1／剩餘 2。兩份新 JSON 核對到 `msrs-v1.2`、加密 PDF 本檔 4 分／整體 84 分、解密子檔 84 分及完成的靜態掃描，見[雲端驗收紀錄](docs/milestones/2026-10-19-pdf-feedback-acceptance.json)。
+此驗收結合使用者人工確認、畫面與完成報告；逐檔獨立及第三次限制依人工確認，沒有新增自動化雲端測試。最外層 ZIP 完整報告與 Pages deployment ID 未提供，不推定其數值；F-08 在本輪範圍完成。
+本批程式／本機驗證為 worker 852、backend 233、frontend 52、控制層 25 項通過，另有五項 opt-in skip；PDF 原生 12／12，32 份一般原生報告以最終 manifest 重新核對通過，歷史結果保留在 [2026-10-18 紀錄](docs/milestones/2026-10-18-pdf-feedback.json)。
 ZIP 密碼使用一次不扣內層 PDF 額度，仍受全站 execution 限制；本檔分數與含子檔的有效風險分開保留。見 [PDF 密碼流程](docs/pdf-password.md)及 [Job→Worker→Pages 部署手冊](docs/deploy-pdf-feedback.md)。
 [進度清單](docs/project-status.md)逐項追蹤 47 個 ID，包含仍待辦的 DO 清理、長期成本、真實回退及自動病毒庫更新。
 首批 32／32 一般原生案例、12／12 PDF 密碼案例與歷史測試數字保留在 [首批紀錄](docs/milestones/2026-10-18-pdf-password.json)，不代替本次修正驗收。
@@ -31,13 +32,13 @@ ZIP 密碼使用一次不扣內層 PDF 額度，仍受全站 execution 限制；
 | 通用靜態分析 | 檔案型別與 hash、ClamAV、YARA、IOC、去混淆候選與啟發式證據 |
 | 格式分析 | Windows PE、Office OLE／OOXML／RTF、PDF、LNK、支援的 scripts；各格式深度不同 |
 | 遞迴子檔 | ZIP、7z、RAR、TAR、gzip、bzip2，以及支援的文件嵌入物件；保留原檔到子檔的來源樹 |
-| 密碼與續跑 | 支援封存格式與 PDF 的密碼補交、巢狀不同密碼、已完成 stage checkpoint 與累計提取預算；PDF 基礎流程已有正式報告；逐檔計次與風險修正待完整驗收 |
+| 密碼與續跑 | 支援封存格式與 PDF 的密碼補交、巢狀不同密碼、已完成 stage checkpoint 與累計提取預算；PDF 密碼與逐檔計次、風險回饋已完成本輪雲端人工驗收 |
 | 可解釋報告 | 各階段狀態、工具／規則版本、直接與子檔風險來源、部分成果及未完成原因 |
 | 選用動態分析 | 自架串接真實 CAPEv2，將可取得的 process／file／registry／network 等證據補入報告 |
 
 報告將「已分析但未命中」、「工具失敗」、「無規則」、「等待密碼」、「超出預算」與「格式不支援」分開呈現。`complete` 表示該次宣告範圍已完成，沒有命中也不表示保證安全。
 
-加密 Office 解密、ISO 提取、ELF／Mach-O／郵件／APK 的專用深度分析尚未提供；PDF 密碼恢復程式／本機驗證已完成，正式部署狀態見 F-08。RAR 能力取決於可用的外部解壓器；PDF 附件描述不代表附件已提取掃描。完整能力以[支援矩陣](docs/analysis-support.md)及每份報告的 coverage 為準。
+加密 Office 解密、ISO 提取、ELF／Mach-O／郵件／APK 的專用深度分析尚未提供；PDF 密碼恢復與回饋修正已完成本輪雲端人工驗收（F-08）。RAR 能力取決於可用的外部解壓器；PDF 附件描述不代表附件已提取掃描。完整能力以[支援矩陣](docs/analysis-support.md)及每份報告的 coverage 為準。
 
 ## 選擇執行方式
 
@@ -173,4 +174,4 @@ scripts/enable-sandbox.sh
 
 本機已驗證 backend／worker／frontend 測試、真 PostgreSQL 預算與 attempt、真 ZIP／7z 不同密碼恢復、完整容器／S3 checkpoint，以及 Worker 與 Python dispatcher 的 HTTP 串接。測試數量、命令與證據邊界見[驗證紀錄](docs/v2-validation.md)；它們不取代 live provider 或實際帳單驗收。
 
-目前下一步先完成 PDF 四項回饋修正的驗證與 Job／Worker／Pages 正式 smoke，再依序擴充 Office 密碼、PDF token／Base64 弱雜訊對照、文件附件與可量測的效能改善。DO 清理、長期成本、真實雲端回退及自動簽章病毒庫更新持續列為獨立待辦；真實 CAPE 驗收待可用基礎設施。每批都更新[專案進度清單](docs/project-status.md)，各階段排序見[路線圖](docs/roadmap.md)。
+下一批優先處理 Q-06：PDF token 被當成弱 Base64 候選而產生的 4 分雜訊，補齊正常／指標／失敗對照，再接續 F-02 Office 密碼、文件附件與可量測的效能改善。DO 清理、長期成本、真實雲端回退及自動簽章病毒庫更新持續列為獨立待辦；真實 CAPE 驗收待可用基礎設施。每批都更新[專案進度清單](docs/project-status.md)，各階段排序見[路線圖](docs/roadmap.md)。

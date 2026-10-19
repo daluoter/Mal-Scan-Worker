@@ -1,6 +1,6 @@
 # 靜態分析品質基準
 
-更新日期：2026-10-18（Asia/Taipei）。目標是讓偵測結果、分析範圍與子檔案證據可以重現及核對。
+更新日期：2026-10-19（Asia/Taipei）。目標是讓偵測結果、分析範圍與子檔案證據可以重現及核對。
 目前一般基準為 `corpus-v4.json`（32 案、`msrs-v1.2`），PDF 密碼另用 `pdf-password-v2.json`（12 案）；
 新增逐層風險預期。本次 PDF v2 原生 12／12 通過，32 份一般原生報告以最終 v4 manifest 重新核對通過。
 一般原生偵測已執行；初次 manifest 的 per-case 政策斷言仍為 1.1，造成彙總失敗。
@@ -24,8 +24,10 @@ Ruff、strict mypy、前端 typecheck／lint／cloud-demo build 通過。
 worker 839 passed／3 skipped、
 backend 203 passed／1 skipped、frontend 39 passed；skip 均為 PostgreSQL opt-in。加密支援負面檢查 38 案與
 最後 AES-128 原生重跑 1／1 亦通過，證據見 [本批紀錄](milestones/2026-10-18-pdf-password.json)。
-PDF 密碼首批已取得使用者提供的 Job 切換與兩組原檔／解密子檔報告，但 Pages 發布及等待／錯誤狀態尚未完整核對。
-本次四項回饋修正完成本機驗證，尚待 [Job→Worker→Pages 部署](deploy-pdf-feedback.md)；
+PDF 密碼首批已取得使用者提供的 Job 切換與兩組原檔／解密子檔報告。
+2026-10-19 四項回饋修正已完成本輪雲端人工驗收：新畫面、兩份完成 JSON 與使用者確認共同支持錯誤提示、逐檔三次及高風險呈現通過。
+逐檔獨立及第三次限制依人工確認，沒有新增自動化雲端測試；最外層 ZIP 完整報告及 Pages deployment ID 未提供。
+詳見 [本輪雲端驗收紀錄](milestones/2026-10-19-pdf-feedback-acceptance.json)，其他部署可依 [Job→Worker→Pages 手冊](deploy-pdf-feedback.md)；
 既有雲端驗收見 [P0 紀錄](milestones/2026-10-15-p0-acceptance.md)。
 
 ## 版本化樣本與驗收
@@ -151,7 +153,10 @@ PDF／ZIP 等祖先有效風險的下限；例如子檔 84 分時，包含它的
 
 高風險以紅色與文字來源提醒呈現；歷史報告由前端根據可核對身份的可見子檔提示，原始 JSON 不改寫。
 此批固定 action PDF 的 84 分來自惰性 JavaScript／Launch／自動開啟結構，ClamAV／YARA 沒有命中，
-不是已執行行為或已確認惡意。正式新版本仍須依 [部署驗收](deploy-pdf-feedback.md)核對。
+不是已執行行為或已確認惡意。2026-10-19 新完成報告已核對直接上傳 PDF 與巢狀加密 PDF 子樹：
+本檔分數保留為 4，有效風險及解密子檔均為 84／高風險，靜態範圍完成；兩個 PDF 節點各已用 2／剩餘 1。
+父子檔的紅色呈現及逐檔獨立／三次限制另由使用者人工確認，不能從完成 JSON 反推每一步畫面或第三次拒絕。
+外層 ZIP 完整報告沒有提供，不能推定其總分。
 
 舊報告本檔 4 分來自弱 Base64 去混淆候選：一般 PDF token 的片段被解碼為
 `/OpenActiok=`、`/JavaScrips=` 等字串。此批**沒有修改去混淆計分**，保留原始 4 分以供稽核；
@@ -196,8 +201,9 @@ ClamAV 報告另外提供 `engine_version`、`database_version` 與 `database_ti
 
 ## 後續擴充
 
-前兩批品質變更已完成本機驗證與三份正式 demo 報告核對；PDF 密碼恢復的本機回歸、
-正式 Job／Pages 更新及 smoke 分開記錄。病毒庫新鮮度、DO 清理、長期成本與真實回退仍獨立追蹤。
-後續增加具有來源與預期的 LNK、更多 Office／PDF 變種、密碼與附件，以及更大正常對照集。
+前兩批品質變更已完成本機驗證與三份正式 demo 報告核對；PDF 密碼與回饋修正的本機回歸、
+部署結果與 2026-10-19 雲端人工驗收分開記錄。病毒庫新鮮度、DO 清理、長期成本與真實回退仍獨立追蹤；新增工作的保留期尚未驗證。
+下一批優先補 Q-06 的正常 PDF token／Base64 對照並處理本檔 4 分弱雜訊，再接續 F-02 Office 密碼。
+後續增加具有來源與預期的 LNK、更多 Office／PDF 變種、文件附件，以及更大正常對照集。
 增加規則或 parser 前，都應同時增加正常對照與失敗案例。
 真實惡意樣本偵測率、所有格式相容性與動態沙箱仍需要各自的驗收，不包含在本批合成案例的結論內。

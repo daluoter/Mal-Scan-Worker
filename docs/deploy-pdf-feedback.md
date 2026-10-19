@@ -4,7 +4,10 @@
 紅色高風險呈現，以及 `msrs-v1.2` 的子檔風險逐層回傳。
 進度見 [F-08／F-09／Q-08／UX-06／UX-07](project-status.md)，行為與限制見 [PDF 密碼說明](pdf-password.md)。
 四項修正已完成程式／本機驗證，結果見 [本批紀錄](milestones/2026-10-18-pdf-feedback.json)。
-正式部署與 smoke 尚未完成，不能用先前已成功解密的 JSON 代替。
+2026-10-19 已完成本輪雲端人工驗收：使用者確認錯誤提示、逐檔三次及父子檔高風險呈現，
+另核對新畫面與兩份 `msrs-v1.2` 完成報告，見 [雲端驗收紀錄](milestones/2026-10-19-pdf-feedback-acceptance.json)。
+逐檔獨立及第三次限制依人工確認，沒有新增自動化雲端測試；最外層 ZIP 完整報告與 Pages deployment ID 未提供。
+以下保留供新部署與日後更新使用；已完成本輪部署者不需為了補齊紀錄而重建 Job 或重送上傳。
 
 順序是 **Cloud Run Job → Cloudflare Worker → Pages → 新上傳驗收**。
 Job 先支援新的逐檔次數契約，再更新控制層與前端。這次需更新 Worker，與首批只改 Job／Pages 不同。
@@ -281,6 +284,8 @@ PY_FIXTURES
 保存新 root／子檔 ID、映像 digest、Worker／Pages Version ID，以及等待、錯誤、完成 JSON／畫面。
 真實文件密碼／capability 不放在截圖、檔名或公開證據；本頁公開 fixture 密碼只供合成測試檔使用。
 四份舊完成 JSON 證明解密與掃描，不能單獨證明錯誤提示、逐檔次數或 Pages 已發布。
+本輪已另取得新畫面、兩份完成 JSON 與使用者人工確認，足以完成上述範圍驗收；
+Pages deployment ID 未提供，因此不填造版本 ID，也不把人工確認記成自動化雲端測試。
 高風險 action 為惰性測試結構，不是 ClamAV／YARA 命中或真實執行的惡意行為。
 新增工作到期後另核對 R2 指定前綴與撤權；不因此關閉 DO 清理或長期成本待辦。
 
