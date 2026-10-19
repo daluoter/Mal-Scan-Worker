@@ -96,3 +96,12 @@ keyless-dispatcher-service.flags.json
 .malscan-v2-acceptance/
 .cloud-acceptance/
 demo-cloud-evidence*.json
+
+# Private Cloudflare and operator deployment output
+.dev.vars
+.dev.vars.*
+!.dev.vars.example
+.malscan-v2-deploy/
+wrangler-feedback*.json
+deployments-before.txt
+deployments-after.txt

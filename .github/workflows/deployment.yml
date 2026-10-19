@@ -39,6 +39,9 @@ jobs:
       - name: Test checkpointed maintenance, inventory, and retention tools
         run: python3 -m unittest discover -s deployment/cloud-run -p 'test_*.py' -v
 
+      - name: Test private source-only Worker configuration helper
+        run: python3 -m unittest discover -s deployment/cloudflare -p 'test_*.py' -v
+
       - name: Test resumable cloud acceptance HTTP contract
         working-directory: deployment/acceptance
         run: python3 -m unittest -v test_cloud_acceptance.py

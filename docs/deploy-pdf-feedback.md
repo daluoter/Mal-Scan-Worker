@@ -1,6 +1,6 @@
 # 部署 PDF 密碼與風險回饋修正
 
-更新日期：2026-10-18（Asia/Taipei）。此批修正錯誤密碼提示、**每個加密檔案獨立三次補交**、
+更新日期：2026-10-19（Asia/Taipei）。此批修正錯誤密碼提示、**每個加密檔案獨立三次補交**、
 紅色高風險呈現，以及 `msrs-v1.2` 的子檔風險逐層回傳。
 進度見 [F-08／F-09／Q-08／UX-06／UX-07](project-status.md)，行為與限制見 [PDF 密碼說明](pdf-password.md)。
 四項修正已完成程式／本機驗證，結果見 [本批紀錄](milestones/2026-10-18-pdf-feedback.json)。
@@ -9,11 +9,19 @@
 順序是 **Cloud Run Job → Cloudflare Worker → Pages → 新上傳驗收**。
 Job 先支援新的逐檔次數契約，再更新控制層與前端。這次需更新 Worker，與首批只改 Job／Pages 不同。
 不建立 IAM、bucket 或 secret，不更換 HMAC；dispatcher 不需更新。
+若 Job 已顯示 `phase=promoted`，不重跑第 2–3 節；第 5 節的設定產生失敗也不需要重建或再切換 Job。
 舊 root 共用總數保留為歷史值，首次升級後逐檔計數從零開始一次；既有日／月 execution 用量保留。
 
 以下在既有已登入 GCP／Cloudflare 的 Cloud Shell 分段操作。可以斷線後使用保存路徑接續；
 每段失敗時先保留輸出並查詢，不盲目重送建置、上傳或密碼。
 部署過程不需把 API Token、Secret 或 capability 貼到聊天。
+
+本手冊保留公開 demo 網址與資源別名；實際帳戶 ID 由本機登入／設定選取。
+Account ID、專案與 bucket 名稱不是登入憑證，但仍是部署識別資訊；既有文件與 Git 歷史可能包含這些識別值，
+本次移除手冊中的值不代表已重寫歷史。下載設定、OAuth 設定檔、原始終端輸出、真實文件密碼、
+R2 keys、HMAC、capability、原始報告與帳單都保留在本機私人目錄，不加入 Git。
+`quality-pdf-only`／`quality-archive-only` 只用於公開合成 fixture，可公開，不是正式憑證。
+提交前審閱 `git diff --cached` 並掃描待發布內容；忽略規則與掃描都不能代替人工確認。
 
 ## 1. 取得本批發布版
 
@@ -111,7 +119,9 @@ PY_STATE
 )
 ```
 
-若未登入，在同一目錄執行 `npx --no-install wrangler login --device --no-browser` 完成授權，再執行：
+若未登入，在同一目錄執行 `npx --no-install wrangler login --device --no-browser` 完成授權。
+單一帳戶由 Wrangler 使用既有 OAuth 登入選取；多帳戶時，在自己的 Cloud Shell 設定 `CLOUDFLARE_ACCOUNT_ID`，
+不把實際值寫入手冊、程式或 commit。然後執行：
 
 ```bash
 (
@@ -120,7 +130,6 @@ PY_STATE
   umask 077
   V2_PDF_FIX_SOURCE=$(cat "$HOME/malscan-v2-pdf-feedback-source-path.txt")
   V2_PDF_FIX_WRANGLER="$V2_PDF_FIX_SOURCE/deployment/cloudflare/node_modules/.bin/wrangler"
-  export CLOUDFLARE_ACCOUNT_ID=4caa88de736dafcb865ded345a359776
   V2_PDF_FIX_BACKUP=$(mktemp -d "$HOME/malscan-v2-pdf-feedback-worker.XXXXXX")
   cd "$V2_PDF_FIX_BACKUP"
   "$V2_PDF_FIX_WRANGLER" init \
@@ -145,66 +154,25 @@ PY_STATE
   umask 077
   V2_PDF_FIX_SOURCE=$(cat "$HOME/malscan-v2-pdf-feedback-source-path.txt")
   V2_PDF_FIX_BACKUP=$(cat "$HOME/malscan-v2-pdf-feedback-worker-backup-path.txt")
-  python3 - "$V2_PDF_FIX_SOURCE" "$V2_PDF_FIX_BACKUP" <<'PY_CONFIG'
-import copy
-import json
-import sys
-from pathlib import Path
-from urllib.parse import urlsplit
-source, backup = map(Path, sys.argv[1:])
-original = backup / 'malscan-v2-demo-control/wrangler.jsonc'
-config = json.loads(original.read_text())
-assert config['name'] == 'malscan-v2-demo-control'
-values = config['vars']
-expected = {
-    'ALLOWED_ORIGIN': 'https://malscan-v2-demo.pages.dev',
-    'PUBLIC_UPLOADS': 'true',
-    'DAILY_JOB_LIMIT': '10',
-    'DAILY_EXECUTION_LIMIT': '20',
-    'MONTHLY_EXECUTION_LIMIT': '40',
-    'RETENTION_SECONDS': '86400',
-    'GCP_PROJECT': 'malscan-v2-poc',
-    'GCP_REGION': 'us-central1',
-    'GCP_JOB': 'malscan-v2-static-demo',
-}
-for key, expected_value in expected.items():
-    assert str(values.get(key)).lower() == expected_value, f'Review current production setting: {key}'
-url = urlsplit(values.get('GCP_DISPATCH_URL', ''))
-assert url.scheme == 'https' and url.hostname and url.hostname.endswith('.run.app')
-assert not url.username and not url.password and not url.query and not url.fragment
-assert url.path in ('', '/') and 'REPLACE' not in url.netloc
-assert 'CONTROL_HMAC_KEY' not in values, 'Secret must not be stored as a plain variable'
-buckets = {item['binding']: item['bucket_name'] for item in config['r2_buckets']}
-assert buckets == {'UPLOADS': 'malscan-v2-upload-poc', 'RESULTS': 'malscan-v2-analysis-results'}
-bindings = config['durable_objects']['bindings']
-assert len(bindings) == 1 and bindings[0]['name'] == 'CONTROL'
-assert bindings[0]['class_name'] == 'DemoControl'
-assert bindings[0].get('script_name', config['name']) == config['name']
-assert [item['tag'] for item in config.get('migrations', [])] == ['v1']
-assert config.get('workers_dev') is True
-assert config.get('compatibility_date'), 'Missing production compatibility date'
-updated = copy.deepcopy(config)
-updated['main'] = str(source / 'deployment/cloudflare/src/worker.mjs')
-assert Path(updated['main']).is_file()
-assert {key for key in updated if updated[key] != config.get(key)} == {'main'}
-target = backup / 'wrangler-feedback.json'
-target.write_text(json.dumps(updated, indent=2) + '\n')
-target.chmod(0o600)
-print(json.dumps({'config': str(target), 'preserved_production_vars': expected,
-                  'GCP_DISPATCH_URL': values['GCP_DISPATCH_URL'],
-                  'r2_buckets': buckets, 'durable_object': 'CONTROL / DemoControl',
-                  'only_changed_setting': 'main'}, indent=2))
-PY_CONFIG
-  export CLOUDFLARE_ACCOUNT_ID=4caa88de736dafcb865ded345a359776
+  python3 "$V2_PDF_FIX_SOURCE/deployment/cloudflare/prepare-feedback-config.py" \
+    --source "$V2_PDF_FIX_SOURCE/deployment/cloudflare/src/worker.mjs" \
+    --worker-name malscan-v2-demo-control \
+    --downloaded-config "$V2_PDF_FIX_BACKUP/malscan-v2-demo-control/wrangler.jsonc" \
+    --output "$V2_PDF_FIX_BACKUP/wrangler-feedback.json"
   "$V2_PDF_FIX_SOURCE/deployment/cloudflare/node_modules/.bin/wrangler" deploy \
     --config "$V2_PDF_FIX_BACKUP/wrangler-feedback.json" --keep-vars --dry-run \
     --outdir "$V2_PDF_FIX_BACKUP/dry-run"
 )
 ```
 
-檢查輸出的正式 origin、`PUBLIC_UPLOADS=true`、dispatcher、三種額度、兩個 bucket 與 DO 均符合現有部署。
-若實際正式設定與表內不同，先核對原因，保留目前設定；不要為了讓檢查通過直接放寬限額或覆蓋正式 vars。
-下載檔的既有 migration tag 保持 `v1`，不新增 migration、重建 DO 或刪除資料。
+工具只輸出檢查結果與 `main` 變更，不輸出正式 vars、帳戶或 bucket 值；設定檔維持在私人備份目錄，權限為 `0600`。
+檢查 `PUBLIC_UPLOADS=true`、HTTPS origin／dispatcher、三種額度、兩個 R2 binding 與本機 DO binding 符合要求。
+來源是已下載的正式設定；除 `main` 外所有欄位完全相同，不為了通過檢查放寬限額或覆蓋正式 vars。
+
+Wrangler 的 `init --from-dash` 可能省略 `migrations`，也可能重建其內容；因此不要求 tag 必須等於 `v1`。
+工具原樣保留 `migrations` 與 `exports`，包含缺省／空陣列；不補 tag、不新增 `exports`、不重建 DO 或刪除資料。
+下載後的「缺少 live exports」警告是提示，不能據此自行改變既有 DO 儲存宣告。
+若其他檢查失敗，工具會以可辨識的錯誤訊息停止，不輸出可能含憑證的設定值。
 確認 dry-run 成功後才執行：
 
 ```bash
@@ -213,7 +181,6 @@ PY_CONFIG
   set -o pipefail
   V2_PDF_FIX_SOURCE=$(cat "$HOME/malscan-v2-pdf-feedback-source-path.txt")
   V2_PDF_FIX_BACKUP=$(cat "$HOME/malscan-v2-pdf-feedback-worker-backup-path.txt")
-  export CLOUDFLARE_ACCOUNT_ID=4caa88de736dafcb865ded345a359776
   "$V2_PDF_FIX_SOURCE/deployment/cloudflare/node_modules/.bin/wrangler" deploy \
     --config "$V2_PDF_FIX_BACKUP/wrangler-feedback.json" --keep-vars
   "$V2_PDF_FIX_SOURCE/deployment/cloudflare/node_modules/.bin/wrangler" deployments list \
@@ -235,7 +202,6 @@ PY_CONFIG
   VITE_API_DEPLOYMENT=cloud-demo \
   VITE_API_BASE_URL=https://malscan-v2-demo-control.daluoter.workers.dev \
   npm run build
-  export CLOUDFLARE_ACCOUNT_ID=4caa88de736dafcb865ded345a359776
   ../deployment/cloudflare/node_modules/.bin/wrangler pages deployment list \
     --project-name=malscan-v2-demo
   ../deployment/cloudflare/node_modules/.bin/wrangler pages deploy dist \
