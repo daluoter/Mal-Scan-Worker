@@ -2,6 +2,7 @@
 
 本批只更新 Cloud Run 分析 Job 的映像；使用現有 Worker、dispatcher、Pages、bucket、IAM 與 secret。
 本機驗證與雲端部署分開記錄，舊報告不會重新評分。使用原本已登入 Google Cloud 的 Cloud Shell。
+2026-10-19 已核對使用者提供的 Job 切換與三案報告，見[雲端驗收](milestones/2026-10-19-base64-cloud-acceptance.json)；以下供其他部署或重現使用。
 日／月額度與資料保留政策不變；Cloud Build、映像與測試仍可能產生用量。
 
 ## 1. 取得來源，保存重連路徑

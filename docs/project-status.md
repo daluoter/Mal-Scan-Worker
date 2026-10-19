@@ -12,8 +12,11 @@
 本批 Q-06 PDF／Base64 雜訊修正已完成程式與本機驗證：一般 v5 原生 40／40、PDF 密碼 v2 12／12，
 worker 930 passed／4 skipped，另以既有工具 PATH 補驗 7z 一案通過，剩三項 PostgreSQL opt-in 未執行。
 Ruff 與 strict mypy 通過；沒有重新執行未變更的 frontend／backend 套件，不沿用舊數字充作本批結果。
-弱候選保留為零分觀察；有效解碼繼續分析，高風險 PDF 對照仍為 84。正式 Job 部署與新工作 smoke 尚未執行，
-見[本批證據](milestones/2026-10-19-base64-quality.json)及 [Job 更新手冊](deploy-base64-quality.md)。
+弱候選保留為零分觀察；有效解碼繼續分析，高風險 PDF 對照仍為 84。使用者提供的正式 Job 建置／切換輸出，
+與三份新報告已核對：0／29／84 分、靜態皆 complete，版本與固定輸入身份相符。
+這是使用者提供的雲端 smoke 證據，不是新增 agent-run 自動化 provider 測試；每個 execution 的映像未獨立查詢。
+見[本機證據](milestones/2026-10-19-base64-quality.json)、[雲端驗收](milestones/2026-10-19-base64-cloud-acceptance.json)
+及 [Job 更新手冊](deploy-base64-quality.md)。
 Q-06 整體仍為進行中；本批完成不關閉下列維護待辦。
 
 目前 P1 兩批品質改進已通過本機驗證。使用者貼回的映像切換與 Pages 發布結果，以及三份正式 demo
@@ -30,7 +33,7 @@ DO 清理、真實回退、自動病毒庫與長期成本仍待辦；新工作�
 worker 852、backend 233、frontend 52、控制層 25 項通過；四項 PostgreSQL opt-in 與一項既有完整 Python fixture 跳過。
 PDF 原生 12／12 通過；一般 32 份原生報告以修正後 manifest 重新核對通過，沒有重跑偵測器，
 初次 manifest 的舊政策斷言及失敗彙總保留，詳見 [本批紀錄](milestones/2026-10-18-pdf-feedback.json)。
-本表共 47 個固定 ID，新增範圍時另立項，
+本表共 48 個固定 ID，新增 P0-19 追蹤使用者回報的安全通知，
 每完成一項即更新其證據與剩餘條件，並在該批交付訊息明列。
 
 ## 清理、回退與病毒庫更新是什麼
@@ -69,7 +72,8 @@ Durable Object（DO）像工作登記簿，另存工作、票證與派送狀態�
 | P0-15 | 待辦 | Cloudflare 實際用量與費用仍待獨立核對 | 核對 Workers／DO／R2／Pages 用量及可用額度，連同 GCP 判斷成本 |
 | P0-16 | 完成 | 共用核心、前端、控制層與 dispatcher 的持續整合已建立並執行 | 新改動持續通過相關 CI；不等於正式 provider 驗收 |
 | P0-17 | 待辦 | 仍有 advisory 的開發／部署相依工具需持續審查 | 依影響做相容升級，保存 audit 差異與回歸結果，不直接強制升級所有套件 |
-| P0-18 | 待辦 | 第二批三筆正式 demo 工作、前後兩批 PDF 密碼工作與本次兩個新 root 的到期清理尚未核對 | 每批／每個 root 到期後分別檢查指定 R2 前綴與存取撤回；不能沿用四筆早期驗收的結果，DO 清理仍另列 P0-06 |
+| P0-18 | 待辦 | 第二批三筆正式 demo 工作、前後兩批 PDF 密碼工作與前次兩個 PDF root 與本次三個 Base64 smoke root 的到期清理尚未核對 | 每批／每個 root 到期後分別檢查指定 R2 前綴與存取撤回；不能沿用四筆早期驗收的結果，DO 清理仍另列 P0-06 |
+| P0-19 | 進行中 | **GitGuardian 通知核對**：已將 `95396c1`／PDF acceptance 第 172 行精確定位為合成 fixture profile，屬非憑證資料誤報，見[核對紀錄](security-notes.md) | 程式碼分類完成；GitGuardian 平台單筆 False positive 標記尚未操作。其他通知仍逐筆審查；真實憑證另須撤銷／輪替，不能以 Gitleaks 零發現取代核對 |
 
 ## P1：靜態證據、規則與品質
 
@@ -80,7 +84,7 @@ Durable Object（DO）像工作登記簿，另存工作、票證與派送狀態�
 | Q-03 | 完成 | 已量測的網址／Java API／正常 OOXML 風險誤報調整；context、原始 IOC 與風險偵測分開 | 規則 `1.1.0`、評分 `msrs-v1.1`；一般觀察保留證據而不單獨加分，其他誤報見 Q-06 |
 | Q-04 | 完成 | 兩批品質變更的 worker／Pages 部署與三份正式 demo 報告核對 | 使用者部署輸出與報告證據；這三個新工作的到期清理、帳單不是此項結論 |
 | Q-05 | 進行中 | YARA 來源、分類、逐檔雜湊、版本及限制已有 manifest | 規則授權仍為 `NOASSERTION`；擴充前補齊可確認的授權、來源及更新／停用政策 |
-| Q-06 | 進行中 | **更多格式品質與雜訊改善**：PDF 名稱／弱 Base64 批次完成程式與本機驗證，v5 40／40＋PDF v2 12／12；觀察保留來源而不自動加分 | 本批 Job 部署及新工作 smoke 待核對，見[手冊](deploy-base64-quality.md)；其他格式與真實來源樣本仍待擴充，合成對照不能估計真實準確率 |
+| Q-06 | 進行中 | **更多格式品質與雜訊改善**：PDF 名稱／弱 Base64 批次本機 40／40＋PDF v2 12／12；Job 切換及三份雲端報告 0／29／84 分已核對 | [本輪雲端驗收](milestones/2026-10-19-base64-cloud-acceptance.json)限三個固定案例；其他格式與真實來源樣本仍待擴充，合成對照不能估計真實準確率；新工作的保留期另列 P0-18 |
 | Q-07 | 待辦 | 更大 corpus 的時間／記憶體與資料回退比較 | 固定輸入、工具／規則版本與執行條件，核對 coverage、證據及性能變化 |
 | Q-08 | 完成（限定案例） | **解密子檔風險逐層回傳**：`msrs-v1.2` 保留本檔分數，已驗證高風險子孫作為有效風險下限 | 本機 v4／PDF v2 與回歸通過；[雲端人工驗收](milestones/2026-10-19-pdf-feedback-acceptance.json)的直接根／內層 PDF 子樹皆本檔 4、整體 84，外層 ZIP 顯示依使用者聲明；限所列案例 |
 

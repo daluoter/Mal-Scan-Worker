@@ -72,7 +72,8 @@ Q-06 本批將缺乏佐證的 Base64 解碼保留為不加分觀察，PDF 名稱
 `observed_techniques` 包含觀察。可讀文字、已知檔案標頭或 decoder-call 脈絡仍保留分析，
 包括缺 padding／非標準 pad bits 的有效內容；這些佐證不等於執行或惡意證明。
 候選去重與優先排序受既有數量、大小及協作時間限制約束，未處理完的內容保留 partial。
-政策 `msrs-v1.2` 與 YARA 規則未改版；舊報告維持原分數，新版 Job 部署及 smoke 尚待另行核對。
+政策 `msrs-v1.2` 與 YARA 規則未改版；舊報告維持原分數。本批 Job 切換與三案新報告已核對，
+正常 PDF 名稱 0、編碼網址 29、active PDF 84，詳見[雲端 smoke 紀錄](milestones/2026-10-19-base64-cloud-acceptance.json)。
 詳見[品質基準](static-quality.md)與 [Job 更新手冊](deploy-base64-quality.md)。
 
 

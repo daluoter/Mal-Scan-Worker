@@ -9,13 +9,13 @@
 ## 目前里程碑
 
 **2026-10-19：Q-06 PDF／Base64 弱候選雜訊修正已完成程式與本機驗證。** 一般 PDF 名稱不再僅因可解碼就加 4 分，候選內容與來源仍保留於 JSON；真正編碼網址、腳本、已知檔案標頭及 decoder-call 脈絡繼續分析。一般品質基準 v5 為 40／40 原生案例，PDF 密碼 12／12；worker 930 項通過，另補驗 7z 一案通過，三項 PostgreSQL opt-in 未執行。詳見[本批紀錄](docs/milestones/2026-10-19-base64-quality.json)。
-本批尚未更新正式 demo；只需依 [Job 更新手冊](docs/deploy-base64-quality.md)更新分析映像，並以新工作驗證，舊報告不改寫。評分政策與 YARA 規則版本維持原值；Q-06 其他格式與誤報工作仍持續追蹤。
+本批正式 Job 的建置／切換輸出與三份新報告已核對：正常 PDF 名稱 0 分、編碼網址 29 分、PDF action 84 分，靜態分析均完成，見[雲端 smoke 紀錄](docs/milestones/2026-10-19-base64-cloud-acceptance.json)。這是使用者提供的部署與報告證據；未獨立查詢 GCP 執行映像。舊報告不改寫，其他部署可依 [Job 更新手冊](docs/deploy-base64-quality.md)。Q-06 其他格式與誤報工作持續追蹤。
 
 **2026-10-19：PDF 密碼與風險回饋修正完成本輪雲端人工驗收。** 使用者確認錯誤密碼提示、逐檔三次與父子檔高風險顯示通過；新畫面顯示紅色錯誤訊息及已用 1／剩餘 2。兩份新 JSON 核對到 `msrs-v1.2`、加密 PDF 本檔 4 分／整體 84 分、解密子檔 84 分及完成的靜態掃描，見[雲端驗收紀錄](docs/milestones/2026-10-19-pdf-feedback-acceptance.json)。
 此驗收結合使用者人工確認、畫面與完成報告；逐檔獨立及第三次限制依人工確認，沒有新增自動化雲端測試。最外層 ZIP 完整報告與 Pages deployment ID 未提供，不推定其數值；F-08 在本輪範圍完成。
 本批程式／本機驗證為 worker 852、backend 233、frontend 52、控制層 25 項通過，另有五項 opt-in skip；PDF 原生 12／12，32 份一般原生報告以最終 manifest 重新核對通過，歷史結果保留在 [2026-10-18 紀錄](docs/milestones/2026-10-18-pdf-feedback.json)。
 ZIP 密碼使用一次不扣內層 PDF 額度，仍受全站 execution 限制；本檔分數與含子檔的有效風險分開保留。見 [PDF 密碼流程](docs/pdf-password.md)及 [Job→Worker→Pages 部署手冊](docs/deploy-pdf-feedback.md)。
-[進度清單](docs/project-status.md)逐項追蹤 47 個 ID，包含仍待辦的 DO 清理、長期成本、真實回退及自動病毒庫更新。
+[進度清單](docs/project-status.md)逐項追蹤 48 個 ID，包含仍待辦的 DO 清理、長期成本、真實回退及自動病毒庫更新。
 首批 32／32 一般原生案例、12／12 PDF 密碼案例與歷史測試數字保留在 [首批紀錄](docs/milestones/2026-10-18-pdf-password.json)，不代替本次修正驗收。
 
 **2026-10-17：P1 靜態品質第二批已驗證**：品質 corpus 擴充為 32 個案例／28 個固定 fixture，新增 PE、Office、PDF 結構與失敗對照；32／32 真實引擎案例通過。兩批變更的 worker／Pages 部署結果與三份正式 demo 報告已核對；PDF 密碼恢復為下一個獨立批次。驗收範圍見[靜態品質基準](docs/static-quality.md)，所有完成／待辦項目及條件見[進度清單](docs/project-status.md)。
@@ -177,4 +177,4 @@ scripts/enable-sandbox.sh
 
 本機已驗證 backend／worker／frontend 測試、真 PostgreSQL 預算與 attempt、真 ZIP／7z 不同密碼恢復、完整容器／S3 checkpoint，以及 Worker 與 Python dispatcher 的 HTTP 串接。測試數量、命令與證據邊界見[驗證紀錄](docs/v2-validation.md)；它們不取代 live provider 或實際帳單驗收。
 
-Q-06 的 PDF／Base64 弱候選批次已完成程式與本機驗證；先依新手冊部署並核對小型 smoke，再接續 F-02 Office 密碼、文件附件與可量測的效能改善。DO 清理、長期成本、真實雲端回退及自動簽章病毒庫更新持續列為獨立待辦；真實 CAPE 驗收待可用基礎設施。每批都更新[專案進度清單](docs/project-status.md)，各階段排序見[路線圖](docs/roadmap.md)。
+Q-06 的 PDF／Base64 弱候選批次已完成本機與三案雲端 smoke 核對；P0-19 本筆安全通知已定位為非憑證測試資料誤報，平台單筆結案另追蹤；接續 F-02 Office 密碼、文件附件與可量測的效能改善。DO 清理、長期成本、真實雲端回退及自動簽章病毒庫更新持續列為獨立待辦；真實 CAPE 驗收待可用基礎設施。每批都更新[專案進度清單](docs/project-status.md)，各階段排序見[路線圖](docs/roadmap.md)。

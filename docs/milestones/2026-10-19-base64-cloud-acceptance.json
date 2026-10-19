@@ -1,0 +1,178 @@
+{
+  "schema_version": 1,
+  "milestone": "Q-06 weak Base64 cloud smoke acceptance",
+  "recorded_date": "2026-10-19",
+  "recorded_timezone": "Asia/Taipei",
+  "acceptance_status": "passed_for_three_declared_cases",
+  "overall_checklist_id": "Q-06",
+  "overall_checklist_status": "in_progress",
+  "evidence_basis": [
+    "User supplied Cloud Shell source, successful Cloud Build controls and Job promotion output",
+    "User explicitly confirms all three smoke cases pass",
+    "Three new complete reports passed the repository corpus-v5 validator; source offsets and candidate bytes independently checked"
+  ],
+  "agent_executed_cloud_tests": false,
+  "remote_provider_api_independently_queried": false,
+  "raw_user_reports_republished": false,
+  "raw_cloud_shell_transcript_republished": false,
+  "release_source_commit": "f1620da7c3cb764eac0501de2304a2a4d17fbb7d",
+  "deployment": {
+    "reported_phase": "promoted",
+    "build_id": "2df432d9-bea3-4548-8de9-1a23bd4ed8cf",
+    "build_status": "SUCCESS",
+    "candidate_image_digest": "sha256:69fe7ceb96249e126c4c9741b2cf0b20a9fc2e584648adfec7227e3056a19aa4",
+    "previous_image_digest": "sha256:861b6ffdb13f8fd0b2a8fd0443c7bd9853fef37dadb552fcb65d43d43fcc3e20",
+    "controls_success": true,
+    "signed_database_metadata_verified_in_supplied_output": true,
+    "clamav_version": "ClamAV 1.4.3/28158/Mon Oct 19 06:26:01 2026",
+    "daily_database_version": 28158,
+    "daily_database_signature_verified": true,
+    "automatic_database_update_enabled": false,
+    "per_execution_image_digest_independently_verified": false
+  },
+  "versions": {
+    "report_schema": "mswr-report-v3",
+    "analysis_schema": "mswr-analysis-v1",
+    "policy": "msrs-v1.2",
+    "yara_tool": "4.5.4",
+    "yara_ruleset": "1.1.0",
+    "yara_rules_sha256": "52cc7df2f9732941bce0f079bb70b36f01f04008b0a458398ef3ee58679a7dcc",
+    "base64_assessment": "base64-evidence-v1"
+  },
+  "cases": [
+    {
+      "case": "pdf-name-dictionary",
+      "raw_document_sha256": "82d46140fe1b791ff78c244665b989712cf6245141cf83d44f4e851c426cde09",
+      "fixture_sha256": "530808fae789a8e9206614a4331f6a8e4f55bd11971840e234731fd7b8cfe4f9",
+      "fixture_bytes": 422,
+      "passed": true,
+      "score": 0,
+      "risk_level": "clean",
+      "verdict": "clean",
+      "job_status": "done",
+      "report_complete": true,
+      "static_status": "complete",
+      "artifact_count": 1,
+      "pending_descendants": 0,
+      "requires_reconciliation": false,
+      "policy_version": "msrs-v1.2",
+      "base64_candidate_count": 4,
+      "score_eligible_candidates": 0,
+      "unscored_observations": 4,
+      "source_offsets_and_decoded_bytes_verified": true,
+      "techniques_found": [],
+      "observed_techniques": [
+        "base64"
+      ],
+      "validator_errors": []
+    },
+    {
+      "case": "pdf-encoded-url-string",
+      "raw_document_sha256": "a5d7caceb72332dca20a0265e43e19916fb76998fdb04ce58ca11150757c91c0",
+      "fixture_sha256": "c7ec83deadcd03974e7e3f90405638ac80456ae3be346d713d75e2118bf14a9b",
+      "fixture_bytes": 405,
+      "passed": true,
+      "score": 29,
+      "risk_level": "low",
+      "verdict": "suspicious",
+      "job_status": "done",
+      "report_complete": true,
+      "static_status": "complete",
+      "artifact_count": 1,
+      "pending_descendants": 0,
+      "requires_reconciliation": false,
+      "policy_version": "msrs-v1.2",
+      "base64_candidate_count": 2,
+      "score_eligible_candidates": 1,
+      "unscored_observations": 1,
+      "source_offsets_and_decoded_bytes_verified": true,
+      "techniques_found": [
+        "base64"
+      ],
+      "observed_techniques": [
+        "base64"
+      ],
+      "validator_errors": []
+    },
+    {
+      "case": "pdf-active-actions",
+      "raw_document_sha256": "c286fdad7ef0e420ba24d0bb017cd8cc90832fd110a7d41b6be653d0bec46820",
+      "fixture_sha256": "a4e757baf0605cdd63fe30fa27c00869e03a2797ba1380f44650c5b600accff2",
+      "fixture_bytes": 578,
+      "passed": true,
+      "score": 84,
+      "risk_level": "high",
+      "verdict": "suspicious",
+      "job_status": "done",
+      "report_complete": true,
+      "static_status": "complete",
+      "artifact_count": 1,
+      "pending_descendants": 0,
+      "requires_reconciliation": false,
+      "policy_version": "msrs-v1.2",
+      "base64_candidate_count": 2,
+      "score_eligible_candidates": 0,
+      "unscored_observations": 2,
+      "source_offsets_and_decoded_bytes_verified": true,
+      "techniques_found": [],
+      "observed_techniques": [
+        "base64"
+      ],
+      "validator_errors": []
+    }
+  ],
+  "url_control": {
+    "decoded_url_retained": "https://quality.invalid/inert",
+    "yara_points": 25,
+    "base64_technique_points": 4,
+    "score": 29
+  },
+  "active_pdf_control": {
+    "score": 84,
+    "risk_level": "high",
+    "verdict": "suspicious",
+    "expected_structural_evidence": [
+      "Launch action",
+      "embedded JavaScript",
+      "automatic open action"
+    ],
+    "clamav_infected": false,
+    "yara_hits": [],
+    "malicious_gate_open": false
+  },
+  "limits": [
+    "These are user-supplied production reports and deployment output, not agent-run cloud tests or independent GCP management API reads.",
+    "Reports do not contain a signed source/image attestation or retention expiry; image promotion evidence is supplied separately.",
+    "No new Worker or Pages deployment is required or verified for this Job-only change.",
+    "The three synthetic cases do not establish real-world detection accuracy, all Base64 noise resolved, or new password recovery coverage.",
+    "New roots need their own retention verification; no physical cleanup, cost, actual rollback or scheduled database refresh conclusion follows.",
+    "The separately reported GitGuardian link was traced to a noncredential synthetic fixture profile identifier; this does not classify unrelated alerts. Platform event dismissal has not been performed.",
+    "Successful Google Cloud Build and smoke reports do not establish that the earlier GitHub GHCR image-push failure was resolved."
+  ],
+  "operational_tasks_still_pending": [
+    "P0-06",
+    "P0-11",
+    "P0-12",
+    "P0-14",
+    "P0-15",
+    "P0-18",
+    "P0-19"
+  ],
+  "next_feature_priority": "F-02 Office password recovery; broader Q-06 quality controls and operational maintenance continue. P0-19 platform event closure remains separate.",
+  "security_alert_review": {
+    "checklist_id": "P0-19",
+    "detector_reported_by_user": "Generic Password",
+    "source_commit": "95396c19155e7445aa8a598b4440282e769e9b29",
+    "source_file": "worker/src/malscan_worker/quality/pdf_password_acceptance.py",
+    "source_line": 172,
+    "current_equivalent_line": 177,
+    "diff_anchor_matches_path_sha256": true,
+    "classification_for_supplied_location": "noncredential_synthetic_fixture_profile_false_positive",
+    "production_credential_at_linked_location": false,
+    "credential_rotation_performed": false,
+    "history_rewritten": false,
+    "detectors_or_path_checks_disabled": false,
+    "gitguardian_platform_resolution_performed": false,
+    "review_notes": "docs/security-notes.md"
+  }
+}

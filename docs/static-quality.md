@@ -7,8 +7,10 @@ worker 930 passed／4 skipped，補驗缺 PATH 的 7z 一案通過；餘三項 P
 Ruff／strict mypy 通過；本批未修改 frontend、backend、控制層，不以舊測試數字代替新驗證。
 一般 PDF 名稱與 canonical opaque bytes 的解碼保留為觀察但不自動加分；真正文字、網址、
 已知檔案標頭及 decoder-call 脈絡繼續分析。原生 active PDF 維持 84 分，正常 PDF 名稱為 0 分。
-本批只完成程式／本機驗證，正式 Job 尚待部署與 smoke，見[本批紀錄](milestones/2026-10-19-base64-quality.json)
-與 [Job 更新手冊](deploy-base64-quality.md)。
+本批又核對使用者提供的 Job 切換與三份完成報告：正常 PDF 名稱 0、編碼網址 29、active PDF 84，
+固定輸入 hash／大小、八個 Base64 候選的 bytes／offset／分類及 coverage 均符合預期。
+見[本機紀錄](milestones/2026-10-19-base64-quality.json)、[雲端 smoke](milestones/2026-10-19-base64-cloud-acceptance.json)
+與 [Job 更新手冊](deploy-base64-quality.md)。每個 execution 的實際映像、三筆新工作的到期清理與費用未獨立核對。
 以下歷史批次的通過數字不能代替本次結果。
 這份基準使用合成資料與標準 EICAR 測試字串，不是實際惡意程式樣本庫，也不能據此估計真實世界的偵測率。
 
