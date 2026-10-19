@@ -1,12 +1,14 @@
 # 靜態分析品質基準
 
 更新日期：2026-10-19（Asia/Taipei）。目標是讓偵測結果、分析範圍與子檔案證據可以重現及核對。
-目前一般基準為 `corpus-v4.json`（32 案、`msrs-v1.2`），PDF 密碼另用 `pdf-password-v2.json`（12 案）；
-新增逐層風險預期。本次 PDF v2 原生 12／12 通過，32 份一般原生報告以最終 v4 manifest 重新核對通過。
-一般原生偵測已執行；初次 manifest 的 per-case 政策斷言仍為 1.1，造成彙總失敗。
-只修正斷言為 1.2，保留 fixture bytes、原始報告及初次失敗彙總，再重跑報告驗證，沒有重跑偵測器。
-worker 852、backend 233、frontend 52、控制層 25 項通過；四項 PostgreSQL opt-in 與一項完整 Python fixture 跳過。
-Ruff／strict mypy、前端 typecheck／lint／cloud-demo build 通過，詳見 [回饋修正紀錄](milestones/2026-10-18-pdf-feedback.json)。
+目前一般基準為 `corpus-v5.json`（40 案／36 fixture、`msrs-v1.2`），PDF 密碼另用 `pdf-password-v2.json`（12 案）。
+Q-06 本批以固定來源快照重新執行一般 40／40、PDF 密碼 12／12 原生案例，沒有改寫歷史 manifest。
+worker 930 passed／4 skipped，補驗缺 PATH 的 7z 一案通過；餘三項 PostgreSQL opt-in 未執行。
+Ruff／strict mypy 通過；本批未修改 frontend、backend、控制層，不以舊測試數字代替新驗證。
+一般 PDF 名稱與 canonical opaque bytes 的解碼保留為觀察但不自動加分；真正文字、網址、
+已知檔案標頭及 decoder-call 脈絡繼續分析。原生 active PDF 維持 84 分，正常 PDF 名稱為 0 分。
+本批只完成程式／本機驗證，正式 Job 尚待部署與 smoke，見[本批紀錄](milestones/2026-10-19-base64-quality.json)
+與 [Job 更新手冊](deploy-base64-quality.md)。
 以下歷史批次的通過數字不能代替本次結果。
 這份基準使用合成資料與標準 EICAR 測試字串，不是實際惡意程式樣本庫，也不能據此估計真實世界的偵測率。
 
@@ -32,8 +34,9 @@ PDF 密碼首批已取得使用者提供的 Job 切換與兩組原檔／解密�
 
 ## 版本化樣本與驗收
 
-[`worker/quality/corpus-v4.json`](../worker/quality/corpus-v4.json) 是目前一般基準，仍為 32 個案例，使用 `msrs-v1.2`。
-固定 fixture bytes 與 v3 相同，本次更新子孫高風險下限相關預期，不重寫歷史 manifest。
+[`worker/quality/corpus-v5.json`](../worker/quality/corpus-v5.json) 是目前一般基準，40 案例／36 fixture，使用 `msrs-v1.2`。
+保留 v4 原有輸入，新增八個 PDF 名稱、真實 PDF 編碼字串、opaque bytes、padding／非標準 pad bits、
+有效文字及大量雜訊前綴對照。歷史 v1–v4 均不修改。
 加密 PDF 的預期改為等待密碼；其餘案例沿用已審查的行為。manifest 保存版本、每個 fixture 的 SHA-256、
 生成方法、目前規則內容雜湊與案例預期。ZIP 的時間、來源權限、壓縮方法及 entry 順序固定；gzip 不寫入當前時間。
 PE 與文件採有版本的生成配方，包含固定 headers、ZIP/XML 或 PDF 結構，不下載外部樣本。
@@ -106,7 +109,7 @@ CLAMAV_MODE=cli \
 CLAMAV_DATABASE_PATH=/absolute/path/to/verified-clamav-databases \
 SANDBOX_ENABLED=false \
 poetry run python -m malscan_worker.quality \
-  --manifest quality/corpus-v4.json \
+  --manifest quality/corpus-v5.json \
   --jobs 1 \
   --output-dir /absolute/path/to/new-quality-run
 ```
@@ -119,7 +122,7 @@ poetry run python -m malscan_worker.quality \
 
 輸出目錄必須是新路徑。每個案例保留完整 report 與 runner log，根目錄的
 `quality-report.json` 保存 corpus 版本、manifest／fixture／report 雜湊、耗時、
-各案例 coverage／命中／失敗、已知限制與總結果。v2／v3／v4 核對 manifest 固定的規則內容雜湊，
+各案例 coverage／命中／失敗、已知限制與總結果。v2／v3／v4／v5 核對 manifest 固定的規則內容雜湊，
 並檢查報告中的指定結構欄位，不能以 parser 程序退出成功取代證據。
 執行器核對執行前後的 manifest 身分與分析後原檔雜湊；程序退出碼 0 才表示所選案例皆通過。
 這些案例只使用本機 stores，不呼叫 Cloud Run 或外部沙箱。
@@ -141,7 +144,7 @@ poetry run python -m malscan_worker.quality \
 解密保存可讀的 active xref 物件，不只重寫 catalog 可到達的頁面；無法保存時保留 partial。
 完成後再 resume 不新增第二個解密 occurrence，報告、持久 checkpoint 與日誌不能含測試密碼。
 完整執行命令及資源／相容性邊界見 [PDF 密碼說明](pdf-password.md)。
-這套原生測試與一般 32 案例分開記錄，不以一般 corpus 通過代替密碼恢復通過。
+這套原生測試與一般 40 案例分開記錄，不以一般 corpus 通過代替密碼恢復通過。
 
 ## PDF 正式回饋與風險呈現
 
@@ -158,10 +161,17 @@ PDF／ZIP 等祖先有效風險的下限；例如子檔 84 分時，包含它的
 父子檔的紅色呈現及逐檔獨立／三次限制另由使用者人工確認，不能從完成 JSON 反推每一步畫面或第三次拒絕。
 外層 ZIP 完整報告沒有提供，不能推定其總分。
 
-舊報告本檔 4 分來自弱 Base64 去混淆候選：一般 PDF token 的片段被解碼為
-`/OpenActiok=`、`/JavaScrips=` 等字串。此批**沒有修改去混淆計分**，保留原始 4 分以供稽核；
-高風險下限修正不能當成這項雜訊已解決。後續 Q-06 需加入正常 PDF token／Base64 對照，
-區分可解碼片段與有意義內容，再以同批誤報／漏報證據決定調整。
+先前報告本檔 4 分來自 `/OpenAction`、`/JavaScript` 等 token 可被解碼成 opaque bytes，
+序列化後出現 `/OpenActiok=`、`/JavaScrips=` 等字串。Q-06 本批以 `base64-evidence-v1` 分類來源：
+缺乏可讀內容、已知標頭或 decoder-call 脈絡的候選 `score_eligible=false`，保留 bytes、offset／length、
+canonical flag 與原因；`observed_techniques` 記錄所有觀察，`techniques_found` 僅列可評分候選。
+評分權重、政策與 YARA 規則沒有變動；舊報告不回填。
+
+不一律排除 PDF 或非標準 padding：有效文字／URL／腳本、已知二進位標頭及 decoder-call 脈絡仍被分析，
+它們只支持編碼候選，並非惡意或執行證明。可讀的正常 Base64 文字仍可能保留既有 4 分，其他雜訊繼續列 Q-06。
+候選按內容去重且有效證據優先，避免重複弱 token 耗盡數量額度；既有數量與協作時間窗仍生效，
+若省略候選或超時便標示 partial。近 10 MB 重複弱 token 探測於 2 秒返回一個零分觀察與 `wall_time`，
+這是單次資源控制探測，不是完整性能基準；Q-07 仍待辦。
 
 
 ## 子檔案與重複內容的證據

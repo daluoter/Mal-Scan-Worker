@@ -67,7 +67,13 @@ Portable runner 逐 occurrence 分析並保留各自報告。父報告會聚合�
 加密 PDF 及包含它的 ZIP 有效風險至少為 84 分／高風險。本檔直接分析與原始證據保留，
 報告 `risk.local_risk` 及來源樹 `local_score` 分開顯示；高風險不是已確認惡意。
 歷史報告不重寫，前端可對可核對身份的可見高風險子檔顯示醒目提醒。
-本次不修改 PDF token 被當成 Base64 候選的弱雜訊；保留的本檔 4 分另由 Q-06 追蹤。
+Q-06 本批將缺乏佐證的 Base64 解碼保留為不加分觀察，PDF 名稱不再僅因可解碼便產生 4 分。
+候選 JSON 保留內容、offset／length、canonical 標記與分類原因；`techniques_found` 僅列可評分技術，
+`observed_techniques` 包含觀察。可讀文字、已知檔案標頭或 decoder-call 脈絡仍保留分析，
+包括缺 padding／非標準 pad bits 的有效內容；這些佐證不等於執行或惡意證明。
+候選去重與優先排序受既有數量、大小及協作時間限制約束，未處理完的內容保留 partial。
+政策 `msrs-v1.2` 與 YARA 規則未改版；舊報告維持原分數，新版 Job 部署及 smoke 尚待另行核對。
+詳見[品質基準](static-quality.md)與 [Job 更新手冊](deploy-base64-quality.md)。
 
 
 ## root 累計與時間窗

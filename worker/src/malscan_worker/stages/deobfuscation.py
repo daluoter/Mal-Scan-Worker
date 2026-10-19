@@ -50,6 +50,9 @@ class DeobfuscationCandidateFinding(TypedDict):
     tags: list[str]
     source_stage: str
     provenance: CandidateProvenanceFinding
+    score_eligible: bool
+    evidence_class: str
+    assessment_reason: str | None
 
 
 class DeobfuscationFindings(TypedDict, total=False):
@@ -57,6 +60,8 @@ class DeobfuscationFindings(TypedDict, total=False):
     candidates: list[DeobfuscationCandidateFinding]
     extracted_iocs: dict[str, list[str]]
     techniques_found: list[str]
+    observed_techniques: list[str]
+    observation_candidate_count: int
     total_decoded_bytes: int
     stats: dict[str, Any]
 
@@ -142,8 +147,14 @@ class DeobfuscationStage(Stage):
                     {
                         candidate.get("technique", "")
                         for candidate in candidate_findings
-                        if candidate.get("technique")
+                        if candidate.get("technique") and candidate.get("score_eligible", True)
                     }
+                ),
+                "observed_techniques": sorted(
+                    {candidate["technique"] for candidate in candidate_findings}
+                ),
+                "observation_candidate_count": sum(
+                    not candidate["score_eligible"] for candidate in candidate_findings
                 ),
                 "total_decoded_bytes": sum(
                     len(candidate.content) for candidate in engine_result.candidates
@@ -223,6 +234,11 @@ class DeobfuscationStage(Stage):
             "truncated": candidate.truncated,
             "tags": candidate.tags.copy(),
             "source_stage": "deobfuscation",
+            "score_eligible": candidate.provenance.meta.get("score_eligible", True) is not False,
+            "evidence_class": str(
+                candidate.provenance.meta.get("evidence_class", "decoded_candidate")
+            ),
+            "assessment_reason": candidate.provenance.meta.get("assessment_reason"),
             "provenance": {
                 "decoder": candidate.provenance.decoder,
                 "offset": candidate.provenance.offset,

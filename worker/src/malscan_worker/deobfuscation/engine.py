@@ -60,6 +60,7 @@ class DeobfuscationEngine:
 
         raw_candidates: list[DeobfuscationCandidate] = []
         per_decoder_counts: dict[str, int] = {}
+        decoder_cap_reached = False
 
         for decoder in self._decoders:
             if guard.should_stop():
@@ -71,10 +72,21 @@ class DeobfuscationEngine:
                 per_decoder_counts[decoder_name] = 0
                 continue
 
-            extracted = decoder.extract_candidates(content, limit=self._per_decoder_limit)
-
+            extraction = decoder.extract_candidates_guarded(
+                content, self._per_decoder_limit, guard.should_stop
+            )
+            decoder_cap_reached |= extraction.stop_reason == "candidate_cap"
             accepted = 0
-            for candidate in extracted:
+            if extraction.stop_reason == "wall_time":
+                # These candidates completed before the cooperative deadline.
+                # Preserve them within the global cap and report incomplete work.
+                remaining = max(0, self._max_candidates - len(raw_candidates))
+                completed = extraction.candidates[:remaining]
+                raw_candidates.extend(completed)
+                per_decoder_counts[decoder_name] = len(completed)
+                guard.stop_reason = "wall_time"
+                break
+            for candidate in extraction.candidates:
                 if not guard.try_register_candidate():
                     break
                 raw_candidates.append(candidate)
@@ -94,9 +106,9 @@ class DeobfuscationEngine:
         stats.filtered_low_confidence_count = len(deduped_candidates) - len(filtered_candidates)
         stats.final_candidate_count = len(filtered_candidates)
         stats.per_decoder_candidate_counts = per_decoder_counts
-        stats.stop_reason = guard.stop_reason
-        stats.candidate_cap_reached = guard.stop_reason == "candidate_cap"
-        stats.wall_time_reached = guard.stop_reason == "wall_time"
+        stats.stop_reason = guard.stop_reason or ("candidate_cap" if decoder_cap_reached else None)
+        stats.candidate_cap_reached = stats.stop_reason == "candidate_cap"
+        stats.wall_time_reached = stats.stop_reason == "wall_time"
         stats.truncated = stats.candidate_cap_reached or stats.wall_time_reached
 
         if stats.candidate_cap_reached and filtered_candidates:

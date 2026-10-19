@@ -8,6 +8,9 @@
 
 ## 目前里程碑
 
+**2026-10-19：Q-06 PDF／Base64 弱候選雜訊修正已完成程式與本機驗證。** 一般 PDF 名稱不再僅因可解碼就加 4 分，候選內容與來源仍保留於 JSON；真正編碼網址、腳本、已知檔案標頭及 decoder-call 脈絡繼續分析。一般品質基準 v5 為 40／40 原生案例，PDF 密碼 12／12；worker 930 項通過，另補驗 7z 一案通過，三項 PostgreSQL opt-in 未執行。詳見[本批紀錄](docs/milestones/2026-10-19-base64-quality.json)。
+本批尚未更新正式 demo；只需依 [Job 更新手冊](docs/deploy-base64-quality.md)更新分析映像，並以新工作驗證，舊報告不改寫。評分政策與 YARA 規則版本維持原值；Q-06 其他格式與誤報工作仍持續追蹤。
+
 **2026-10-19：PDF 密碼與風險回饋修正完成本輪雲端人工驗收。** 使用者確認錯誤密碼提示、逐檔三次與父子檔高風險顯示通過；新畫面顯示紅色錯誤訊息及已用 1／剩餘 2。兩份新 JSON 核對到 `msrs-v1.2`、加密 PDF 本檔 4 分／整體 84 分、解密子檔 84 分及完成的靜態掃描，見[雲端驗收紀錄](docs/milestones/2026-10-19-pdf-feedback-acceptance.json)。
 此驗收結合使用者人工確認、畫面與完成報告；逐檔獨立及第三次限制依人工確認，沒有新增自動化雲端測試。最外層 ZIP 完整報告與 Pages deployment ID 未提供，不推定其數值；F-08 在本輪範圍完成。
 本批程式／本機驗證為 worker 852、backend 233、frontend 52、控制層 25 項通過，另有五項 opt-in skip；PDF 原生 12／12，32 份一般原生報告以最終 manifest 重新核對通過，歷史結果保留在 [2026-10-18 紀錄](docs/milestones/2026-10-18-pdf-feedback.json)。
@@ -174,4 +177,4 @@ scripts/enable-sandbox.sh
 
 本機已驗證 backend／worker／frontend 測試、真 PostgreSQL 預算與 attempt、真 ZIP／7z 不同密碼恢復、完整容器／S3 checkpoint，以及 Worker 與 Python dispatcher 的 HTTP 串接。測試數量、命令與證據邊界見[驗證紀錄](docs/v2-validation.md)；它們不取代 live provider 或實際帳單驗收。
 
-下一批優先處理 Q-06：PDF token 被當成弱 Base64 候選而產生的 4 分雜訊，補齊正常／指標／失敗對照，再接續 F-02 Office 密碼、文件附件與可量測的效能改善。DO 清理、長期成本、真實雲端回退及自動簽章病毒庫更新持續列為獨立待辦；真實 CAPE 驗收待可用基礎設施。每批都更新[專案進度清單](docs/project-status.md)，各階段排序見[路線圖](docs/roadmap.md)。
+Q-06 的 PDF／Base64 弱候選批次已完成程式與本機驗證；先依新手冊部署並核對小型 smoke，再接續 F-02 Office 密碼、文件附件與可量測的效能改善。DO 清理、長期成本、真實雲端回退及自動簽章病毒庫更新持續列為獨立待辦；真實 CAPE 驗收待可用基礎設施。每批都更新[專案進度清單](docs/project-status.md)，各階段排序見[路線圖](docs/roadmap.md)。

@@ -1,0 +1,427 @@
+{
+  "schema_version": 1,
+  "milestone": "Q-06 PDF weak Base64 evidence classification",
+  "recorded_date": "2026-10-19",
+  "recorded_timezone": "Asia/Taipei",
+  "phase": "code_and_local_verification_complete",
+  "cloud_run_executed": false,
+  "production_deployment_verified": false,
+  "overall_checklist_id": "Q-06",
+  "overall_checklist_status": "in_progress",
+  "decoder_assessment_version": "base64-evidence-v1",
+  "policy_version": "msrs-v1.2",
+  "ruleset_version": "1.1.0",
+  "yara_rules_sha256": "52cc7df2f9732941bce0f079bb70b36f01f04008b0a458398ef3ee58679a7dcc",
+  "source_identity": {
+    "file_count": 128,
+    "aggregate_sha256": "df576119662e9d377b64290a0da76219739f69a631aac07ab4f9d0e0cbef3120",
+    "matched_read_only_test_snapshot": true
+  },
+  "new_manifest": {
+    "path": "worker/quality/corpus-v5.json",
+    "version": "static-quality-v5.0.0",
+    "sha256": "0fca450c4bb53cd9dfc86cd889c27cbb31a11be25ad9274b790c1a60eff67cdd",
+    "cases": 40,
+    "fixtures": 36,
+    "new_cases": 8
+  },
+  "historical_manifests_modified": false,
+  "native_runtime": {
+    "base_image_config_id": "sha256:c68556066d9443cf701fefa9faeb6b8296b0e610d80622ad537489b979f10467",
+    "network": "none",
+    "read_only_root": true,
+    "unprivileged_uid": 10001,
+    "cpu_per_suite": 2,
+    "memory_per_suite": "4GiB",
+    "tmpfs_per_suite": "256MiB",
+    "fresh_database_update_performed": false,
+    "clamav_tool_version_observed": "ClamAV 1.4.3/28152/Tue Oct 13 06:26:14 2026"
+  },
+  "general_native_run": {
+    "schema_version": 1,
+    "corpus_version": "static-quality-v5.0.0",
+    "manifest_sha256": "0fca450c4bb53cd9dfc86cd889c27cbb31a11be25ad9274b790c1a60eff67cdd",
+    "started_at": "2026-10-19T06:32:34.403412+00:00",
+    "finished_at": "2026-10-19T06:38:20.812345+00:00",
+    "scope": "local_synthetic_static_quality",
+    "cloud_run_executed": false,
+    "passed": true,
+    "case_count": 40,
+    "passed_count": 40,
+    "jobs": 2,
+    "benign_cases_with_rule_hits": [
+      "benign-documentation-url",
+      "office-normal"
+    ],
+    "benign_cases_with_risk_rule_hits": [],
+    "benign_cases_with_context_rule_hits": [
+      "benign-documentation-url",
+      "office-normal"
+    ],
+    "accuracy_claim": "Synthetic contract baseline; no real-world detection-rate claim",
+    "summary_sha256": "6abedb03fd81bd2ca703fedb876f356d150a92047183e006abd519daf7197c21",
+    "cases": [
+      {
+        "id": "clean-text",
+        "passed": true,
+        "score": 0,
+        "static_status": "complete",
+        "report_sha256": "50d59f085fdcc8d0a3fd447fc6adcfe79bd80d4d734ce9162f41b9413a5b396b"
+      },
+      {
+        "id": "clean-configuration",
+        "passed": true,
+        "score": 4,
+        "static_status": "complete",
+        "report_sha256": "261b97d5059c837f281b6da9b96c4651a2d7956ce8da3ad7845c09296bf1e5dc"
+      },
+      {
+        "id": "benign-documentation-url",
+        "passed": true,
+        "score": 0,
+        "static_status": "complete",
+        "report_sha256": "c2d528d7588452a33de60233f0061d5b8dc906906d8eab4a62846357de865c51"
+      },
+      {
+        "id": "benign-java-api",
+        "passed": true,
+        "score": 4,
+        "static_status": "complete",
+        "report_sha256": "71bddb5e930810566f75a73bb879cd8ff05618cd190941c53c67a59bc07710b6"
+      },
+      {
+        "id": "eicar-direct",
+        "passed": true,
+        "score": 100,
+        "static_status": "complete",
+        "report_sha256": "c09388287c17e70d57ba4f4a5d1ab17a5a3f9a6e64064661815a00b12dd92e35"
+      },
+      {
+        "id": "synthetic-php-indicator",
+        "passed": true,
+        "score": 25,
+        "static_status": "complete",
+        "report_sha256": "59dece86b739f99caf8564d4952805003fb3d42cb297184590b74856388e0420"
+      },
+      {
+        "id": "encoded-url",
+        "passed": true,
+        "score": 29,
+        "static_status": "complete",
+        "report_sha256": "2c0b173e30941fbe859d78dda2c0a9e60c4259622a1bfb8ae96976eca4e68b50"
+      },
+      {
+        "id": "nested-duplicate-occurrences",
+        "passed": true,
+        "score": 0,
+        "static_status": "complete",
+        "report_sha256": "6638a8c09cbf88b8b7c4faf3680d2d924fa09056e5b827b421cce45e752c8a3c"
+      },
+      {
+        "id": "eicar-in-zip",
+        "passed": true,
+        "score": 100,
+        "static_status": "complete",
+        "report_sha256": "b0601b3371ca42931991b2d9d91aeed124560966efb541aaccabb8a6134bbdd8"
+      },
+      {
+        "id": "eicar-in-gzip",
+        "passed": true,
+        "score": 100,
+        "static_status": "complete",
+        "report_sha256": "b6db21de67e7ca26403dc0b2676b89595ad395f3921916e886e72c851b99766d"
+      },
+      {
+        "id": "corrupt-archive",
+        "passed": true,
+        "score": 0,
+        "static_status": "partial",
+        "report_sha256": "78452a834c0b7b4b62cfa92d3f9bab34156ad81486f2e3c740f02aa5693e8f8a"
+      },
+      {
+        "id": "corrupt-document",
+        "passed": true,
+        "score": 4,
+        "static_status": "partial",
+        "report_sha256": "89e6db5265d592272663916f5f710e90bc27891c0bf3f53a95ae8e5946b6243b"
+      },
+      {
+        "id": "missing-antivirus",
+        "passed": true,
+        "score": 0,
+        "static_status": "partial",
+        "report_sha256": "3492cf8c01f110a50dc88f228a3aad6d259b606942b6117e0ee089e040c9bba3"
+      },
+      {
+        "id": "missing-yara-rules",
+        "passed": true,
+        "score": 0,
+        "static_status": "partial",
+        "report_sha256": "0684409b0a33ded2aa78501f6897e4f10668596dca820b9fee23f379c9147df1"
+      },
+      {
+        "id": "invalid-yara-rules",
+        "passed": true,
+        "score": 0,
+        "static_status": "partial",
+        "report_sha256": "90178bb71405f8ef6ea675505ff9ebb548ac0e49340b5c22844fac5c6f1f3c7f"
+      },
+      {
+        "id": "deobfuscation-candidate-limit",
+        "passed": true,
+        "score": 29,
+        "static_status": "partial",
+        "report_sha256": "ca1d87adc2676f1d201b8d61ac9cf0cf076ad1d300e64772ee7c053decb4d4d5"
+      },
+      {
+        "id": "deobfuscation-size-limit",
+        "passed": true,
+        "score": 0,
+        "static_status": "partial",
+        "report_sha256": "840cac72448357efe769b7eea361702c9c65c47bbeca4847f3e7744221f3f956"
+      },
+      {
+        "id": "archive-depth-limit",
+        "passed": true,
+        "score": 0,
+        "static_status": "partial",
+        "report_sha256": "a7cffda876cdc9e43676322073e248948c9ef718ceb419acaf191797cffc229a"
+      },
+      {
+        "id": "pe-benign",
+        "passed": true,
+        "score": 0,
+        "static_status": "complete",
+        "report_sha256": "e5f54901ef7fe2d432ce66a010719d36e8b3b4d4ebe938ba9bb0aa171aa63ea3"
+      },
+      {
+        "id": "pe-suspicious",
+        "passed": true,
+        "score": 84,
+        "static_status": "complete",
+        "report_sha256": "41e35f975b1bfaa70d6b849748b1ac5c9102d1dae5ee42767b9e351e3a6a51ec"
+      },
+      {
+        "id": "pe-truncated",
+        "passed": true,
+        "score": 0,
+        "static_status": "partial",
+        "report_sha256": "8fe4279f41bef807feeb294a5c8c04abc396489ce7df4b6df3ebc8b0a9bbcff6"
+      },
+      {
+        "id": "office-normal",
+        "passed": true,
+        "score": 0,
+        "static_status": "complete",
+        "report_sha256": "9bdebc199bee278c2705d4619651280f84119a44c43b3df217c52e02c55e203d"
+      },
+      {
+        "id": "office-external-references",
+        "passed": true,
+        "score": 84,
+        "static_status": "complete",
+        "report_sha256": "f6f1cb405e7c6776359055cd13eb83112b6e60472535f28a847728b00b8e0767"
+      },
+      {
+        "id": "office-macro-flag",
+        "passed": true,
+        "score": 12,
+        "static_status": "partial",
+        "report_sha256": "c647e47647fd77022d6e329c45664e264922f26ed309c0da63e8c328561e8e3e"
+      },
+      {
+        "id": "office-malformed",
+        "passed": true,
+        "score": 0,
+        "static_status": "partial",
+        "report_sha256": "52a94e3af3a432e59ccf3af03ea77ffcb9db7dc3ab4dc2cf798243a9cfae67aa"
+      },
+      {
+        "id": "office-metadata-limit",
+        "passed": true,
+        "score": 0,
+        "static_status": "partial",
+        "report_sha256": "99de5b9782d002bfd2ae1e18276ae000dafa8dde747df7d503e9ee4308e4d5eb"
+      },
+      {
+        "id": "pdf-normal",
+        "passed": true,
+        "score": 0,
+        "static_status": "complete",
+        "report_sha256": "9fccbd7ef0a741316d793ed31c18c8225ace9e48ba43d05170b9e40390a80ffe"
+      },
+      {
+        "id": "pdf-active-actions",
+        "passed": true,
+        "score": 84,
+        "static_status": "complete",
+        "report_sha256": "0171de672a49bef3435b1c0310c7c65edfafdf661d718407c84066721fe9ac3c"
+      },
+      {
+        "id": "pdf-malformed",
+        "passed": true,
+        "score": 0,
+        "static_status": "partial",
+        "report_sha256": "5cb26c594a856166946d7fd77bf578e28e9f38e223adcdd1653ce62e63967f36"
+      },
+      {
+        "id": "pdf-encrypted",
+        "passed": true,
+        "score": 0,
+        "static_status": "password_required",
+        "report_sha256": "6653ba7c01264bca7b9a2c249df9a5bd9a404d66a370159a4a9cf7a06a8cc1c0"
+      },
+      {
+        "id": "benign-java-process",
+        "passed": true,
+        "score": 0,
+        "static_status": "complete",
+        "report_sha256": "b30fb90e1fa6a42a9241d36b1c03604de3fd099a02f4dfe44de0a5aae3d33a44"
+      },
+      {
+        "id": "jsp-request-process",
+        "passed": true,
+        "score": 29,
+        "static_status": "complete",
+        "report_sha256": "0395722228841dfa4d5344fdfb335795ed95e42b7f13044d1b5a0a17e9ee1429"
+      },
+      {
+        "id": "pdf-name-dictionary",
+        "passed": true,
+        "score": 0,
+        "static_status": "complete",
+        "report_sha256": "102ab9a9c3a1e0890b8dc7dad79164ee9c4e00a3e84ecaca5b6e41fb0401d7cc"
+      },
+      {
+        "id": "pdf-name-text",
+        "passed": true,
+        "score": 0,
+        "static_status": "complete",
+        "report_sha256": "f123cce071331d659a68895f4f59d3182f82de08bc5f93f0ac1960eb6df7ec65"
+      },
+      {
+        "id": "base64-malformed",
+        "passed": true,
+        "score": 0,
+        "static_status": "complete",
+        "report_sha256": "f02641eba28bf76ec08c9af4a2d52723bc1d31dfef17e0419cf3b823d542355c"
+      },
+      {
+        "id": "pdf-encoded-url-string",
+        "passed": true,
+        "score": 29,
+        "static_status": "complete",
+        "report_sha256": "4c179b44e9739e4a34af56e8e82d5d804471ad7cd9ff243a2a0cb930f1cea2cb"
+      },
+      {
+        "id": "base64-binary",
+        "passed": true,
+        "score": 0,
+        "static_status": "complete",
+        "report_sha256": "745d10adc99b65afb1e38223468b6c5f3c834ab009add1bd217f4a978294baca"
+      },
+      {
+        "id": "base64-inert-text",
+        "passed": true,
+        "score": 4,
+        "static_status": "complete",
+        "report_sha256": "91782a2741d86e3bc5404ba2471aa8358fb121ad9b3f080de7c0a54ac5d31837"
+      },
+      {
+        "id": "base64-noncanonical-url",
+        "passed": true,
+        "score": 29,
+        "static_status": "complete",
+        "report_sha256": "eed01a4d65216f5de36fb39342dd8e11b45a2d3b446ad67a8c9bb27cd305ccf8"
+      },
+      {
+        "id": "opaque-prefix-then-url",
+        "passed": true,
+        "score": 29,
+        "static_status": "complete",
+        "report_sha256": "b05149f70dd1aa951ac79f2c9a34357e2e058812527a0d73755fb7a0ad166e00"
+      }
+    ]
+  },
+  "pdf_password_native_run": {
+    "schema_version": 1,
+    "suite_version": "pdf-password-v2.0.0",
+    "scope": "local_real_pdf_password_acceptance",
+    "manifest_sha256": "17e9070f8b360de742d946db381e07b289eef01de097a9dc75340a308bc53908",
+    "started_at": "2026-10-19T06:32:32.655952+00:00",
+    "finished_at": "2026-10-19T06:35:23.220554+00:00",
+    "cloud_run_executed": false,
+    "passed": true,
+    "case_count": 12,
+    "passed_count": 12,
+    "accuracy_claim": "Synthetic format and resume contracts; no real-world detection-rate claim",
+    "summary_sha256": "86677fe535b9dbda76558a173fc36c5be3b3a0bfe71e6e2368806290a836b752"
+  },
+  "regression_tests": {
+    "worker": {
+      "passed": 930,
+      "skipped": 4,
+      "junit_sha256": "537e79c0b1965aafbe2eb0c54d803183891b53e1305af0ef61448912fa8e14d9"
+    },
+    "seven_zip_path_recheck": {
+      "passed": 1,
+      "skipped": 0,
+      "junit_sha256": "867518fcc0aef6f656cabab375efffc2181b6868eb8bb24844b29d403f25b4ab"
+    },
+    "remaining_skips": "Three PostgreSQL opt-in cases; the fourth full-run skip was 7z and was separately rechecked with the existing tool PATH.",
+    "ruff": "passed",
+    "strict_mypy": {
+      "source_files": 88,
+      "status": "passed"
+    },
+    "new_base64_tests": 78,
+    "unchanged_components_not_retested_locally": [
+      "frontend",
+      "backend",
+      "Cloudflare control",
+      "dispatcher"
+    ],
+    "deployment_guide_shell_syntax_and_three_checksum_pinned_fixture_exports": "passed"
+  },
+  "single_resource_probe": {
+    "input_bytes": 9999996,
+    "elapsed_seconds": 2.0,
+    "candidate_count": 1,
+    "stop_reason": "wall_time",
+    "truncated": true,
+    "scored_candidates": 0
+  },
+  "verified_contracts": [
+    "Opaque PDF name tokens remain traceable observations with content, source offset and length, canonical bit assessment and classification reason; they do not alone produce four risk points.",
+    "Canonical opaque binary and noncanonical opaque names are treated consistently; no PDF-wide suppression or canonical-padding-only filter is used.",
+    "Readable encoded text, URLs, scripts, known binary signatures and recognizable decoder-call context retain eligibility, including useful payloads without padding or with noncanonical pad bits.",
+    "Meaningful unique candidates precede observations; repeated decoded payloads do not consume unique output allowance, and decoder-call context can upgrade an observation.",
+    "Cooperative token scanning honors the engine deadline; completed bounded candidates survive interruption and omitted work remains partial.",
+    "The real shared scoring adapter produces zero for ambiguous names and retains existing four-point technique support for meaningful Base64.",
+    "Native PDF name controls score zero, encoded URL controls score 29, active-action PDF remains 84, EICAR remains detected, and encrypted PDF waits remain incomplete until unlocked.",
+    "Twelve native PDF password controls preserve original and decrypted bytes identity, independent artifact attempts, persisted checkpoint resumes and verified descendant risk floors."
+  ],
+  "security_boundary": {
+    "raw_user_reports_republished": false,
+    "cloud_credentials_required_for_local_validation": false,
+    "cloud_resources_mutated": false
+  },
+  "remaining_limits": [
+    "Code and local native verification do not establish production Job rollout or cloud smoke acceptance.",
+    "Synthetic controls are not a real-world false-positive or detection-rate estimate.",
+    "Readable benign Base64 text and some non-PDF observations can still contribute existing weak technique points; broader noise analysis remains Q-06.",
+    "A recognizable decoder call or binary signature is candidate evidence, not execution proof or a malware verdict.",
+    "Cooperative deadline checks run between tokens; this is not an isolated hard process deadline or a complete performance baseline.",
+    "Old completed reports and stored stage checkpoints are not backfilled; compare new jobs after rollout.",
+    "The cached offline ClamAV database was not refreshed; deployment maintenance must validate a fresh signed database."
+  ],
+  "operational_tasks_still_pending": [
+    "P0-06",
+    "P0-11",
+    "P0-12",
+    "P0-14",
+    "P0-15",
+    "P0-18"
+  ],
+  "deployment_guide": "docs/deploy-base64-quality.md"
+}

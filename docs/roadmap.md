@@ -34,8 +34,10 @@ worker 852、backend 233、frontend 52、控制層 25 項通過，五項 opt-in 
 [Job→Worker→Pages 部署手冊](deploy-pdf-feedback.md)留供其他部署與後續更新，使用目前正式設定備份，
 不發布帶有 placeholder／停用 intake 的 Worker 範本。
 
-下一批優先處理 Q-06：補 PDF token／Base64 的正常、指標及失敗對照，修正已觀察到的弱候選 4 分雜訊；
-再接續 F-02 Office 密碼及 F-03 文件附件與其他格式品質。此批保留本檔 4 分及原始證據，不宣稱 Base64 雜訊已修正。
+Q-06 PDF token／Base64 弱候選批次已完成程式與本機驗證：v5 一般原生 40／40、PDF 密碼 12／12；
+弱候選保留為零分觀察，真正編碼內容與 PDF 高風險結構仍被辨識。舊報告保留原本 4 分。
+下一步先依 [Job 更新手冊](deploy-base64-quality.md)部署並驗證新工作，再接續 F-02 Office 密碼與 F-03 文件附件。
+其他格式品質與實際來源樣本仍列 Q-06 進行中，詳見[本批紀錄](milestones/2026-10-19-base64-quality.json)。
 P0-06 DO 清理、P0-11 真實回退、P0-12 自動更新與 P0-14 長期成本持續並行，
 功能完成不會關閉這些維護項目。
 
@@ -98,7 +100,7 @@ P0-06 DO 清理、P0-11 真實回退、P0-12 自動更新與 P0-14 長期成本�
 第二批先建立 PE／OOXML／PDF 的正常、指標及損壞／受限對照，
 其中加密 PDF 與無可解析 VBA 來源如實為 partial；不是將第 3 項的密碼／附件能力全部完成。
 F-01 PDF 密碼及四項回饋修正已完成本輪 F-08 雲端人工驗收。
-先做 Q-06 PDF token／Base64 弱候選品質對照，再接續 F-02 Office 密碼及 F-03 PDF 附件／Office 嵌入物件，
+Q-06 PDF token／Base64 弱候選批次待完成雲端更新與 smoke，再接續 F-02 Office 密碼及 F-03 PDF 附件／Office 嵌入物件，
 持續擴充格式品質與 IOC／去混淆雜訊；
 F-05 PE／LNK 等項目保留各自狀態與驗收條件。維護待辦與這些功能並行。
 
