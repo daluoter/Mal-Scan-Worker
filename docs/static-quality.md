@@ -3,10 +3,10 @@
 更新日期：2026-10-20（Asia/Taipei）。目標是讓偵測結果、分析範圍與子檔案證據可以重現及核對。
 目前一般基準為 `corpus-v5.json`（40 案／36 fixture、`msrs-v1.2`），PDF 密碼另用 `pdf-password-v2.json`（12 案），
 Office 密碼另用 `office-password-v1.json`（14 個 profile）。F-02 本批已完成程式／本機驗證。
-2026-10-20 的[Office 雲端驗收紀錄](milestones/2026-10-20-office-cloud-acceptance.json)已核對兩份直接 DOCX 根報告及兩份巢狀 Office 詳細子樹，
+2026-10-20 的[Office 雲端驗收紀錄](milestones/2026-10-20-office-cloud-acceptance.json)已核對三份完整根報告及兩份 Office 詳細子樹，涵蓋三個宣告 smoke 案例。
 同一提交 `4a81bfd` 的三組 GitHub CI 已查核為成功；沒有增加 agent-run 雲端掃描或費用驗收。
 本輪錯誤紅字與 1／2 有畫面，使用者確認 ZIP 已用 1 時 Office 初始 0／3，正確密碼續跑後最新 JSON 為完成及 2／1。
-F-10 進行中，目前只缺最外層 ZIP 完整報告，可從既有工作返回上一層下載，不需新上傳或重測。
+F-10 完成（限定案例）：最新 ZIP 根報告 9 節點／6 分、工作及靜態分析完成，ZIP 1／2、Office 2／1；累計提取 8 檔／19,196 bytes，與固定預期相符。
 這是使用者提供的部署／報告與人工確認，不新增 agent-run provider 測試。
 2026-10-19 Office 本機批次的原生結果為 Office 14／14、一般 v5 40／40、PDF v2 12／12；另有 57 組真實加密演算法測試。
 Office 固定完整流程與演算法單元覆蓋分開記錄，見[本批紀錄](milestones/2026-10-19-office-password.json)。
@@ -181,11 +181,14 @@ fixture 由版本化模組以標準函式庫還原，公開密碼只適用這些
 原生驗收另需真實 ClamAV／YARA，不以單元測試的 scanner transport stub 當成原生 AV 通過。
 資源邊界、執行命令與狀態欄位見 [Office 密碼說明](office-password.md)，正式 smoke 見 [Job→Pages 手冊](deploy-office-password.md)。
 本機結果與 F-10 雲端結果各自保留證據。2026-10-20 已核對使用者提供的映像切換與正式 Pages 發布輸出，
-以及一般 DOCX 根報告 8 節點／0 分、外部範本根報告 10 節點／父檔 15 分、解密子檔 53 分，
-另有兩份巢狀 Office 的 8 節點詳細子樹，四份宣告範圍內的靜態分析皆完成。
-先前三份 Office 各已用 1／剩餘 2／上限 3；本輪畫面顯示錯誤紅字與 1／2，ZIP 已用 1、Office 初始 0／3 依使用者人工確認，
-最新 JSON 記錄正確密碼續跑完成及已用 2／剩餘 1。F-10 現在只缺最外層 ZIP 完整報告，見[Office 雲端驗收紀錄](milestones/2026-10-20-office-cloud-acceptance.json)。
-Office 三次耗盡未在本輪雲端演練，root 到期清理另列 P0-18；本輪未獨立查詢每次 execution 映像。
+以及三個宣告 smoke 案例的完整根報告：一般 DOCX 8 節點／0 分、外部範本 DOCX 10 節點／父檔 15 分、
+解密子檔 53 分、不同密碼 ZIP→Office 9 節點／6 分；另有兩份 8 節點 Office 詳細子樹。
+五份報告各自宣告範圍內的靜態分析皆完成，最新 ZIP 根與本輪對應子樹的身份、明文 hash、來源及適用掃描符合固定預期。
+先前三份 Office 各已用 1／剩餘 2／上限 3；本輪 Office 錯誤紅字與 1／2 有畫面，
+ZIP 已用 1 時 Office 初始 0／3 依使用者確認；最終 ZIP 根 JSON 為 ZIP 1／2、Office 2／1，
+累計提取 8 檔／19,196 bytes。F-10 完成限定案例驗收，見[Office 雲端驗收紀錄](milestones/2026-10-20-office-cloud-acceptance.json)。
+Office 三次耗盡及其他格式未在本輪雲端演練，root 的 status／到期清理另列 P0-18；
+本輪未獨立查詢每次 execution 映像或物件 bytes，不擴大為其他格式相容性或真實偵測率。
 
 ## PDF 正式回饋與風險呈現
 

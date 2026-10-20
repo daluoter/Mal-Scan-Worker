@@ -1,17 +1,18 @@
 {
   "schema_version": 1,
-  "milestone": "F-10 Office DOCX cloud acceptance subset",
+  "milestone": "F-10 fixed DOCX cloud acceptance",
   "recorded_date": "2026-10-20",
   "recorded_timezone": "Asia/Taipei",
   "overall_checklist_id": "F-10",
-  "overall_checklist_status": "in_progress",
-  "acceptance_status": "interaction_checks_passed_outer_zip_root_report_pending",
+  "overall_checklist_status": "completed_for_declared_cases",
+  "acceptance_status": "passed_for_three_declared_docx_cloud_cases",
   "evidence_basis": [
     "User supplied Cloud Shell source checkout, successful build/controls, Job promotion and production Pages deployment output",
     "User explicitly confirmed DOCX password unlock and normal analysis",
     "Two complete DOCX root reports and one nested Office subtree passed offline fixture/coverage metadata checks",
     "Initial submission did not confirm wrong-password feedback or ZIP/Office counter independence; a later follow-up explicitly confirms both, with a wrong-password screenshot and successful resumed Office report",
-    "Latest Office subtree report passed frozen fixture identity, declared coverage and final per-file counter checks"
+    "Latest Office subtree report passed frozen fixture identity, declared coverage and final per-file counter checks",
+    "Required outer ZIP root report passed the fixed-fixture corpus validator and independent complete occurrence/source/stage/counter/budget metadata checks; its Office report matches the previous subtree report"
   ],
   "agent_executed_cloud_scan_tests": false,
   "remote_gcp_or_cloudflare_api_independently_queried": false,
@@ -315,9 +316,93 @@
       "cloud_plaintext_bytes_independently_retrieved": false,
       "actual_mime_transport_independently_verified": false,
       "corpus_evaluation": null,
-      "outer_zip_root_report_provided": false,
-      "outer_zip_input_identity_verified": false,
-      "outer_zip_counters_verified": false
+      "outer_zip_root_report_provided": true,
+      "outer_zip_input_identity_verified": true,
+      "outer_zip_counters_verified": true,
+      "subtree_document_alone_contains_outer_zip_report": false,
+      "outer_zip_verification_source_case": "zip_aes_office_wrong_then_correct_full_root"
+    },
+    {
+      "case": "zip_aes_office_wrong_then_correct_full_root",
+      "scope": "full_zip_root_report",
+      "job_id": "94d643f0-0f74-45a6-9d3c-2f8dc16d8653",
+      "reported_root_id": "94d643f0-0f74-45a6-9d3c-2f8dc16d8653",
+      "parent_job_id": null,
+      "raw_document_sha256": "6fc2d0f2f803925361c65f2dcd09d34a1d721840e038fcb70643b048ea48ce1a",
+      "fixture_profile": "zip-aes-office-agile-aes256-docx",
+      "encrypted_source_sha256": "68f4cdb3fc8247cc9098ef2560563908663dfa542d34e19e621c8a47bf590fc4",
+      "encrypted_source_bytes": 6510,
+      "job_status": "done",
+      "report_complete": true,
+      "static_status": "complete",
+      "dynamic_status": "disabled",
+      "visible_artifact_count": 9,
+      "max_visible_depth": 3,
+      "score": 6,
+      "risk_level": "clean",
+      "verdict": "clean",
+      "root_score_reason": {
+        "source": "archive-extract",
+        "kind": "archive.password_protected",
+        "points": 6
+      },
+      "password_attempts_by_artifact": {
+        "50b1efed-24a7-5385-b9c7-8d0316a5098f": {
+          "attempts_used": 2,
+          "attempts_remaining": 1,
+          "limit": 3
+        },
+        "94d643f0-0f74-45a6-9d3c-2f8dc16d8653": {
+          "attempts_used": 1,
+          "attempts_remaining": 2,
+          "limit": 3
+        }
+      },
+      "inner_office_job_id": "50b1efed-24a7-5385-b9c7-8d0316a5098f",
+      "decrypted_docx_reported_sha256": "a453a429bd71e96985ac490aae2c7ff4189ac725acb8999d6a74332752916f55",
+      "decrypted_docx_reported_bytes": 4831,
+      "reported_office_encryption": {
+        "scheme": "agile",
+        "cipher": "AES-CBC",
+        "hash": "SHA512",
+        "key_bits": 256,
+        "spin_count": 100000,
+        "integrity": "hmac_verified"
+      },
+      "reported_root_budget": {
+        "accounting_scope": "root_artifact_tree",
+        "limits": {
+          "max_bytes": 100000000,
+          "max_files": 20,
+          "timeout_seconds": 840
+        },
+        "time_scope": "analysis_attempt",
+        "used_bytes": 19196,
+        "used_files": 8
+      },
+      "corpus_evaluation": {
+        "passed": true,
+        "errors": [],
+        "static_status": "complete",
+        "artifact_count": 9,
+        "yara_rules": [
+          "network_iocs"
+        ],
+        "yara_risk_rules": [],
+        "yara_context_rules": [
+          "network_iocs"
+        ],
+        "infected_artifacts": 0,
+        "detector_failures": [],
+        "verdict": "clean",
+        "score": 6
+      },
+      "complete_occurrence_identity_source_stage_metadata_matches_frozen_fixtures": true,
+      "tree_table_identity_and_coverage_match": true,
+      "previous_office_report_core_fields_match": true,
+      "budget_files_and_reported_bytes_reconciled": true,
+      "cloud_plaintext_bytes_independently_retrieved": false,
+      "actual_mime_transport_independently_verified": false
     }
   ],
   "manual_attestation": {
@@ -326,21 +411,20 @@
     "zip_and_office_initial_counters_independent": "confirmed_by_user",
     "office_third_submission_exhaustion_cloud_exercise": "not_observed"
   },
-  "remaining_f10_evidence": [
-    "Complete outer ZIP root report for existing root 94d643f0-0f74-45a6-9d3c-2f8dc16d8653, including outer fixture identity, full artifact lineage, ZIP and Office final counters and root budget"
-  ],
+  "remaining_f10_evidence": [],
   "follow_up": {
-    "guide": "docs/deploy-office-password.md#8-本輪操作已通過下載既有-zip-根報告",
-    "existing_root_job_id": "94d643f0-0f74-45a6-9d3c-2f8dc16d8653",
+    "purpose": "post_acceptance_retention_maintenance",
+    "checklist_id": "P0-18",
+    "guide": "docs/cloud-demo-operations.md#4-到期撤權與實體清理",
     "new_uploads_expected": 0,
     "executions_expected": 0,
     "steps": [
-      "Use the existing browser tab with the job capability",
-      "On the nested Office report or progress page select 返回上一層分析",
-      "Confirm the ZIP root job ID, open its report and download the complete JSON"
+      "Privately save each existing root status retention_expires_at",
+      "After each expiry and grace period verify designated R2 prefixes and access withdrawal"
     ],
     "quota_changes_required": false,
-    "third_submission_exhaustion_intentionally_tested": false
+    "third_submission_exhaustion_intentionally_tested": false,
+    "next_development_checklist_id": "F-03"
   },
   "retention_follow_up": {
     "checklist_id": "P0-18",
@@ -359,11 +443,11 @@
     "Cloud object bytes were not retrieved: reported hashes/sizes match frozen local fixture expectations only.",
     "Reported DOCX MIME does not prove actual upload/transport MIME.",
     "Completed JSON does not reconstruct password-entry history or prior UI states.",
-    "Nested Office subtree does not prove outer ZIP root hash, counter or total budget.",
     "No retention expiry, provider execution identity or billing verification performed.",
     "Cloud acceptance only covers these fixed DOCX samples; native XLSX/PPTX/macros/Standard algorithm results are separate historical local evidence.",
     "Workflow success is not a provider scan, invoice, quota exercise, automatic signature update or live rollback.",
-    "Some XML parts retain the known four-point XOR observation baseline. No new YARA risk matches or weak PDF Base64 regression was observed."
+    "Some XML parts retain the known four-point XOR observation baseline. No new YARA risk matches or weak PDF Base64 regression was observed.",
+    "The earlier nested Office subtree from root 4c6755ab was not supplied as a complete outer ZIP report; the equivalent declared nested case is accepted using the later complete root 94d643f0 and its confirmed password flow."
   ],
   "maintenance_items_still_open": [
     "P0-06",
@@ -380,7 +464,9 @@
     "remote_operations": false,
     "cloud_object_bytes_retrieved": false,
     "followup_verifier_sha256": "42ad47b7460431f70f570179bb232fafe77615b71d51e344fc7bdf079bc018f0",
-    "followup_verification_summary_sha256": "f6ba7904ea925bd3a2169f175349541e9a9f189ffb14399fddbfce21ca8994b3"
+    "followup_verification_summary_sha256": "f6ba7904ea925bd3a2169f175349541e9a9f189ffb14399fddbfce21ca8994b3",
+    "final_root_verifier_sha256": "24d55bc9750f8472aee95a95665b99833914b6e4190a799dbfc44f905fa3b4f5",
+    "final_root_summary_sha256": "a6793f3a91b06882ea2e74adb493648f4f0dee1f43f02534d62b5b89eca589c0"
   },
   "screenshot_observation": {
     "office_job_id_matches_report": true,
@@ -415,6 +501,32 @@
       "static_status": "complete",
       "evidence": "user_attestation_and_office_subtree_json"
     },
-    "outer_zip_final_counter_in_json_verified": false
+    "outer_zip_final_counter_in_json_verified": true,
+    "root_report_confirmation": {
+      "raw_document_sha256": "6fc2d0f2f803925361c65f2dcd09d34a1d721840e038fcb70643b048ea48ce1a",
+      "zip_attempts_used": 1,
+      "zip_attempts_remaining": 2,
+      "office_attempts_used": 2,
+      "office_attempts_remaining": 1,
+      "complete_root_report_received": true
+    }
+  },
+  "completed_checklist_ids": [
+    "F-10"
+  ],
+  "completion_scope": {
+    "profiles": [
+      "agile-aes256-docx",
+      "agile-aes256-external-template-docx",
+      "zip-aes-office-agile-aes256-docx"
+    ],
+    "uploaded_documents": 5,
+    "complete_root_reports": 3,
+    "office_subtree_reports": 2,
+    "wrong_password_red_feedback": "screenshot_and_user_attestation",
+    "initial_zip_office_counters_independent": "user_attestation",
+    "final_zip_office_counters": "complete_root_report",
+    "all_office_formats_cloud_accepted": false,
+    "office_third_submission_exhaustion_cloud_tested": false
   }
 }

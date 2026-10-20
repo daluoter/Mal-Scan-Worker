@@ -8,7 +8,7 @@
 | --- | --- | --- | --- |
 | 一般檔案 | 檔案型別／hash、ClamAV、YARA、IOC、去混淆候選 | 需要可用的 ClamAV 和 YARA 規則 | 沒有專用格式分析器，不代表其他階段沒有分析；無規則／工具失敗不能當成已掃描未命中 |
 | Windows PE | headers、imports／exports、sections、entropy、resources、TLS、debug、overlay、packer clues 與啟發式 | `pefile` | 100 MiB 處理上限；overlay／resources 結構偵測不等於將所有內容提取為遞迴子檔；沒有程式執行或保證完整反編譯 |
-| Office OLE／OOXML／RTF | 巨集、外部關聯、DDE／Equation Editor 等跡象、支援的嵌入物件提取及遞迴子檔；限定現代加密 OOXML 補交密碼後產生另行掃描的明文子檔 | `oletools`；解密明確固定 `msoffcrypto-tool==6.0.0`，原 lock 中既有 101 個依賴版本不變 | 固定加密 fixture 為 Agile AES-256、Standard AES-128，含 DOCX／XLSX／PPTX 與 DOCM／XLSM／PPTM；其餘可接受 header 與本機案例覆蓋分開看待。舊式 DOC／XLS／PPT 加密、IRM、其他演算法不支援；損壞、metadata／預算限制或 VBA 來源不可解析仍為 partial。見 [Office 密碼流程](office-password.md)；Office 雲端 DOCX 解鎖、錯誤提示及次數獨立已有本輪證據，F-10 只缺最外層 ZIP 完整報告 |
+| Office OLE／OOXML／RTF | 巨集、外部關聯、DDE／Equation Editor 等跡象、支援的嵌入物件提取及遞迴子檔；限定現代加密 OOXML 補交密碼後產生另行掃描的明文子檔 | `oletools`；解密明確固定 `msoffcrypto-tool==6.0.0`，原 lock 中既有 101 個依賴版本不變 | 固定加密 fixture 為 Agile AES-256、Standard AES-128，含 DOCX／XLSX／PPTX 與 DOCM／XLSM／PPTM；其餘可接受 header 與本機案例覆蓋分開看待。舊式 DOC／XLS／PPT 加密、IRM、其他演算法不支援；損壞、metadata／預算限制或 VBA 來源不可解析仍為 partial。見 [Office 密碼流程](office-password.md)；Office 雲端驗收 F-10 完成限定的 DOCX／ZIP 案例，不擴大為其他格式相容性 |
 | PDF | pages、metadata、actions／JavaScript、forms、嵌入檔描述及啟發式；解密後衍生子檔重新掃描 | `pypdf`／AES crypto backend；使用者提供的密碼可補交並從 checkpoint 續跑；RC4-40、AES-128、AES-256 R5／R6 有固定 fixture | 輸入上限 50 MiB；等待密碼、不支援加密、解析／資源限制保留未完成原因。`EFF != StmF`、stream 的 `/Filter /Crypt` override（含 `/Name /Identity`）或 `/EncryptMetadata=false` 目前不支援；建立明文子檔前回報 unavailable／partial，不建立子檔或反覆要求錯誤密碼。原始加密檔與解密子檔分開；PDF 附件尚未提取掃描。詳見 [PDF 密碼流程](pdf-password.md) |
 | Windows LNK | 目標／參數等結構與啟發式 | `LnkParse3` | 不解析所有 shell extension，不執行捷徑 |
 | Scripts | 支援副檔名與語法模式的指標、去混淆、IOC、啟發式 | 相應 Python 分析器 | 不執行 scripts；解碼候選不代表已完整還原程式 |
@@ -33,13 +33,14 @@
 Agile 必須驗證 HMAC；Standard 格式本身沒有認證完整性，ZIP CRC 只能發現部分損壞，不能當作 HMAC。
 子檔重新執行實際 AV／YARA 與適用的格式／文件階段；父檔與子檔都不執行巨集、DDE 或其他程式內容，
 不開啟外部範本網址。缺密碼、錯誤密碼、不支援、損壞與資源限制使用不同狀態／原因，已有成果保留。
-本批程式與本機驗證狀態見 F-02。2026-10-20 已核對使用者提供的 Job 映像切換、正式 Pages 發布與
-兩份直接 DOCX 根報告及兩份巢狀 Office 詳細子樹：一般根報告 8 節點／0 分，外部範本根報告 10 節點／
-父檔 15 分、解密子檔 53 分，兩份巢狀 Office 子樹各 8 節點／0 分；四份宣告範圍內的靜態分析皆完成。
-先前三份 Office 報告各已用 1／剩餘 2／上限 3。本輪畫面顯示 Office 密碼錯誤紅字與 1／2，
-使用者確認 ZIP 已用 1 時內層 Office 初始 0／3；其後正確密碼續跑的新 JSON 為分析完成及已用 2／剩餘 1。
-見[Office 雲端驗收紀錄](milestones/2026-10-20-office-cloud-acceptance.json)。F-10 維持進行中，目前只缺最外層 ZIP 完整根報告，從既有工作返回上一層下載即可，無須重傳。
-Office 三次耗盡未在本輪雲端演練；實際保留期、清理與每次 execution 映像另按各自證據追蹤。
+本批程式與本機驗證狀態見 F-02。2026-10-20 F-10 完成三個宣告 smoke 案例的限定雲端驗收；
+使用者提供映像切換、正式 Pages 發布、錯誤畫面與五份報告：三份完整根報告及兩份 Office 詳細子樹。
+一般 DOCX 根報告 8 節點／0 分、外部範本根報告 10 節點／父檔 15 分與解密子檔 53 分，
+不同密碼 ZIP→Office 根報告 9 節點／6 分，兩份 Office 子樹各 8 節點／0 分；五份宣告範圍內的靜態分析皆完成。
+Office 錯誤紅字與 1／2 有畫面，ZIP 已用 1 時 Office 初始 0／3 依使用者確認；
+最終 ZIP 根 JSON 記錄 ZIP 1／2、Office 2／1，累計提取 8 檔／19,196 bytes，最新 ZIP 根與本輪對應子樹的身份及來源一致。
+見[Office 雲端驗收紀錄](milestones/2026-10-20-office-cloud-acceptance.json)。本輪沒有在雲端演練 Office 三次耗盡或其他 Office 格式；
+各 root 的 status／保留期、清理及每次 execution 映像／物件 bytes 查詢仍按各自範圍追蹤。
 
 2026-10-18 的 PDF 密碼恢復程式與本機驗證已完成，一般原生基準 32／32 與獨立密碼案例 12／12 通過；
 首批已取得使用者提供的 Job 切換與兩組原檔／解密子檔報告，證明實際解密掃描。

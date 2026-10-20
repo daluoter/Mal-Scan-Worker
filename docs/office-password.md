@@ -1,12 +1,15 @@
 # Office 密碼恢復與解密子檔
 
-更新日期：2026-10-20（Asia/Taipei）。F-02 已完成程式與本機驗證；正式 Office smoke **F-10 進行中**。
-使用者已提供 Job 映像切換、Pages 正式發布輸出，並人工確認 DOCX 密碼可解鎖與正常分析。
-兩份直接 DOCX 根報告及兩份巢狀 Office 詳細子樹的宣告範圍皆完成靜態分析，見[Office 雲端驗收紀錄](milestones/2026-10-20-office-cloud-acceptance.json)。
-本輪畫面顯示 Office 密碼錯誤紅字與已用 1／剩餘 2，使用者確認 ZIP 已用 1 時，Office 初始仍為已用 0／剩餘 3；
-再提交正確密碼後，最新 Office JSON 記錄分析完成及已用 2／剩餘 1。
-F-10 目前只缺該工作的最外層 ZIP 完整報告，從既有工作返回上一層下載 JSON 即可，無須重新上傳。
-發布順序見 [Job→Pages 手冊](deploy-office-password.md)，各項證據與剩餘條件見[進度清單](project-status.md)。
+更新日期：2026-10-20（Asia/Taipei）。F-02 已完成程式與本機驗證；正式 Office smoke **F-10 完成（限定案例）**。
+已核對使用者提供的 Job 映像切換、Pages 正式發布輸出、Office 錯誤提示畫面與五份報告，
+涵蓋一般加密 DOCX、外部範本 DOCX、不同密碼 ZIP→Office 三個宣告的 smoke 案例。
+三份完整根報告各為 8／10／9 節點，分數為 0／15／6；另有兩份 8 節點 Office 詳細子樹，
+五份宣告範圍內的靜態分析皆完成，見[Office 雲端驗收紀錄](milestones/2026-10-20-office-cloud-acceptance.json)。
+錯誤紅字與 Office 已用 1／剩餘 2 有畫面；ZIP 已用 1 時 Office 初始仍為 0／3 依使用者確認。
+最終 ZIP 根 JSON 記錄 ZIP 已用 1／剩餘 2、Office 已用 2／剩餘 1，累計提取 8 檔／19,196 bytes；
+最終 ZIP 根與本輪對應 Office 子樹的身份、明文 hash、來源及適用掃描符合固定樣本預期。
+驗收不涵蓋其他 Office 格式或本輪未演練的三次耗盡；各 root 的 status／保留期及清理另列 P0-18。
+發布順序見 [Job→Pages 手冊](deploy-office-password.md)，各項證據與維護條件見[進度清單](project-status.md)。
 
 ## 支援範圍
 
@@ -43,9 +46,9 @@ ZIP 使用一次不扣內層 Office；兩個 Office sibling 也各自計算。�
 不把外層 ZIP 密碼或第一份文件密碼套用到其他文件。某一節點耗盡不應阻擋其他仍有次數的節點。
 所有續跑仍計入 demo 每日 20／每月 40 次 executions；新工作仍為每日 10 個，沒有提高額度。
 這是既有控制契約在 Office 的沿用。先前三份 Office 報告各記錄已用 1／剩餘 2／上限 3；
-本輪補驗有 Office 錯誤紅字與 1／2 畫面，ZIP 已用 1、Office 初始仍為 0／3 依使用者人工確認，
-最新完成 JSON 為已用 2／剩餘 1／上限 3。這些證據沒有演練 Office 三次耗盡；F-10 只需再補最外層 ZIP 完整報告，
-各 root 的實際保留期與清理仍分開列為 P0-18。
+本輪 Office 錯誤紅字與 1／2 有畫面，ZIP 已用 1、Office 初始仍為 0／3 依使用者人工確認。
+最終 ZIP 根 JSON 記錄 ZIP 1／2、Office 2／1，且工作及靜態分析完成；相關身份與本輪對應 Office 詳細子樹一致。
+F-10 按這三個宣告 smoke 案例結案，沒有在本輪雲端演練 Office 三次耗盡；各 root 實際保留期與清理仍列 P0-18。
 
 報告會保留原始加密父檔及獨立的解密子檔。成功子檔來源為 `office-decrypted`，
 `content_access=decrypted_child`，並記錄明文 SHA-256／大小；加密資訊的 `integrity` 在 Agile 成功時為
