@@ -4,13 +4,15 @@
 F-03 PDF 附件／Office 嵌入檔案的 `document-embedded-v1.json` 固定套件已完成 12／12 原生驗收。
 這批核對實際提取 bytes、SHA-256、來源與完整子檔掃描，包含 PDF 壓縮附件、aliases／同名來源、
 密碼續跑、OOXML 非 `.bin` member／內部 package relationship、OLE native／Package 與不支援／損壞對照。
-尚未取得本批最終測試結果，不能沿用下方歷史批次的數字宣稱通過。
+下方本機數字來自本批獨立紀錄；歷史結果與正式雲端驗收保持各自範圍。
 能力見[文件附件說明](document-embedded.md)，正式 Job 部署與新上傳另追 F-11，見[更新手冊](deploy-document-embedded.md)。
 本批 worker 完整回歸 1,379 通過／3 項 PostgreSQL opt-in 跳過，Ruff／strict mypy 95 個來源檔與 lock 檢查通過。
 一般 40 份新執行報告依 v6 重新核對 40／40（未重跑偵測器），唯一更動預期的外部嵌入參照另原生重跑 1／1；
 初次 v5 的 39／40 及原因保留。PDF 密碼 12／12、Office 密碼 14／14 亦完成回歸；最終計數修正後受影響的三個巨集／嵌入物件 profile 另原生補驗 3／3。
 固定快取病毒庫只用於這次離線測試，測試新鮮度窗為 14 日；正式 7 日限制不變，新部署仍需刷新與簽章驗證。
 逐次來源快照、補驗與限制見[本批紀錄](milestones/2026-10-20-document-embedded.json)。
+另已核對使用者的 Job 更新與 PDF 文字附件正式根報告，2 節點／0 分、提取 1 檔／41 bytes 符合預期。
+F-11 為 1／3 通過；EICAR 公司端防毒阻擋、Office 月額度拒絕保留待驗證，見[雲端部分紀錄](milestones/2026-10-20-document-embedded-cloud-acceptance.json)。
 
 目前一般基準為 `corpus-v6.json`（40 案／36 fixture、`msrs-v1.2`），PDF 密碼另用 `pdf-password-v2.json`（12 案），
 Office 密碼另用 `office-password-v1.json`（14 個 profile）。F-02 本批已完成程式／本機驗證。

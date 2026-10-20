@@ -2,6 +2,7 @@
 
 更新日期：2026-10-20（Asia/Taipei）。F-03 已完成程式／本機驗證；正式雲端驗收另外追蹤 F-11。
 本頁只宣告下列提取範圍，驗證結果見[進度清單](project-status.md)及[品質基準](static-quality.md)。
+F-11 已核對使用者部署輸出與 PDF 文字附件報告，1／3 通過；另兩案仍待正式證據，見[本輪紀錄](milestones/2026-10-20-document-embedded-cloud-acceptance.json)。
 
 這項功能將文件裡實際包含的檔案取出，建立有來源的子檔，再執行相同的 ClamAV、YARA、IOC、
 格式分析與適用的文件分析。例如 PDF 附有 ZIP，ZIP 再包含 Office 文件，報告會保留各層關係。

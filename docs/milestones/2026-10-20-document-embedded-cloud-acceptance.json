@@ -1,0 +1,197 @@
+{
+  "schema_version": 1,
+  "date": "2026-10-20",
+  "scope": "F-11 partial user-supplied cloud smoke acceptance",
+  "implementation_commit": "1ddc11624424fc2059cc6fbde012a5623909ec68",
+  "checklist_id": "F-11",
+  "checklist_status": "in_progress",
+  "declared_cases": 3,
+  "accepted_cases": 1,
+  "agent_operations": {
+    "remote_mutations": false,
+    "cloud_jobs_started": false,
+    "provider_api_reads": false,
+    "secrets_read": false
+  },
+  "deployment_evidence": {
+    "source": "user-provided Cloud Shell transcript",
+    "raw_transcript_sha256": "fa6440e14b9ab2d6f99428ef91e34b8262353aa5740d57a7695bdc4b45186219",
+    "raw_transcript_published": false,
+    "release": "db-20261020T082329Z-b01014151255",
+    "phase": "promoted",
+    "build_id": "33bf9cc6-d6bf-4777-9384-a567ce3bec41",
+    "build_status": "SUCCESS",
+    "previous_image": "us-central1-docker.pkg.dev/malscan-v2-poc/malscan-v2-poc/full-worker@sha256:aad2b4e3d03c30fe7ac1400a090ec41ddc766e096e5a50b61e5021eeb324a96b",
+    "candidate_image": "us-central1-docker.pkg.dev/malscan-v2-poc/malscan-v2-poc/full-worker@sha256:03099c77e41eb9db284862ce7ecc404b4a43d5cc174169c6386b2876dfd41dc0",
+    "candidate_controls": {
+      "success": true,
+      "checked_at": "2026-10-20T08:25:29.929377+00:00",
+      "module_sha256": "b9dd37b91cb90c519a56dd9edfd68965e6c16437edf6a17caed902d2fa3ad025",
+      "clamav_version": "ClamAV 1.4.3/28159/Tue Oct 20 06:24:12 2026",
+      "yara_version": "4.5.4",
+      "yara_rules_sha256": "52cc7df2f9732941bce0f079bb70b36f01f04008b0a458398ef3ee58679a7dcc",
+      "controls": {
+        "clamav_clean": true,
+        "clamav_eicar_detected": true,
+        "yara_clean": true,
+        "yara_eicar_detected": true
+      },
+      "signed_databases": [
+        {
+          "age_seconds": 26557604,
+          "created_at_epoch": 1765927102,
+          "name": "main.cvd",
+          "signature_verified": true,
+          "signatures": 3287027,
+          "version": 63
+        },
+        {
+          "age_seconds": 7254,
+          "created_at_epoch": 1792477452,
+          "name": "daily.cvd",
+          "signature_verified": true,
+          "signatures": 355771,
+          "version": 28159
+        },
+        {
+          "age_seconds": 34890947,
+          "created_at_epoch": 1757593759,
+          "name": "bytecode.cvd",
+          "signature_verified": true,
+          "signatures": 80,
+          "version": 339
+        }
+      ]
+    },
+    "provider_configuration_independently_queried": false,
+    "per_execution_image_digest_verified": false
+  },
+  "accepted_case": {
+    "scope": "read_only_uploaded_pdf_text_smoke_verification",
+    "passed": true,
+    "case_id": "pdf-name-tree-text",
+    "job_id": "57dd5d67-9941-49d4-9692-7586e9ab3c39",
+    "report_sha256": "4ae538a79b4d06ea2c21319ac9f013fde7abd563cab99879514812510fd52abd",
+    "manifest_sha256": "aff33e91d3115b2a1d9cc58d3ec365fb838c63b5f2737754ae5dc254aed2ced0",
+    "input": {
+      "sha256": "af16ec9bafdc60808f2acf5df16e85402c4031181d1a87d38b412c777e7d42c9",
+      "bytes": 664
+    },
+    "child": {
+      "artifact_id": "0f6ef4ab-5c59-5d45-a826-6aaaaa20b34a",
+      "sha256": "c181b017b5331e18b38f953598a9f9f406cac3834d3e1d46208b35bcf31f2fbe",
+      "bytes": 41,
+      "source": "pdf-attachment/0000",
+      "extraction_source": "format-analysis",
+      "depth": 1
+    },
+    "artifact_count": 2,
+    "score": 0,
+    "risk_level": "clean",
+    "job_status": "done",
+    "report_complete": true,
+    "static_status": "complete",
+    "dynamic_status": "disabled",
+    "root_budget": {
+      "used_files": 1,
+      "used_bytes": 41,
+      "limits": {
+        "max_bytes": 100000000,
+        "max_files": 20,
+        "timeout_seconds": 840
+      }
+    },
+    "tools": {
+      "clamav": "ClamAV 1.4.3/28159/Tue Oct 20 06:24:12 2026",
+      "yara": "4.5.4",
+      "rules_sha256": "52cc7df2f9732941bce0f079bb70b36f01f04008b0a458398ef3ee58679a7dcc",
+      "risk_policy": "msrs-v1.2"
+    },
+    "checks": [
+      "existing native evaluate_report passed",
+      "frozen input and attachment reported identities match",
+      "exact parent/child/UUID5 occurrence identity",
+      "actual reported stage coverage and tools",
+      "extraction feature/output links resolve to scanned child",
+      "tree/table identity and coverage agree",
+      "root budget equals one41byte attachment"
+    ],
+    "limitations": {
+      "independent_cloud_api_reads": false,
+      "independent_cloud_object_bytes_read": false,
+      "per_execution_image_digest_verified": false,
+      "retention_expires_at_provided": false,
+      "physical_retention_cleanup_verified": false,
+      "all_three_f11_cases_complete": false
+    },
+    "validation_summary_sha256": "feda227dcfb0e93c1fa6c55a8308172745edaef9034427d3242e98c0aa8c19fa",
+    "validator_sha256": "7a681f9a6c2b928050ad29da13d7f161ab2c346466673e3bcc35c5c5604f9538",
+    "identity_verification_scope": "Reported root/child identities match frozen fixture bytes and submitted output metadata; cloud object bytes were not independently downloaded."
+  },
+  "remaining_cases": [
+    {
+      "case_id": "pdf-flate-eicar",
+      "status": "pending",
+      "user_observation": "Corporate endpoint antivirus blocked transfer from Cloud Shell to company laptop; user plans a later test on their own laptop.",
+      "cloud_scan_report_supplied": false,
+      "endpoint_block_is_project_cloud_detection_proof": false,
+      "also_subject_to_shared_monthly_execution_limit": true
+    },
+    {
+      "case_id": "office-embedded-pdf",
+      "status": "pending",
+      "job_id": "0f2e9ed9-9504-4628-af8d-deb91e8cdc3c",
+      "evidence": "User-provided screenshots",
+      "upload_error": "monthly_demo_limit_reached",
+      "job_status": "failed",
+      "status_error": "execution_admission_limit",
+      "http_status_observed": false,
+      "office_analyzer_failure_proven": false,
+      "cloud_scan_report_supplied": false,
+      "dispatch_rejection_scope": "Current implementation reserves execution inside a transaction before dispatcher call; screenshots match that admission rejection. Independent provider execution absence/cost was not queried."
+    }
+  ],
+  "quota_observation": {
+    "checklist_id": "P0-08",
+    "status": "in_progress",
+    "scope": "Application global shared execution admission, not a per-device allowance",
+    "monthly_execution_limit_default": 40,
+    "actual_configured_limit_verified": false,
+    "actual_counter_value_verified": false,
+    "counted_operations": [
+      "initial reserved execution",
+      "password resume",
+      "ambiguous dispatch reservation"
+    ],
+    "calendar": "UTC calendar month",
+    "next_month_for_october_2026": {
+      "utc": "2026-11-01T00:00:00Z",
+      "asia_taipei": "2026-11-01T08:00:00+08:00"
+    },
+    "daily_and_resume_and_ambiguous_counter_acceptance_complete": false,
+    "limits_changed": false,
+    "counter_reset_performed": false,
+    "retry_guidance": "After month rollover, submit the remaining cases as new jobs within available daily/monthly allowance. The failed Office job and its consumed ticket do not become resumable by changing month or device."
+  },
+  "retention_followup": {
+    "checklist_id": "P0-18",
+    "job_ids": [
+      "57dd5d67-9941-49d4-9692-7586e9ab3c39",
+      "0f2e9ed9-9504-4628-af8d-deb91e8cdc3c"
+    ],
+    "retention_expires_at_provided": false,
+    "r2_physical_absence_confirmed": false,
+    "durable_object_row_deletion_confirmed": false,
+    "note": "Failed admission can still leave uploaded source and control-plane job metadata; failure is not deletion evidence. Use each root private status expiration, not report completion time."
+  },
+  "unchanged_maintenance": [
+    "P0-06 DO physical rows",
+    "P0-11 real rollback",
+    "P0-12 automated signed database updates",
+    "P0-14 long-term costs",
+    "P0-15 Cloudflare usage",
+    "P0-19 GitGuardian platform closure"
+  ],
+  "data_boundary": "Raw uploaded reports, screenshots, transcript, capabilities, credentials and private status remain outside the repository. Only reviewed metadata and hashes are recorded.",
+  "completion_claim": "Only pdf-name-tree-text passed; F-11 is not complete. No production EICAR or Office embedding success is inferred from local suites."
+}

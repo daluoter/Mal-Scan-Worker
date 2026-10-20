@@ -50,6 +50,8 @@ Office 錯誤紅字與 1／2 有畫面，ZIP 已用 1 時 Office 初始 0／3 �
 本輪未在雲端演練 Office 三次耗盡或其他 Office 格式，不擴大為所有加密版本的相容性保證。
 新工作的私有 status／保留期另追 P0-18，不用先前 PDF 的雲端結論代替 Office 操作證據。
 F-03 文件附件與 Office 嵌入物件已完成程式／本機驗證；正式雲端另列 F-11，見[附件能力](document-embedded.md)及[Job 更新手冊](deploy-document-embedded.md)。
+F-11 已取得部署輸出及 PDF 文字附件 1／3 通過證據；EICAR 端點轉移與 Office 月額度拒絕保留待驗證，見[部分雲端紀錄](milestones/2026-10-20-document-embedded-cloud-acceptance.json)。
+維持現有額度，月份恢復後補兩案；不需要重建已更新的 Job，亦不因阻塞而關閉維護項目。
 其他格式品質與實際來源樣本仍列 Q-06 進行中，詳見[本批紀錄](milestones/2026-10-19-base64-quality.json)。
 P0-06 DO 清理、P0-11 真實回退、P0-12 自動更新與 P0-14 長期成本持續並行，
 功能完成不會關閉這些維護項目。

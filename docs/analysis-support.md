@@ -19,7 +19,8 @@
 | ISO | 格式辨識 | — | handler 尚為 stub，回報不支援，沒有 ISO 提取能力 |
 | ELF、Mach-O、郵件、APK 等 | 通用階段仍可適用 | — | 尚無宣告完整的專用深度分析／子檔提取能力 |
 
-F-03 文件附件這批的程式／本機驗證完成，正式 demo 尚未升版；現有雲端結論維持先前已驗收範圍。
+F-03 文件附件這批的程式／本機驗證完成；已核對使用者的 Job 切換與 PDF 文字附件正式報告，F-11 進行中（1／3）。
+EICAR 及 Office 嵌入 PDF 仍因公司端防毒／站台月額度限制待驗證，不能以本機成功代替，見[本輪紀錄](milestones/2026-10-20-document-embedded-cloud-acceptance.json)。
 附件提取成功、子工作提交成功與掃描完成分開記錄；PDF `attachment_extraction`／`embedded_files`、
 Office `embedded_extraction` 與子檔 stage coverage 應同時核對。來源 aliases 與各 occurrence 保留來源關係，
 不能只由附件描述或 `analysis_state=submitted` 判斷已掃描。詳見[文件附件說明](document-embedded.md)。

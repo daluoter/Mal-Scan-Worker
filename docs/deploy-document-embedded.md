@@ -3,6 +3,8 @@
 更新日期：2026-10-20（Asia/Taipei）。F-03 程式與本機驗證完成；正式部署及新上傳驗收另列 F-11。
 執行前先以發布訊息核對 commit、CI 與本機驗證已通過，不能僅因本手冊存在就認定候選版已可發布。
 能力與限制見[文件附件說明](document-embedded.md)。
+本輪 Job 已有使用者提供的成功建置／promoted 輸出，PDF 文字附件 1／3 通過；其餘兩案受端點與月額度限制。
+第 1–6 節供可重現部署使用，本輪接續狀態見第 7 節；不要為補 smoke 重建已發布的 Job。
 
 本批更新 **Cloud Run Job** 的共用靜態核心。既有 Pages、Cloudflare Worker、dispatcher、R2、IAM、secrets、
 逐檔密碼契約與額度沿用；本手冊沒有發布 Worker 範本或重新建立資源的步驟。
@@ -178,3 +180,25 @@ PDF 附件為加密 PDF 的密碼續跑另有本機固定案例；不是這三�
 
 回退後還要核對 digest、設定與實際可用性。提供命令不表示已演練，P0-11 真實雲端回退維持待辦；
 P0-12 自動簽章病毒庫更新、P0-14 長期成本及 P0-15 Cloudflare 用量也不因本次功能交付結案。
+
+
+## 7. 本輪部分驗收與月額度接續
+
+本輪紀錄見[文件附件雲端驗收](milestones/2026-10-20-document-embedded-cloud-acceptance.json)。
+`pdf-name-tree-text.pdf` 已通過：2 節點／0 分、子檔 41 bytes、來源與適用掃描完成，累計提取 1 檔／41 bytes。
+`pdf-flate-eicar.pdf` 在公司端轉移時被防毒攔截，保持原防護並列待驗證；不把端點攔截計成雲端偵測成功。
+`office-embedded-pdf.docx` 出現 `monthly_demo_limit_reached`，其工作為 failed／`execution_admission_limit`。
+依目前程式，這是在呼叫 dispatcher 前的執行額度拒絕，沒有 Office 分析器失敗證據；實際 provider execution 清單與費用未獨立核對。
+
+`MONTHLY_EXECUTION_LIMIT` 程式預設 40，計算所有人共用的 UTC 月內 execution reservations，包含密碼續跑及不確定派送。
+此次未獨立讀取正式 counter／設定值，截圖證明拒絕，不能據此宣稱精確用滿 40 次。
+更換電腦、隔天、重新登入或重送同一檔案都不會換月。2026 年 10 月的下個 UTC 月份從
+**2026-11-01 00:00 UTC／台灣時間 11 月 1 日 08:00** 開始；之後仍受當日與當月剩餘額度限制。
+
+本輪維持現有額度，不清空計數、不放寬上限。恢復後只為剩餘兩案建立新工作：原失敗 Office 的上傳票證已消耗，
+它不會因換月變成可續跑工作。不要重傳已通過的文字附件，也不重建 Job 或重送建置。
+回家使用自己的筆電仍會受同一個全站月額度限制，先確認額度再安排 EICAR 測試。
+
+保存成功與拒絕工作的私有 status／`retention_expires_at`，兩者都納入 P0-18。
+拒絕執行時上傳檔可能已在 R2，failed 不能當成刪除證據；DO 實體清理仍另列 P0-06。
+本輪只取得月額度拒絕的部分證據，P0-08 的每日限額、真實 counter 與其他派送計數仍待補齊。
