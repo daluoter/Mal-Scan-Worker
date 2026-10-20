@@ -8,8 +8,8 @@
 
 ## 目前里程碑
 
-**2026-10-20：Office 密碼雲端解鎖與分析已有成功案例，F-10 進行中。** 使用者提供 Job 映像切換、Pages 正式發布輸出，並人工確認 DOCX 密碼可解鎖及正常分析。兩份完整根報告顯示一般加密 DOCX 為 8 個節點／0 分，外部範本 DOCX 為 10 個節點／父檔 15 分、解密子檔 53 分；另有巢狀 `locked.docx` 的 8 節點子樹報告，三者靜態範圍皆完成。
-三份 Office 報告各為已用 1／剩餘 2／上限 3。Office 錯誤密碼紅字、ZIP 與內層 Office 初始次數獨立、最外層 ZIP 完整報告及各 root 保留期仍待補證據；不由完成 JSON 反推操作歷程。詳見[本輪雲端紀錄](docs/milestones/2026-10-20-office-cloud-acceptance.json)與[進度清單](docs/project-status.md)。
+**2026-10-20：Office 雲端密碼解鎖、錯誤提示與逐檔獨立已取得本輪證據，F-10 進行中。** 使用者提供 Job 映像切換與 Pages 正式發布輸出。已核對兩份完整根報告：一般加密 DOCX 為 8 個節點／0 分，外部範本 DOCX 為 10 個節點／父檔 15 分、解密子檔 53 分；另有兩份巢狀 `locked.docx` 的 8 節點子樹報告，四份宣告範圍內的靜態分析皆完成。
+前三份 Office 報告各為已用 1／剩餘 2／上限 3；本輪補驗的畫面顯示 Office 密碼錯誤紅字與已用 1／剩餘 2，使用者確認 ZIP 已用 1 時內層 Office 初始仍已用 0／剩餘 3。其後正確密碼續跑的新 Office 報告為已用 2／剩餘 1、分析完成。F-10 目前只缺這筆工作的最外層 ZIP 完整報告；可回到上一層下載既有 JSON，無須重新上傳。各 root 保留期另追 P0-18；本輪未演練 Office 三次耗盡。詳見[本輪雲端紀錄](docs/milestones/2026-10-20-office-cloud-acceptance.json)與[進度清單](docs/project-status.md)。
 
 **2026-10-19：F-02 Office 密碼恢復已完成程式與本機驗證。** 現代加密 OOXML 可補交使用者密碼，正確解鎖後保留原始明文套件的完整 bytes，建立依 content type 命名的 `decrypted.docx`／`xlsx`／`pptx` 等子檔，再執行共用靜態掃描。固定套件包含 Agile AES-256、Standard AES-128、巨集格式旗標、外部範本、不同密碼 ZIP 與損壞／不支援對照；測試巨集為惰性資料，不執行文件或取得外部資源。
 缺密碼與錯誤密碼保留部分成果，續跑沿用原 artifact、checkpoint 與 root 累計預算，ZIP 與 Office 各自使用既有逐檔三次額度。舊式 DOC／XLS／PPT 加密、IRM 與其他未支援加密保留 partial，不當成密碼錯誤。本機交付與正式 demo 的 F-10 驗收分開記錄，最新雲端範圍見上方里程碑。Office 原生 14／14、一般 40／40、PDF 密碼 12／12 通過；另有 57 組真實加密演算法測試。詳見[本批紀錄](docs/milestones/2026-10-19-office-password.json)。能力邊界見 [Office 密碼流程](docs/office-password.md)，發布順序為 [Job→Pages](docs/deploy-office-password.md)。
@@ -183,4 +183,4 @@ scripts/enable-sandbox.sh
 
 本機已驗證 backend／worker／frontend 測試、真 PostgreSQL 預算與 attempt、真 ZIP／7z 不同密碼恢復、完整容器／S3 checkpoint，以及 Worker 與 Python dispatcher 的 HTTP 串接。測試數量、命令與證據邊界見[驗證紀錄](docs/v2-validation.md)；它們不取代 live provider 或實際帳單驗收。
 
-Q-06 的 PDF／Base64 弱候選批次已完成本機與三案雲端 smoke 核對；F-02 Office 密碼本機交付完成，F-10 已取得限定 DOCX 雲端成功案例，接著補齊錯誤提示、ZIP 逐檔獨立及最外層報告證據，再接續 F-03 文件附件與可量測的效能改善。P0-19 本筆安全通知已定位為非憑證測試資料誤報，平台單筆結案另追蹤。DO 清理、長期成本、真實雲端回退及自動簽章病毒庫更新持續列為獨立待辦；真實 CAPE 驗收待可用基礎設施。每批都更新[專案進度清單](docs/project-status.md)，各階段排序見[路線圖](docs/roadmap.md)。
+Q-06 的 PDF／Base64 弱候選批次已完成本機與三案雲端 smoke 核對；F-02 Office 密碼本機交付完成，F-10 已取得 DOCX 解鎖、Office 錯誤提示及 ZIP／Office 次數獨立的本輪證據，目前只需下載既有最外層 ZIP 完整報告補齊，再接續 F-03 文件附件與可量測的效能改善。P0-19 本筆安全通知已定位為非憑證測試資料誤報，平台單筆結案另追蹤。DO 清理、長期成本、真實雲端回退及自動簽章病毒庫更新持續列為獨立待辦；真實 CAPE 驗收待可用基礎設施。每批都更新[專案進度清單](docs/project-status.md)，各階段排序見[路線圖](docs/roadmap.md)。

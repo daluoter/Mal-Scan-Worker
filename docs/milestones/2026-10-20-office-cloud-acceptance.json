@@ -5,12 +5,13 @@
   "recorded_timezone": "Asia/Taipei",
   "overall_checklist_id": "F-10",
   "overall_checklist_status": "in_progress",
-  "acceptance_status": "passed_for_correct_password_docx_subset_remaining_interactions_unverified",
+  "acceptance_status": "interaction_checks_passed_outer_zip_root_report_pending",
   "evidence_basis": [
     "User supplied Cloud Shell source checkout, successful build/controls, Job promotion and production Pages deployment output",
     "User explicitly confirmed DOCX password unlock and normal analysis",
     "Two complete DOCX root reports and one nested Office subtree passed offline fixture/coverage metadata checks",
-    "User explicitly answered that wrong-password red feedback and ZIP/Office initial retry independence were both not confirmed"
+    "Initial submission did not confirm wrong-password feedback or ZIP/Office counter independence; a later follow-up explicitly confirms both, with a wrong-password screenshot and successful resumed Office report",
+    "Latest Office subtree report passed frozen fixture identity, declared coverage and final per-file counter checks"
   ],
   "agent_executed_cloud_scan_tests": false,
   "remote_gcp_or_cloudflare_api_independently_queried": false,
@@ -57,7 +58,8 @@
     "pages_environment": "Production",
     "pages_branch": "main",
     "public_site": "https://malscan-v2-demo.pages.dev",
-    "raw_transcript_sha256": "4c26878cfdeae3629f130f47b98994a9b7cfe1f687a31d880df6290d8bb7d55a"
+    "raw_transcript_sha256": "8d8c006f19285f3253d48d7344bbb4090a41b1b74a7b14dadedafefd9fc34853",
+    "transcript_sha256_method": "raw uploaded bytes"
   },
   "versions": {
     "report_schema": "mswr-report-v3",
@@ -274,28 +276,68 @@
         "used_bytes": 8956,
         "used_files": 7
       }
+    },
+    {
+      "case": "nested_docx_wrong_password_then_correct_subtree",
+      "scope": "nested_office_subtree",
+      "job_id": "50b1efed-24a7-5385-b9c7-8d0316a5098f",
+      "reported_root_id": "94d643f0-0f74-45a6-9d3c-2f8dc16d8653",
+      "parent_job_id": "94d643f0-0f74-45a6-9d3c-2f8dc16d8653",
+      "raw_document_sha256": "c99d5669e5fd4838cb9ce3d33f82f30cc017e0f4e48d06961b53b8d207dfb3ae",
+      "fixture_profile": "agile-aes256-docx",
+      "encrypted_source_sha256": "f5a3752470a54f361429db0e070e9197dee0c473a39c0bf6208456968179fa2a",
+      "encrypted_source_bytes": 10240,
+      "job_status": "done",
+      "report_complete": true,
+      "static_status": "complete",
+      "visible_artifact_count": 8,
+      "tree_depth_offset": 1,
+      "score": 0,
+      "risk_level": "clean",
+      "own_office_attempts": {
+        "attempts_used": 2,
+        "attempts_remaining": 1,
+        "limit": 3
+      },
+      "decrypted_child_reported_sha256": "a453a429bd71e96985ac490aae2c7ff4189ac725acb8999d6a74332752916f55",
+      "decrypted_child_reported_bytes": 4831,
+      "reported_docx_mime": null,
+      "reported_encryption": {
+        "scheme": "agile",
+        "cipher": "AES-CBC",
+        "hash": "SHA512",
+        "key_bits": 256,
+        "spin_count": 100000,
+        "integrity": "hmac_verified"
+      },
+      "all_visible_occurrence_identity_and_source_metadata_matches_frozen_fixtures": true,
+      "all_visible_eight_stage_statuses_match_expected_roles": true,
+      "cloud_plaintext_bytes_independently_retrieved": false,
+      "actual_mime_transport_independently_verified": false,
+      "corpus_evaluation": null,
+      "outer_zip_root_report_provided": false,
+      "outer_zip_input_identity_verified": false,
+      "outer_zip_counters_verified": false
     }
   ],
   "manual_attestation": {
     "correct_password_unlock_and_analysis": true,
-    "wrong_password_red_feedback": "not_confirmed_by_user",
-    "zip_and_office_initial_counters_independent": "not_confirmed_by_user",
+    "wrong_password_red_feedback": "confirmed_by_user_and_visible_screenshot",
+    "zip_and_office_initial_counters_independent": "confirmed_by_user",
     "office_third_submission_exhaustion_cloud_exercise": "not_observed"
   },
   "remaining_f10_evidence": [
-    "Office wrong-password red feedback and used 1 / remaining 2 after analysis confirms rejection",
-    "ZIP used 1 / remaining 2 while inner Office starts used 0 / remaining 3",
-    "Complete outer ZIP root report, including expected outer fixture identity, all visible artifact lineage and final per-file counters"
+    "Complete outer ZIP root report for existing root 94d643f0-0f74-45a6-9d3c-2f8dc16d8653, including outer fixture identity, full artifact lineage, ZIP and Office final counters and root budget"
   ],
   "follow_up": {
-    "guide": "docs/deploy-office-password.md#8-本輪尚缺的操作一個新-zip-root-補驗",
-    "new_uploads_expected": 1,
-    "executions_expected": 4,
+    "guide": "docs/deploy-office-password.md#8-本輪操作已通過下載既有-zip-根報告",
+    "existing_root_job_id": "94d643f0-0f74-45a6-9d3c-2f8dc16d8653",
+    "new_uploads_expected": 0,
+    "executions_expected": 0,
     "steps": [
-      "Upload a fresh copy of the existing synthetic AES ZIP fixture",
-      "Submit the ZIP fixture password; inspect ZIP and inner Office counters",
-      "Submit one incorrect Office test string; wait for explicit rejection feedback",
-      "Submit correct Office fixture password; download outermost ZIP root report"
+      "Use the existing browser tab with the job capability",
+      "On the nested Office report or progress page select 返回上一層分析",
+      "Confirm the ZIP root job ID, open its report and download the complete JSON"
     ],
     "quota_changes_required": false,
     "third_submission_exhaustion_intentionally_tested": false
@@ -305,7 +347,8 @@
     "reported_root_ids": [
       "6eac60df-aa59-43c7-8b97-a2c7e26ba832",
       "4404d6d0-697e-4a26-8059-8c06d6540222",
-      "4c6755ab-f1a4-4ba4-925a-13c4c416b913"
+      "4c6755ab-f1a4-4ba4-925a-13c4c416b913",
+      "94d643f0-0f74-45a6-9d3c-2f8dc16d8653"
     ],
     "root_status_retention_expires_at_provided": false,
     "expiry_inferred_from_report_completion": false,
@@ -335,6 +378,43 @@
     "verifier_sha256": "42ad47b7460431f70f570179bb232fafe77615b71d51e344fc7bdf079bc018f0",
     "summary_sha256": "6d054c161adc91185634a4f8f29fe93101169b79c9cbd286adc35be2ce6168b4",
     "remote_operations": false,
-    "cloud_object_bytes_retrieved": false
+    "cloud_object_bytes_retrieved": false,
+    "followup_verifier_sha256": "42ad47b7460431f70f570179bb232fafe77615b71d51e344fc7bdf079bc018f0",
+    "followup_verification_summary_sha256": "f6ba7904ea925bd3a2169f175349541e9a9f189ffb14399fddbfce21ca8994b3"
+  },
+  "screenshot_observation": {
+    "office_job_id_matches_report": true,
+    "path_visible": "zip-aes-office-agile-aes256-docx.zip!/nested/locked.docx",
+    "wrong_password_red_text_visible": true,
+    "attempts_used_visible": 1,
+    "attempts_remaining_visible": 2,
+    "job_id": "50b1efed-24a7-5385-b9c7-8d0316a5098f",
+    "raw_screenshot_republished": false,
+    "initial_zip_office_independence_shown_in_screenshot": false
+  },
+  "interaction_followup": {
+    "job_id": "50b1efed-24a7-5385-b9c7-8d0316a5098f",
+    "root_job_id": "94d643f0-0f74-45a6-9d3c-2f8dc16d8653",
+    "before_office_submission": {
+      "zip_used": 1,
+      "office_used": 0,
+      "office_remaining": 3,
+      "evidence": "user_attestation"
+    },
+    "after_wrong_office_submission": {
+      "office_used": 1,
+      "office_remaining": 2,
+      "red_error_visible": true,
+      "evidence": "user_attestation_and_screenshot"
+    },
+    "after_correct_office_submission": {
+      "office_used": 2,
+      "office_remaining": 1,
+      "job_status": "done",
+      "report_complete": true,
+      "static_status": "complete",
+      "evidence": "user_attestation_and_office_subtree_json"
+    },
+    "outer_zip_final_counter_in_json_verified": false
   }
 }

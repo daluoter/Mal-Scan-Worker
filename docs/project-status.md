@@ -14,12 +14,14 @@
 雙 Office sibling、第二組 Office 密碼與損壞／不支援對照。這是固定驗收範圍，不代表全部可接受 header 都已逐一原生驗證。
 密碼續跑保留明文套件 bytes、原 artifact／checkpoint／累計預算，子檔進入共用掃描；
 既有逐檔三次與錯誤回饋契約沿用。正式 Office smoke 獨立列為 **F-10 進行中**。
-2026-10-20 已核對使用者提供的 Job 映像切換與正式 Pages 發布輸出，以及三份 Office 報告：
+2026-10-20 已核對使用者提供的 Job 映像切換、正式 Pages 發布輸出，以及四份 Office 報告：
 一般 DOCX 根報告 8 節點／0 分、外部範本 DOCX 根報告 10 節點／父檔 15 分、解密子檔 53 分，
-另有巢狀 `locked.docx` 的 8 節點詳細子樹，三者宣告範圍內的靜態分析皆完成。
-使用者人工確認 DOCX 密碼可解鎖與正常分析；三份 Office 報告各已用 1／剩餘 2／上限 3。
-使用者回覆 Office 錯誤紅字與 ZIP／Office 初始次數獨立兩項尚未確認；這兩項及最外層 ZIP 完整報告仍待補。
-完成 JSON 不證明先前畫面或三次耗盡操作。見[Office 雲端驗收紀錄](milestones/2026-10-20-office-cloud-acceptance.json)；沒有新增 agent-run 雲端測試或每次 execution 的獨立映像查詢。
+另有兩份巢狀 `locked.docx` 的 8 節點詳細子樹，四份宣告範圍內的靜態分析皆完成。
+前三份 Office 報告各已用 1／剩餘 2／上限 3。本輪補驗畫面直接顯示 Office 錯誤紅字與已用 1／剩餘 2，
+使用者確認 ZIP 已用 1 時，內層 Office 初始仍已用 0／剩餘 3；再補交正確密碼後正常分析，
+最新 Office 子樹 JSON 記錄已用 2／剩餘 1／上限 3、工作及靜態分析完成。
+F-10 目前只缺本輪最外層 ZIP 完整根報告；從既有工作的「返回上一層分析 → 閱讀報告 → 下載 JSON」取得，無須新上傳或重測。
+初始次數獨立依使用者人工確認，錯誤提示依畫面及人工確認，最終完成及 2／1 計次依 JSON；本輪未演練 Office 三次耗盡。見[Office 雲端驗收紀錄](milestones/2026-10-20-office-cloud-acceptance.json)；沒有新增 agent-run 雲端測試或每次 execution 的獨立映像查詢。
 2026-10-19 本機開發批次後端 233、前端 54 項通過；worker 完整回歸為 1,202 通過、3 項 PostgreSQL opt-in 跳過，
 一項新增測試的 fixture 密碼預期修正後，所屬 3 項續跑測試補驗通過，共 1,203 個不同測試已有通過證據。
 上述本機完整執行及補驗分開記錄；Ruff、strict mypy、lock、前端型別／lint／build 均通過。
@@ -89,7 +91,7 @@ Durable Object（DO）像工作登記簿，另存工作、票證與派送狀態�
 | P0-15 | 待辦 | Cloudflare 實際用量與費用仍待獨立核對 | 核對 Workers／DO／R2／Pages 用量及可用額度，連同 GCP 判斷成本 |
 | P0-16 | 完成 | 共用核心、前端、控制層與 dispatcher 的持續整合已建立並執行 | 新改動持續通過相關 CI；不等於正式 provider 驗收 |
 | P0-17 | 待辦 | 仍有 advisory 的開發／部署相依工具需持續審查 | 依影響做相容升級，保存 audit 差異與回歸結果，不直接強制升級所有套件 |
-| P0-18 | 待辦 | 第二批三筆正式 demo 工作、前後兩批 PDF 密碼工作與前次兩個 PDF root 與本次三個 Base64 smoke root 及本輪 Office smoke 工作的到期清理尚未核對 | 每批／每個 root 到期後分別檢查指定 R2 前綴與存取撤回；Office root 的 status／retention_expires_at 尚未提供，不從完成報告推算。不能沿用四筆早期驗收的結果，DO 清理仍另列 P0-06 |
+| P0-18 | 待辦 | 第二批三筆正式 demo 工作、前後兩批 PDF 密碼工作與前次兩個 PDF root 與本次三個 Base64 smoke root 及本輪 Office smoke 工作的到期清理尚未核對 | 每批／每個 root 到期後分別檢查指定 R2 前綴與存取撤回；Office root 的 status／retention_expires_at 尚未提供，包含本輪新增 ZIP root `94d643f0-0f74-45a6-9d3c-2f8dc16d8653`，不從完成報告推算。不能沿用四筆早期驗收的結果，DO 清理仍另列 P0-06 |
 | P0-19 | 進行中 | **GitGuardian 通知核對**：已將 `95396c1`／PDF acceptance 第 172 行精確定位為合成 fixture profile，屬非憑證資料誤報，見[核對紀錄](security-notes.md) | 程式碼分類完成；GitGuardian 平台單筆 False positive 標記尚未操作。其他通知仍逐筆審查；真實憑證另須撤銷／輪替，不能以 Gitleaks 零發現取代核對 |
 
 ## P1：靜態證據、規則與品質
@@ -118,7 +120,7 @@ Durable Object（DO）像工作登記簿，另存工作、票證與派送狀態�
 | F-07 | 待辦 | 大檔去混淆處理與限制評估 | 以實測決定 streaming／分段或維持限制；不為了通過 20 MB 驗收直接放寬安全上限 |
 | F-08 | 完成（限定案例） | **PDF 回饋修正正式 demo 人工驗收**：先前 Job／Worker 發布輸出，加上新畫面、兩份新 JSON 與使用者明確人工通過聲明 | [驗收紀錄](milestones/2026-10-19-pdf-feedback-acceptance.json)：錯誤紅字、逐檔三次、父子檔高風險；兩個 PDF 報告可獨立核對，外層 ZIP／第三次限制為人工聲明；Pages ID 未單獨蒐集；到期清理、費用與維護不在此項結案範圍 |
 | F-09 | 完成（限定案例） | **每個加密檔案獨立三次補交**：接受派送的正確與錯誤密碼均計本檔；本機 workerd／SQLite、持久化與耗盡後其他節點續跑已有測試 | 新 JSON 各自 PDF 已用 2／剩餘 1／上限 3；ZIP 不扣內層 PDF 及第三次限制依使用者人工通過聲明記錄，完成 JSON 不能重播該歷史；見 [F-08 紀錄](milestones/2026-10-19-pdf-feedback-acceptance.json) |
-| F-10 | 進行中 | **Office 密碼正式 demo smoke**：Job 映像切換與 Pages 正式發布輸出、兩份直接 DOCX 根報告及一份巢狀 Office 詳細子樹已核對；使用者確認正確密碼解鎖與正常分析，三份 Office 各已用 1／剩餘 2／上限 3 | [Office 雲端驗收紀錄](milestones/2026-10-20-office-cloud-acceptance.json)：限定 DOCX 正確解鎖、明文 hash／大小、來源、AV／YARA／文件 coverage 與風險符合預期；待補 Office 錯誤紅字、ZIP／Office 初始次數獨立與最外層 ZIP 完整報告。Office 三次耗盡尚無本輪雲端證據；各 root 私有 status／保留期另追 P0-18，每次 execution 映像未獨立查詢 |
+| F-10 | 進行中 | **Office 密碼正式 demo smoke**：兩份直接 DOCX 根報告與兩份巢狀 Office 子樹已核對；本輪 Office 錯誤紅字及 1／2 有畫面，ZIP 已用 1 而 Office 初始 0／3 依使用者確認，正確密碼後最新 JSON 為完成及 2／1 | [Office 雲端驗收紀錄](milestones/2026-10-20-office-cloud-acceptance.json)：目前只缺本輪最外層 ZIP 完整根報告，從既有工作返回上一層下載 JSON 即可，不需新上傳。原檔、解密子檔、AV／YARA／文件 coverage 與限定風險符合預期；Office 三次耗盡未在本輪雲端演練，各 root 私有 status／保留期另追 P0-18，每次 execution 映像未獨立查詢 |
 
 ## P2：效能、狀態與報告體驗
 

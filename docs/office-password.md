@@ -2,8 +2,10 @@
 
 更新日期：2026-10-20（Asia/Taipei）。F-02 已完成程式與本機驗證；正式 Office smoke **F-10 進行中**。
 使用者已提供 Job 映像切換、Pages 正式發布輸出，並人工確認 DOCX 密碼可解鎖與正常分析。
-兩份直接 DOCX 根報告及一份巢狀 Office 詳細子樹的宣告範圍皆完成靜態分析，見[Office 雲端驗收紀錄](milestones/2026-10-20-office-cloud-acceptance.json)。
-Office 錯誤紅字、ZIP／Office 初始次數獨立與最外層 ZIP 完整報告仍待補，完成報告不代替操作歷程。
+兩份直接 DOCX 根報告及兩份巢狀 Office 詳細子樹的宣告範圍皆完成靜態分析，見[Office 雲端驗收紀錄](milestones/2026-10-20-office-cloud-acceptance.json)。
+本輪畫面顯示 Office 密碼錯誤紅字與已用 1／剩餘 2，使用者確認 ZIP 已用 1 時，Office 初始仍為已用 0／剩餘 3；
+再提交正確密碼後，最新 Office JSON 記錄分析完成及已用 2／剩餘 1。
+F-10 目前只缺該工作的最外層 ZIP 完整報告，從既有工作返回上一層下載 JSON 即可，無須重新上傳。
 發布順序見 [Job→Pages 手冊](deploy-office-password.md)，各項證據與剩餘條件見[進度清單](project-status.md)。
 
 ## 支援範圍
@@ -40,8 +42,10 @@ HMAC／CRC 失敗、損壞 XML、parser 失敗與工具缺失皆為 unavailable�
 ZIP 使用一次不扣內層 Office；兩個 Office sibling 也各自計算。密碼只送往指定的等待節點，
 不把外層 ZIP 密碼或第一份文件密碼套用到其他文件。某一節點耗盡不應阻擋其他仍有次數的節點。
 所有續跑仍計入 demo 每日 20／每月 40 次 executions；新工作仍為每日 10 個，沒有提高額度。
-這是既有控制契約在 Office 的沿用。本輪三份 Office 報告各記錄已用 1／剩餘 2／上限 3；
-Office 錯誤畫面、ZIP／Office 初始次數獨立及三次耗盡仍沒有本輪完整操作證據，F-10 按已取得範圍追蹤。
+這是既有控制契約在 Office 的沿用。先前三份 Office 報告各記錄已用 1／剩餘 2／上限 3；
+本輪補驗有 Office 錯誤紅字與 1／2 畫面，ZIP 已用 1、Office 初始仍為 0／3 依使用者人工確認，
+最新完成 JSON 為已用 2／剩餘 1／上限 3。這些證據沒有演練 Office 三次耗盡；F-10 只需再補最外層 ZIP 完整報告，
+各 root 的實際保留期與清理仍分開列為 P0-18。
 
 報告會保留原始加密父檔及獨立的解密子檔。成功子檔來源為 `office-decrypted`，
 `content_access=decrypted_child`，並記錄明文 SHA-256／大小；加密資訊的 `integrity` 在 Agile 成功時為

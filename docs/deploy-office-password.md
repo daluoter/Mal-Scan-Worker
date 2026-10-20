@@ -2,8 +2,8 @@
 
 更新日期：2026-10-20（Asia/Taipei）。F-02 程式／本機驗證與 **F-10 正式 Office smoke** 分開追蹤。
 本輪 Job／Pages 已有使用者提供的部署輸出，DOCX 正確解鎖的兩份根報告及一份巢狀 Office 子樹也已核對；
-Office 錯誤紅字、ZIP／Office 初始計次獨立及完整 ZIP 根報告仍待補，見[本輪紀錄](milestones/2026-10-20-office-cloud-acceptance.json)。
-第 1–7 節保留供其他部署使用；已完成本輪部署者直接依第 8 節補驗，不重建或重送已完成的工作。
+後續已取得 Office 錯誤紅字截圖、ZIP／Office 初始計次獨立的人工確認及成功續跑報告；目前只剩最外層 ZIP 完整根報告待補，見[本輪紀錄](milestones/2026-10-20-office-cloud-acceptance.json)。
+第 1–7 節保留供其他部署使用；已完成本輪補驗者直接依第 8 節下載既有工作的根報告。
 支援與限制見 [Office 密碼說明](office-password.md)。
 
 這批順序為 **Cloud Run Job → Pages → 新上傳驗收**。沿用已支援逐檔密碼計次的正式 Cloudflare Worker、
@@ -241,24 +241,25 @@ Job 使用本批來源與 state 執行 `maintain-demo.py rollback --state-dir ..
 Worker／dispatcher 本批未變更。這只是回退方法，沒有實際演練與再次驗證前，P0-11 維持待辦。
 P0-12 自動病毒庫排程、P0-14／P0-15 長期及 Cloudflare 成本亦不因本次升版而完成。
 
-## 8. 本輪尚缺的操作：一個新 ZIP root 補驗
+## 8. 本輪操作已通過：下載既有 ZIP 根報告
 
-使用者已確認 DOCX 正確密碼解鎖與分析；本輪三份 Office 完成報告各顯示已用 1／剩餘 2／上限 3。
-使用者亦明確表示 Office 錯誤紅字與 ZIP／Office 初始次數獨立「兩者未確認」，因此 F-10 維持進行中。
-先確認至少還有一個新工作與 **4 次 executions** 的餘額。沿用第 5 節產生的
-`zip-aes-office-agile-aes256-docx.zip`，在正式 <https://malscan-v2-demo.pages.dev> 依序操作：
+2026-10-20 後續人工確認：ZIP 已用 1 時，內層 Office 從已用 0／剩餘 3 開始；
+Office 錯誤密碼後顯示紅字及已用 1／剩餘 2。截圖支持這個錯誤狀態，新的 Office 完成 JSON
+也顯示正確密碼後已用 2／剩餘 1、8 節點子樹及完整靜態範圍。這些操作項目已驗收。
 
-1. 新上傳 ZIP；初次執行等待 ZIP 密碼，保存工作 ID 與畫面。
-2. 對 ZIP 提交公開 fixture 密碼 `quality-office-archive-only`，等待內層 `nested/locked.docx` 要求密碼。
-   核對 ZIP 已用 1／剩餘 2，Office 起始仍為已用 0／剩餘 3；保存兩個來源節點的計次畫面。
-3. 對內層 Office 輸入一次任意錯誤測試字串，等待執行確認後出現紅色錯誤訊息，
-   Office 應為已用 1／剩餘 2，ZIP 維持已用 1。POST 接受或仍在排隊時，不算已確認密碼錯誤。
-4. 對同一 Office 節點提交公開 fixture 密碼 `quality-office-only`，等待完成；
-   Office 應為已用 2／剩餘 1，ZIP 維持已用 1，來源樹應包含解密 DOCX 及內部子檔。
-5. 回到**最外層 ZIP 的報告頁**下載完整 JSON，保存錯誤提示與計次畫面。
-   內層 `locked.docx` 的詳細 JSON 只能證明 Office 子樹，不能代替 ZIP 根報告。
-   另從根工作 status 私有保存 `retention_expires_at`，到期後依第 7 節核對清理。
+目前收到的 `50b1efed-24a7-5385-b9c7-8d0316a5098f` JSON 仍是內層 Office 詳細報告；
+它記錄的 ZIP 根工作為 `94d643f0-0f74-45a6-9d3c-2f8dc16d8653`。
+F-10 只剩這個**最外層 ZIP 的完整 JSON**待補。使用這次既有工作即可，下載不會建立新的 Cloud Run execution：
 
-這個流程預計是初次上傳、ZIP 解鎖、Office 錯誤、Office 正確各一次 execution。
-若額度不足或派送結果不明，先查既有工作與配額，保留資料並等待，不提高限額或連續重新上傳。
-這輪不刻意耗盡第三次；Office 三次耗盡的雲端演練仍與已通過的本機邊界測試分開記錄。
+1. 保留原本有工作存取權的瀏覽器分頁，在內層 Office 的分析進度或報告頁找到「返回上一層分析」。
+   分析進度頁的這個連結位於頁面下方。
+2. 點回上一層，確認工作 ID 為 `94d643f0-0f74-45a6-9d3c-2f8dc16d8653`，檔名為
+   `zip-aes-office-agile-aes256-docx.zip`。
+3. 點「閱讀目前分析報告」，再點「下載目前完整 JSON 報告」；若已進入根報告頁，直接下載。
+4. 預期檔名為 `malscan-report-94d643f0-0f74-45a6-9d3c-2f8dc16d8653.json`。
+   核對 JSON 的 `job_id` 是該 ZIP 根工作，`file.original_filename` 是 ZIP，並保存根工作計次及完整來源樹。
+
+這是讀取既有成果，新增上傳數與 Cloud Run executions 預期均為 0。
+若原分頁已失去存取權或資料已到期，保留既有報告並回報狀態，不以連續新上傳取代取證。
+根工作的 `retention_expires_at` 仍須從私有 status 保存，到期清理依第 7 節及 P0-18 另行追蹤。
+第三次耗盡的 Office 雲端演練沒有執行，與既有本機邊界測試分開記錄。

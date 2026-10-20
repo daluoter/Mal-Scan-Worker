@@ -3,9 +3,10 @@
 更新日期：2026-10-20（Asia/Taipei）。目標是讓偵測結果、分析範圍與子檔案證據可以重現及核對。
 目前一般基準為 `corpus-v5.json`（40 案／36 fixture、`msrs-v1.2`），PDF 密碼另用 `pdf-password-v2.json`（12 案），
 Office 密碼另用 `office-password-v1.json`（14 個 profile）。F-02 本批已完成程式／本機驗證。
-2026-10-20 的[Office 雲端驗收紀錄](milestones/2026-10-20-office-cloud-acceptance.json)已核對兩份直接 DOCX 根報告及一份巢狀 Office 詳細子樹，
+2026-10-20 的[Office 雲端驗收紀錄](milestones/2026-10-20-office-cloud-acceptance.json)已核對兩份直接 DOCX 根報告及兩份巢狀 Office 詳細子樹，
 同一提交 `4a81bfd` 的三組 GitHub CI 已查核為成功；沒有增加 agent-run 雲端掃描或費用驗收。
-限定正確密碼解鎖與分析通過；F-10 進行中，仍待 Office 錯誤紅字、ZIP 逐檔初始獨立與最外層 ZIP 報告。
+本輪錯誤紅字與 1／2 有畫面，使用者確認 ZIP 已用 1 時 Office 初始 0／3，正確密碼續跑後最新 JSON 為完成及 2／1。
+F-10 進行中，目前只缺最外層 ZIP 完整報告，可從既有工作返回上一層下載，不需新上傳或重測。
 這是使用者提供的部署／報告與人工確認，不新增 agent-run provider 測試。
 2026-10-19 Office 本機批次的原生結果為 Office 14／14、一般 v5 40／40、PDF v2 12／12；另有 57 組真實加密演算法測試。
 Office 固定完整流程與演算法單元覆蓋分開記錄，見[本批紀錄](milestones/2026-10-19-office-password.json)。
@@ -181,9 +182,10 @@ fixture 由版本化模組以標準函式庫還原，公開密碼只適用這些
 資源邊界、執行命令與狀態欄位見 [Office 密碼說明](office-password.md)，正式 smoke 見 [Job→Pages 手冊](deploy-office-password.md)。
 本機結果與 F-10 雲端結果各自保留證據。2026-10-20 已核對使用者提供的映像切換與正式 Pages 發布輸出，
 以及一般 DOCX 根報告 8 節點／0 分、外部範本根報告 10 節點／父檔 15 分、解密子檔 53 分，
-另有巢狀 Office 的 8 節點詳細子樹，宣告範圍內的靜態分析皆完成，三份 Office 各已用 1／剩餘 2／上限 3。
-F-10 的錯誤紅字、ZIP／Office 初始次數獨立、最外層 ZIP 完整報告仍待補，見[Office 雲端驗收紀錄](milestones/2026-10-20-office-cloud-acceptance.json)。
-不能由完成 JSON 證明錯誤操作、三次耗盡或 root 到期清理；本輪未獨立查詢每次 execution 映像。
+另有兩份巢狀 Office 的 8 節點詳細子樹，四份宣告範圍內的靜態分析皆完成。
+先前三份 Office 各已用 1／剩餘 2／上限 3；本輪畫面顯示錯誤紅字與 1／2，ZIP 已用 1、Office 初始 0／3 依使用者人工確認，
+最新 JSON 記錄正確密碼續跑完成及已用 2／剩餘 1。F-10 現在只缺最外層 ZIP 完整報告，見[Office 雲端驗收紀錄](milestones/2026-10-20-office-cloud-acceptance.json)。
+Office 三次耗盡未在本輪雲端演練，root 到期清理另列 P0-18；本輪未獨立查詢每次 execution 映像。
 
 ## PDF 正式回饋與風險呈現
 
