@@ -1,0 +1,340 @@
+{
+  "schema_version": 1,
+  "milestone": "F-10 Office DOCX cloud acceptance subset",
+  "recorded_date": "2026-10-20",
+  "recorded_timezone": "Asia/Taipei",
+  "overall_checklist_id": "F-10",
+  "overall_checklist_status": "in_progress",
+  "acceptance_status": "passed_for_correct_password_docx_subset_remaining_interactions_unverified",
+  "evidence_basis": [
+    "User supplied Cloud Shell source checkout, successful build/controls, Job promotion and production Pages deployment output",
+    "User explicitly confirmed DOCX password unlock and normal analysis",
+    "Two complete DOCX root reports and one nested Office subtree passed offline fixture/coverage metadata checks",
+    "User explicitly answered that wrong-password red feedback and ZIP/Office initial retry independence were both not confirmed"
+  ],
+  "agent_executed_cloud_scan_tests": false,
+  "remote_gcp_or_cloudflare_api_independently_queried": false,
+  "github_ci_api_queried": true,
+  "raw_user_reports_republished": false,
+  "raw_cloud_shell_transcript_republished": false,
+  "release_source_commit": "4a81bfd8ee6c74c8125fc152ddb21c98cf4bd14c",
+  "deployment": {
+    "evidence_source": "user_supplied_output",
+    "build_id": "edef649a-559f-441d-955b-19e746dd285f",
+    "build_status": "SUCCESS",
+    "reported_phase": "promoted",
+    "candidate_image_digest": "sha256:aad2b4e3d03c30fe7ac1400a090ec41ddc766e096e5a50b61e5021eeb324a96b",
+    "previous_image_digest": "sha256:69fe7ceb96249e126c4c9741b2cf0b20a9fc2e584648adfec7227e3056a19aa4",
+    "offline_engine_controls": {
+      "clamav_clean": true,
+      "clamav_eicar_detected": true,
+      "yara_clean": true,
+      "yara_eicar_detected": true
+    },
+    "offline_controls_success": true,
+    "signed_databases": [
+      {
+        "name": "main.cvd",
+        "version": 63,
+        "signature_verified": true
+      },
+      {
+        "name": "daily.cvd",
+        "version": 28158,
+        "signature_verified": true
+      },
+      {
+        "name": "bytecode.cvd",
+        "version": 339,
+        "signature_verified": true
+      }
+    ],
+    "automatic_database_update_enabled": false,
+    "per_execution_image_digest_independently_verified": false,
+    "production_pages_deployment_id": "4b418bce-4cd1-4106-80bb-b22475306df9",
+    "previous_production_pages_deployment_id": "91f14834-2edb-4afa-918f-5b182253e2dd",
+    "pages_source_short_commit": "4a81bfd",
+    "pages_environment": "Production",
+    "pages_branch": "main",
+    "public_site": "https://malscan-v2-demo.pages.dev",
+    "raw_transcript_sha256": "4c26878cfdeae3629f130f47b98994a9b7cfe1f687a31d880df6290d8bb7d55a"
+  },
+  "versions": {
+    "report_schema": "mswr-report-v3",
+    "policy": "msrs-v1.2",
+    "office_suite": "office-password-v1.0.0",
+    "office_manifest_sha256": "04ee07d8df24574e5cec221a122e4dfd7a6eeb80261a60e76e39f268e60f45ec",
+    "clamav": "ClamAV 1.4.3/28158/Mon Oct 19 06:26:01 2026",
+    "yara_tool": "4.5.4",
+    "yara_rules_sha256": "52cc7df2f9732941bce0f079bb70b36f01f04008b0a458398ef3ee58679a7dcc",
+    "ruleset": "1.1.0"
+  },
+  "ci_workflows": [
+    {
+      "name": "Serverless deployment CI",
+      "conclusion": "success",
+      "url": "https://github.com/daluoter/MalScanWorker/actions/runs/39279673710",
+      "head_sha": "4a81bfd8ee6c74c8125fc152ddb21c98cf4bd14c"
+    },
+    {
+      "name": "Frontend CI",
+      "conclusion": "success",
+      "url": "https://github.com/daluoter/MalScanWorker/actions/runs/39279673737",
+      "head_sha": "4a81bfd8ee6c74c8125fc152ddb21c98cf4bd14c"
+    },
+    {
+      "name": "Backend CI/CD",
+      "conclusion": "success",
+      "url": "https://github.com/daluoter/MalScanWorker/actions/runs/39279673829",
+      "head_sha": "4a81bfd8ee6c74c8125fc152ddb21c98cf4bd14c"
+    }
+  ],
+  "cases": [
+    {
+      "case": "nested_docx_subtree",
+      "scope": "nested_office_subtree",
+      "job_id": "30767a4a-d2c4-523b-982a-2533a3084dad",
+      "reported_root_id": "4c6755ab-f1a4-4ba4-925a-13c4c416b913",
+      "parent_job_id": "4c6755ab-f1a4-4ba4-925a-13c4c416b913",
+      "raw_document_sha256": "1361f924bdb25681a28b9305e434b99aa736628e98ce5ef2cd775bf0c97955ab",
+      "fixture_profile": "agile-aes256-docx",
+      "encrypted_source_sha256": "f5a3752470a54f361429db0e070e9197dee0c473a39c0bf6208456968179fa2a",
+      "encrypted_source_bytes": 10240,
+      "job_status": "done",
+      "report_complete": true,
+      "static_status": "complete",
+      "visible_artifact_count": 8,
+      "tree_depth_offset": 1,
+      "score": 0,
+      "risk_level": "clean",
+      "own_office_attempts": {
+        "attempts_used": 1,
+        "attempts_remaining": 2,
+        "limit": 3
+      },
+      "decrypted_child_reported_sha256": "a453a429bd71e96985ac490aae2c7ff4189ac725acb8999d6a74332752916f55",
+      "decrypted_child_reported_bytes": 4831,
+      "reported_docx_mime": null,
+      "reported_encryption": {
+        "scheme": "agile",
+        "cipher": "AES-CBC",
+        "hash": "SHA512",
+        "key_bits": 256,
+        "spin_count": 100000,
+        "integrity": "hmac_verified"
+      },
+      "all_visible_occurrence_identity_and_source_metadata_matches_frozen_fixtures": true,
+      "all_visible_eight_stage_statuses_match_expected_roles": true,
+      "cloud_plaintext_bytes_independently_retrieved": false,
+      "actual_mime_transport_independently_verified": false,
+      "corpus_evaluation": null,
+      "outer_zip_root_report_provided": false,
+      "outer_zip_input_identity_verified": false,
+      "outer_zip_counters_verified": false
+    },
+    {
+      "case": "agile-aes256-external-template-docx",
+      "scope": "full_root",
+      "job_id": "4404d6d0-697e-4a26-8059-8c06d6540222",
+      "reported_root_id": "4404d6d0-697e-4a26-8059-8c06d6540222",
+      "parent_job_id": null,
+      "raw_document_sha256": "87c2af7309144dec39c656e62617623a2bc17adb9c866aca052d7dfe9dbc01f5",
+      "fixture_profile": "agile-aes256-external-template-docx",
+      "encrypted_source_sha256": "f719d63e05308bdf2b6849eb5ccfb6ba596a51493fa12911e1de6caeed56e950",
+      "encrypted_source_bytes": 11264,
+      "job_status": "done",
+      "report_complete": true,
+      "static_status": "complete",
+      "visible_artifact_count": 10,
+      "tree_depth_offset": 0,
+      "score": 15,
+      "risk_level": "low",
+      "own_office_attempts": {
+        "attempts_used": 1,
+        "attempts_remaining": 2,
+        "limit": 3
+      },
+      "decrypted_child_reported_sha256": "9d82b47ea508bb48c04dd330be5a236c8bcd82ad43d51509617725ce7bf36f6c",
+      "decrypted_child_reported_bytes": 5855,
+      "reported_docx_mime": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "reported_encryption": {
+        "scheme": "agile",
+        "cipher": "AES-CBC",
+        "hash": "SHA512",
+        "key_bits": 256,
+        "spin_count": 100000,
+        "integrity": "hmac_verified"
+      },
+      "all_visible_occurrence_identity_and_source_metadata_matches_frozen_fixtures": true,
+      "all_visible_eight_stage_statuses_match_expected_roles": true,
+      "cloud_plaintext_bytes_independently_retrieved": false,
+      "actual_mime_transport_independently_verified": false,
+      "corpus_evaluation": {
+        "passed": true,
+        "errors": [],
+        "static_status": "complete",
+        "artifact_count": 10,
+        "yara_rules": [
+          "network_iocs"
+        ],
+        "yara_risk_rules": [],
+        "yara_context_rules": [
+          "network_iocs"
+        ],
+        "infected_artifacts": 0,
+        "detector_failures": [],
+        "verdict": "suspicious",
+        "score": 15
+      },
+      "risk_relationship": {
+        "encrypted_parent_local_score": 0,
+        "encrypted_parent_effective_score": 15,
+        "encrypted_parent_risk_level": "low",
+        "inherited_score": 15,
+        "descendant_floor": 0,
+        "decrypted_docx_score": 53,
+        "decrypted_docx_risk_level": "medium",
+        "external_relationship_evidence_present": true,
+        "high_risk_floor_exercised": false
+      },
+      "reported_root_budget": {
+        "accounting_scope": "root_artifact_tree",
+        "limits": {
+          "max_bytes": 100000000,
+          "max_files": 20,
+          "timeout_seconds": 840
+        },
+        "time_scope": "analysis_attempt",
+        "used_bytes": 10762,
+        "used_files": 9
+      }
+    },
+    {
+      "case": "agile-aes256-docx",
+      "scope": "full_root",
+      "job_id": "6eac60df-aa59-43c7-8b97-a2c7e26ba832",
+      "reported_root_id": "6eac60df-aa59-43c7-8b97-a2c7e26ba832",
+      "parent_job_id": null,
+      "raw_document_sha256": "0090bddf792a1c1e1108e60a4c71f3bb248ed71ecd15c46d9ec29fc0959f808f",
+      "fixture_profile": "agile-aes256-docx",
+      "encrypted_source_sha256": "f5a3752470a54f361429db0e070e9197dee0c473a39c0bf6208456968179fa2a",
+      "encrypted_source_bytes": 10240,
+      "job_status": "done",
+      "report_complete": true,
+      "static_status": "complete",
+      "visible_artifact_count": 8,
+      "tree_depth_offset": 0,
+      "score": 0,
+      "risk_level": "clean",
+      "own_office_attempts": {
+        "attempts_used": 1,
+        "attempts_remaining": 2,
+        "limit": 3
+      },
+      "decrypted_child_reported_sha256": "a453a429bd71e96985ac490aae2c7ff4189ac725acb8999d6a74332752916f55",
+      "decrypted_child_reported_bytes": 4831,
+      "reported_docx_mime": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      "reported_encryption": {
+        "scheme": "agile",
+        "cipher": "AES-CBC",
+        "hash": "SHA512",
+        "key_bits": 256,
+        "spin_count": 100000,
+        "integrity": "hmac_verified"
+      },
+      "all_visible_occurrence_identity_and_source_metadata_matches_frozen_fixtures": true,
+      "all_visible_eight_stage_statuses_match_expected_roles": true,
+      "cloud_plaintext_bytes_independently_retrieved": false,
+      "actual_mime_transport_independently_verified": false,
+      "corpus_evaluation": {
+        "passed": true,
+        "errors": [],
+        "static_status": "complete",
+        "artifact_count": 8,
+        "yara_rules": [
+          "network_iocs"
+        ],
+        "yara_risk_rules": [],
+        "yara_context_rules": [
+          "network_iocs"
+        ],
+        "infected_artifacts": 0,
+        "detector_failures": [],
+        "verdict": "clean",
+        "score": 0
+      },
+      "reported_root_budget": {
+        "accounting_scope": "root_artifact_tree",
+        "limits": {
+          "max_bytes": 100000000,
+          "max_files": 20,
+          "timeout_seconds": 840
+        },
+        "time_scope": "analysis_attempt",
+        "used_bytes": 8956,
+        "used_files": 7
+      }
+    }
+  ],
+  "manual_attestation": {
+    "correct_password_unlock_and_analysis": true,
+    "wrong_password_red_feedback": "not_confirmed_by_user",
+    "zip_and_office_initial_counters_independent": "not_confirmed_by_user",
+    "office_third_submission_exhaustion_cloud_exercise": "not_observed"
+  },
+  "remaining_f10_evidence": [
+    "Office wrong-password red feedback and used 1 / remaining 2 after analysis confirms rejection",
+    "ZIP used 1 / remaining 2 while inner Office starts used 0 / remaining 3",
+    "Complete outer ZIP root report, including expected outer fixture identity, all visible artifact lineage and final per-file counters"
+  ],
+  "follow_up": {
+    "guide": "docs/deploy-office-password.md#8-本輪尚缺的操作一個新-zip-root-補驗",
+    "new_uploads_expected": 1,
+    "executions_expected": 4,
+    "steps": [
+      "Upload a fresh copy of the existing synthetic AES ZIP fixture",
+      "Submit the ZIP fixture password; inspect ZIP and inner Office counters",
+      "Submit one incorrect Office test string; wait for explicit rejection feedback",
+      "Submit correct Office fixture password; download outermost ZIP root report"
+    ],
+    "quota_changes_required": false,
+    "third_submission_exhaustion_intentionally_tested": false
+  },
+  "retention_follow_up": {
+    "checklist_id": "P0-18",
+    "reported_root_ids": [
+      "6eac60df-aa59-43c7-8b97-a2c7e26ba832",
+      "4404d6d0-697e-4a26-8059-8c06d6540222",
+      "4c6755ab-f1a4-4ba4-925a-13c4c416b913"
+    ],
+    "root_status_retention_expires_at_provided": false,
+    "expiry_inferred_from_report_completion": false,
+    "r2_physical_absence_verified": false,
+    "do_row_deletion_verified": false
+  },
+  "limitations": [
+    "Cloud object bytes were not retrieved: reported hashes/sizes match frozen local fixture expectations only.",
+    "Reported DOCX MIME does not prove actual upload/transport MIME.",
+    "Completed JSON does not reconstruct password-entry history or prior UI states.",
+    "Nested Office subtree does not prove outer ZIP root hash, counter or total budget.",
+    "No retention expiry, provider execution identity or billing verification performed.",
+    "Cloud acceptance only covers these fixed DOCX samples; native XLSX/PPTX/macros/Standard algorithm results are separate historical local evidence.",
+    "Workflow success is not a provider scan, invoice, quota exercise, automatic signature update or live rollback.",
+    "Some XML parts retain the known four-point XOR observation baseline. No new YARA risk matches or weak PDF Base64 regression was observed."
+  ],
+  "maintenance_items_still_open": [
+    "P0-06",
+    "P0-11",
+    "P0-12",
+    "P0-14",
+    "P0-15",
+    "P0-18",
+    "P0-19"
+  ],
+  "private_verification_artifacts": {
+    "verifier_sha256": "42ad47b7460431f70f570179bb232fafe77615b71d51e344fc7bdf079bc018f0",
+    "summary_sha256": "6d054c161adc91185634a4f8f29fe93101169b79c9cbd286adc35be2ce6168b4",
+    "remote_operations": false,
+    "cloud_object_bytes_retrieved": false
+  }
+}

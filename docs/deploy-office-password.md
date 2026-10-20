@@ -1,7 +1,10 @@
 # 部署 Office 密碼恢復到既有雲端 demo
 
-更新日期：2026-10-19（Asia/Taipei）。F-02 程式／本機驗證與 **F-10 正式 Office smoke** 分開追蹤；
-本手冊是待執行步驟，尚不代表已建置、發布或通過雲端驗收。支援與限制見 [Office 密碼說明](office-password.md)。
+更新日期：2026-10-20（Asia/Taipei）。F-02 程式／本機驗證與 **F-10 正式 Office smoke** 分開追蹤。
+本輪 Job／Pages 已有使用者提供的部署輸出，DOCX 正確解鎖的兩份根報告及一份巢狀 Office 子樹也已核對；
+Office 錯誤紅字、ZIP／Office 初始計次獨立及完整 ZIP 根報告仍待補，見[本輪紀錄](milestones/2026-10-20-office-cloud-acceptance.json)。
+第 1–7 節保留供其他部署使用；已完成本輪部署者直接依第 8 節補驗，不重建或重送已完成的工作。
+支援與限制見 [Office 密碼說明](office-password.md)。
 
 這批順序為 **Cloud Run Job → Pages → 新上傳驗收**。沿用已支援逐檔密碼計次的正式 Cloudflare Worker、
 dispatcher、R2、IAM、secrets 與現有額度，無須發布 Worker 範本或更換 HMAC。
@@ -237,3 +240,25 @@ F-10 只有取得本批部署與新報告／畫面證據後，才能按實際完
 Job 使用本批來源與 state 執行 `maintain-demo.py rollback --state-dir ...`，再查 status 核對。
 Worker／dispatcher 本批未變更。這只是回退方法，沒有實際演練與再次驗證前，P0-11 維持待辦。
 P0-12 自動病毒庫排程、P0-14／P0-15 長期及 Cloudflare 成本亦不因本次升版而完成。
+
+## 8. 本輪尚缺的操作：一個新 ZIP root 補驗
+
+使用者已確認 DOCX 正確密碼解鎖與分析；本輪三份 Office 完成報告各顯示已用 1／剩餘 2／上限 3。
+使用者亦明確表示 Office 錯誤紅字與 ZIP／Office 初始次數獨立「兩者未確認」，因此 F-10 維持進行中。
+先確認至少還有一個新工作與 **4 次 executions** 的餘額。沿用第 5 節產生的
+`zip-aes-office-agile-aes256-docx.zip`，在正式 <https://malscan-v2-demo.pages.dev> 依序操作：
+
+1. 新上傳 ZIP；初次執行等待 ZIP 密碼，保存工作 ID 與畫面。
+2. 對 ZIP 提交公開 fixture 密碼 `quality-office-archive-only`，等待內層 `nested/locked.docx` 要求密碼。
+   核對 ZIP 已用 1／剩餘 2，Office 起始仍為已用 0／剩餘 3；保存兩個來源節點的計次畫面。
+3. 對內層 Office 輸入一次任意錯誤測試字串，等待執行確認後出現紅色錯誤訊息，
+   Office 應為已用 1／剩餘 2，ZIP 維持已用 1。POST 接受或仍在排隊時，不算已確認密碼錯誤。
+4. 對同一 Office 節點提交公開 fixture 密碼 `quality-office-only`，等待完成；
+   Office 應為已用 2／剩餘 1，ZIP 維持已用 1，來源樹應包含解密 DOCX 及內部子檔。
+5. 回到**最外層 ZIP 的報告頁**下載完整 JSON，保存錯誤提示與計次畫面。
+   內層 `locked.docx` 的詳細 JSON 只能證明 Office 子樹，不能代替 ZIP 根報告。
+   另從根工作 status 私有保存 `retention_expires_at`，到期後依第 7 節核對清理。
+
+這個流程預計是初次上傳、ZIP 解鎖、Office 錯誤、Office 正確各一次 execution。
+若額度不足或派送結果不明，先查既有工作與配額，保留資料並等待，不提高限額或連續重新上傳。
+這輪不刻意耗盡第三次；Office 三次耗盡的雲端演練仍與已通過的本機邊界測試分開記錄。

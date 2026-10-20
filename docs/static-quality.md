@@ -1,15 +1,19 @@
 # 靜態分析品質基準
 
-更新日期：2026-10-19（Asia/Taipei）。目標是讓偵測結果、分析範圍與子檔案證據可以重現及核對。
+更新日期：2026-10-20（Asia/Taipei）。目標是讓偵測結果、分析範圍與子檔案證據可以重現及核對。
 目前一般基準為 `corpus-v5.json`（40 案／36 fixture、`msrs-v1.2`），PDF 密碼另用 `pdf-password-v2.json`（12 案），
-Office 密碼另用 `office-password-v1.json`（14 個 profile）。F-02 本批已完成程式／本機驗證，F-10 正式雲端 smoke 待辦。
-本批 Office 14／14、一般 v5 40／40、PDF v2 12／12 原生案例已重新執行並通過；另有 57 組真實加密演算法測試。
+Office 密碼另用 `office-password-v1.json`（14 個 profile）。F-02 本批已完成程式／本機驗證。
+2026-10-20 的[Office 雲端驗收紀錄](milestones/2026-10-20-office-cloud-acceptance.json)已核對兩份直接 DOCX 根報告及一份巢狀 Office 詳細子樹，
+同一提交 `4a81bfd` 的三組 GitHub CI 已查核為成功；沒有增加 agent-run 雲端掃描或費用驗收。
+限定正確密碼解鎖與分析通過；F-10 進行中，仍待 Office 錯誤紅字、ZIP 逐檔初始獨立與最外層 ZIP 報告。
+這是使用者提供的部署／報告與人工確認，不新增 agent-run provider 測試。
+2026-10-19 Office 本機批次的原生結果為 Office 14／14、一般 v5 40／40、PDF v2 12／12；另有 57 組真實加密演算法測試。
 Office 固定完整流程與演算法單元覆蓋分開記錄，見[本批紀錄](milestones/2026-10-19-office-password.json)。
-以下 Q-06 的測試數字屬於前一批，不能代替本輪 Office 結果。
-本輪後端 233、前端 54 項通過；worker 完整回歸為 1,202 通過、3 項 PostgreSQL opt-in 跳過，
+該本機批次後端 233、前端 54 項通過；worker 完整回歸為 1,202 通過、3 項 PostgreSQL opt-in 跳過，
 一項新增測試的 fixture 密碼預期修正後，所屬 3 項續跑測試補驗通過，共 1,203 個不同測試已有通過證據。
-完整執行及補驗分開記錄，沒有宣稱一次完整執行全綠；Ruff、strict mypy、lock、前端型別／lint／build 均通過。
+上述本機完整執行及補驗分開記錄；Ruff、strict mypy、lock、前端型別／lint／build 均通過。
 
+以下 Q-06 的測試數字屬於前一批，不能代替本輪 Office 結果。
 Q-06 本批以固定來源快照重新執行一般 40／40、PDF 密碼 12／12 原生案例，沒有改寫歷史 manifest。
 worker 930 passed／4 skipped，補驗缺 PATH 的 7z 一案通過；餘三項 PostgreSQL opt-in 未執行。
 Ruff／strict mypy 通過；本批未修改 frontend、backend、控制層，不以舊測試數字代替新驗證。
@@ -175,7 +179,11 @@ Agile 成功必須通過 HMAC；Standard 只有 ZIP CRC 等結構檢查，格式
 fixture 由版本化模組以標準函式庫還原，公開密碼只適用這些合成測試檔；不執行巨集、DDE、範本或檔案內容。
 原生驗收另需真實 ClamAV／YARA，不以單元測試的 scanner transport stub 當成原生 AV 通過。
 資源邊界、執行命令與狀態欄位見 [Office 密碼說明](office-password.md)，正式 smoke 見 [Job→Pages 手冊](deploy-office-password.md)。
-本批本機結果與 F-10 雲端結果各自保留證據；沒有部署輸出與新報告前，F-10 維持待辦。
+本機結果與 F-10 雲端結果各自保留證據。2026-10-20 已核對使用者提供的映像切換與正式 Pages 發布輸出，
+以及一般 DOCX 根報告 8 節點／0 分、外部範本根報告 10 節點／父檔 15 分、解密子檔 53 分，
+另有巢狀 Office 的 8 節點詳細子樹，宣告範圍內的靜態分析皆完成，三份 Office 各已用 1／剩餘 2／上限 3。
+F-10 的錯誤紅字、ZIP／Office 初始次數獨立、最外層 ZIP 完整報告仍待補，見[Office 雲端驗收紀錄](milestones/2026-10-20-office-cloud-acceptance.json)。
+不能由完成 JSON 證明錯誤操作、三次耗盡或 root 到期清理；本輪未獨立查詢每次 execution 映像。
 
 ## PDF 正式回饋與風險呈現
 
