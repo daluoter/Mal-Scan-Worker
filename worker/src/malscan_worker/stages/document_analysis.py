@@ -14,6 +14,7 @@ import hashlib
 import os
 import re
 import struct
+import tempfile
 import zipfile
 from collections.abc import Callable
 from dataclasses import replace
@@ -24,6 +25,11 @@ from xml.etree import ElementTree
 
 import structlog
 
+from malscan_worker.analyzers.office_embedded import (
+    embedded_filename,
+    extract_ole_payloads,
+    ooxml_embedding_candidates,
+)
 from malscan_worker.budget import BudgetExceeded, reservation_key
 from malscan_worker.config import get_settings
 from malscan_worker.db import create_artifact
@@ -391,8 +397,13 @@ class DocumentAnalysisStage(Stage):
         }
         artifacts_on_disk: list[dict[str, Any]] = []
 
-        extract_dir = Path(f"/tmp/{ctx.job_id}/doc_artifacts")
-        extract_dir.mkdir(parents=True, exist_ok=True)
+        if re.fullmatch(r"[A-Za-z0-9_-]{1,128}", ctx.job_id) is None:
+            return self._result(
+                started_at, "partial", {"reason": "Document working directory unavailable"}
+            )
+        extract_parent = Path("/tmp") / ctx.job_id / "doc_artifacts"
+        extract_parent.mkdir(parents=True, mode=0o700, exist_ok=True)
+        extract_dir = Path(tempfile.mkdtemp(prefix="parse-", dir=extract_parent))
 
         def parse(
             reserve: Callable[[str, int, int], None],
@@ -440,12 +451,16 @@ class DocumentAnalysisStage(Stage):
             return findings, artifacts_on_disk
 
         settings = getattr(ctx, "analysis_settings", None) or get_settings()
+        # The adapter invokes this parser on behalf of the format stage. Those
+        # outputs and the later document-stage occurrences are distinct work;
+        # only a retry of the same stage may reuse its high-water reservation.
+        budget_source = "format-analysis" if ctx.skip_artifact_submission else "document-analysis"
         try:
             findings, artifacts_on_disk = await run_parser_bounded(
                 parse,
                 root_budget=ctx.root_budget,
                 job_id=ctx.job_id,
-                source="document-analysis",
+                source=budget_source,
                 timeout_seconds=settings.extraction_timeout,
             )
         except BudgetExceeded as exc:
@@ -458,7 +473,7 @@ class DocumentAnalysisStage(Stage):
         for artifact in artifacts_on_disk:
             artifact["budget_key"] = reservation_key(
                 ctx.job_id,
-                "document-analysis",
+                budget_source,
                 artifact.get("budget_origin")
                 or artifact.get("filename")
                 or artifact.get("name")
@@ -730,8 +745,7 @@ class DocumentAnalysisStage(Stage):
             self._oleid_scan(ctx, findings)
 
         # 2. Embedded OLE objects via oleobj
-        if HAS_OLEOBJ:
-            self._oleobj_extract(ctx, findings, artifacts, extract_dir)
+        self._oleobj_extract(ctx, findings, artifacts, extract_dir)
 
         # 3. Manual stream walk for Equation Editor / suspicious CLSIDs
         self._ole_stream_scan(raw, findings)
@@ -785,77 +799,55 @@ class DocumentAnalysisStage(Stage):
         artifacts: list[dict[str, Any]],
         extract_dir: Path,
     ) -> None:
-        """Extract embedded objects using oletools.oleobj."""
-        from oletools.oleobj import OleNativeStream, OleObject
+        """Restore supported native payloads from actual compound-file streams."""
+        if ctx.file_path is None:
+            return
+        settings = getattr(ctx, "analysis_settings", None) or get_settings()
+        maximum = min(
+            MAX_EXTRACTED_ARTIFACT_SIZE,
+            settings.extraction_max_single_bytes,
+            settings.extraction_max_bytes,
+        )
 
-        idx = 0
-        try:
-            for ole_entry in _oleobj.find_ole(str(ctx.file_path)):
-                if idx >= MAX_EMBEDDED_OBJECTS:
-                    break
-
-                # ole_entry is (storage_path, filename, ole_obj_or_native)
-                # The API varies across oletools versions; handle both tuple and object forms.
-                if isinstance(ole_entry, tuple) and len(ole_entry) >= 3:
-                    obj = ole_entry[2]
-                    source_path = str(ole_entry[0])
-                else:
-                    obj = ole_entry
-                    source_path = str(idx)
-
-                data = b""
-                obj_class = ""
-
-                if isinstance(obj, OleNativeStream):
-                    data = getattr(obj, "data", b"") or b""
-                    obj_class = getattr(obj, "class_name", "") or ""
-                elif isinstance(obj, OleObject):
-                    data = getattr(obj, "data", b"") or b""
-                    obj_class = getattr(obj, "class_name", "") or ""
-                elif hasattr(obj, "read"):
-                    data = obj.read(MAX_EXTRACTED_ARTIFACT_SIZE + 1)
-                elif isinstance(obj, bytes):
-                    data = obj
-
-                obj_info = {
-                    "index": idx,
-                    "class_name": obj_class,
+        def emit(data: bytes, filename: str, source: str, metadata: dict[str, Any]) -> None:
+            index = len(artifacts)
+            output = extract_dir / f"ole-{index:03d}-{filename}"
+            self._write_artifact(ctx, output, data, budget_origin=source)
+            record = {
+                "filename": filename,
+                "sha256": _sha256_bytes(data),
+                "size": len(data),
+                "source": source,
+                "path": str(output),
+                "budget_origin": source,
+            }
+            findings["embedded_objects"].append(
+                {
+                    **metadata,
+                    "index": index,
                     "size": len(data),
-                    "source_path": source_path,
+                    "is_pe": _looks_like_pe(data),
+                    "is_ole": data.startswith(_OLE_MAGIC),
                 }
+            )
+            findings["extracted_artifacts"].append(record)
+            artifacts.append(record)
 
-                class_lower = obj_class.lower()
-                if any(d in class_lower for d in DANGEROUS_OLE_CLASSES):
-                    obj_info["dangerous_class"] = True
-                    findings["exploit_indicators"].append(
-                        {
-                            "type": "dangerous_ole_class",
-                            "detail": f"Embedded object #{idx} class '{obj_class}'",
-                        }
-                    )
-
-                findings["embedded_objects"].append(obj_info)
-
-                if data and len(data) <= MAX_EXTRACTED_ARTIFACT_SIZE:
-                    orig_name = getattr(obj, "filename", "") or f"oleobj_{idx}"
-                    ext = _guess_artifact_ext(data, orig_name)
-                    safe_name = _safe_filename(orig_name, idx, ext)
-                    out_path = extract_dir / safe_name
-                    self._write_artifact(ctx, out_path, data)
-
-                    art = {
-                        "filename": safe_name,
-                        "sha256": _sha256_bytes(data),
-                        "size": len(data),
-                        "source": f"ole_object_{idx}",
-                        "path": str(out_path),
-                    }
-                    findings["extracted_artifacts"].append(art)
-                    artifacts.append(art)
-
-                idx += 1
-        except Exception as exc:
-            findings["errors"].append(f"oleobj extraction error: {exc}")
+        coverage = extract_ole_payloads(
+            ctx.file_path,
+            maximum_bytes=maximum,
+            maximum_objects=MAX_EMBEDDED_OBJECTS,
+            reserve=ctx.reserve_output,
+            emit=emit,
+        )
+        findings["embedded_extraction"] = coverage
+        if coverage["status"] != "complete":
+            reasons = [coverage.get("reason", "")]
+            reasons.extend(item.get("reason", "") for item in coverage["items"])
+            findings["errors"].extend(dict.fromkeys(reason for reason in reasons if reason))
+            if any("limit" in reason for reason in reasons):
+                findings["resource_limited"] = True
+                findings["limit_reason"] = next(reason for reason in reasons if "limit" in reason)
 
     def _ole_stream_scan(self, raw: bytes, findings: dict[str, Any]) -> None:
         """Scan raw OLE bytes for Equation Editor CLSID and suspicious streams."""
@@ -920,118 +912,137 @@ class DocumentAnalysisStage(Stage):
             return
 
         dangerous_rels: list[dict[str, str]] = []
-        embedded_bins: list[str] = []
-
+        settings = getattr(ctx, "analysis_settings", None) or get_settings()
+        maximum = min(
+            MAX_EXTRACTED_ARTIFACT_SIZE,
+            settings.extraction_max_single_bytes,
+            settings.extraction_max_bytes,
+        )
         try:
             with zipfile.ZipFile(file_path, "r") as zf:
+                candidates, coverage = ooxml_embedding_candidates(zf)
+                findings["embedded_extraction"] = coverage
+                findings["errors"].extend(coverage.get("errors", []))
+                if any(
+                    reason in coverage.get("errors", [])
+                    for reason in (
+                        "document_zip_member_count_limit",
+                        "document_zip_member_names_ambiguous",
+                    )
+                ):
+                    return
                 names = zf.namelist()
                 if "[Content_Types].xml" not in names:
                     findings["errors"].append("OOXML package is missing [Content_Types].xml")
                     return
 
-                # Check for vbaProject.bin → macros present
-                for n in names:
-                    nl = n.lower()
-                    if "vbaproject.bin" in nl:
+                for name in names:
+                    if "vbaproject.bin" in name.lower():
                         findings["macros"]["found"] = True
                         findings["macros"]["project_present"] = True
                         findings["macros"]["source_status"] = "unavailable"
                         findings["parser_findings"].append(
-                            {"type": "ooxml_macro", "detail": f"VBA project found: {n}"}
+                            {"type": "ooxml_macro", "detail": f"VBA project found: {name}"}
                         )
-                    if nl.endswith(".bin") and ("oleobject" in nl or "embedding" in nl):
-                        embedded_bins.append(n)
 
-                # Parse .rels files for external targets
-                for n in names:
-                    if n.endswith(".rels"):
-                        try:
-                            with zf.open(n) as rel_stream:
-                                rel_bytes = rel_stream.read(1_000_001)
-                            if len(rel_bytes) > 1_000_000:
-                                findings["errors"].append(
-                                    f"Relationship XML exceeds parse limit: {n}"
-                                )
-                                findings["resource_limited"] = True
-                                findings["limit_reason"] = "document_metadata_bytes_limit"
-                                continue
-                            rels_data = rel_bytes.decode("utf-8", errors="replace")
-                            self._scan_rels_xml(rels_data, dangerous_rels, findings)
-                        except Exception:
-                            pass
-
-                # Extract embedded OLE objects (oleObject*.bin, embedding/*.bin)
-                idx = 0
-                for bin_name in embedded_bins:
-                    if idx >= MAX_EMBEDDED_OBJECTS:
-                        break
+                metadata_total = 0
+                for name in names:
+                    if not name.endswith(".rels"):
+                        continue
                     try:
-                        info = zf.getinfo(bin_name)
-                        if info.file_size > MAX_EXTRACTED_ARTIFACT_SIZE:
-                            findings["errors"].append(
-                                f"Embedded object exceeds size limit: {bin_name}"
-                            )
+                        info = zf.getinfo(name)
+                        if (
+                            info.file_size > 1_000_000
+                            or metadata_total + info.file_size > 8_000_000
+                        ):
+                            findings["errors"].append("document_metadata_bytes_limit")
                             findings["resource_limited"] = True
-                            findings["limit_reason"] = "document_embedded_bytes_limit"
+                            findings["limit_reason"] = "document_metadata_bytes_limit"
                             continue
-                        # Reserve declared output before decompressing it into memory.
-                        provisional_name = _safe_filename(os.path.basename(bin_name), idx, ".bin")
-                        reserve = ctx.reserve_output if ctx else None
-                        if reserve:
-                            reserve(provisional_name, 1, info.file_size)
-                        with zf.open(bin_name) as stream:
-                            data = stream.read(MAX_EXTRACTED_ARTIFACT_SIZE + 1)
-                    except BudgetExceeded:
-                        break
-                    except Exception:
-                        continue
-
-                    if len(data) > MAX_EXTRACTED_ARTIFACT_SIZE:
-                        findings["resource_limited"] = True
-                        findings["limit_reason"] = "document_embedded_bytes_limit"
-                        continue
-
-                    obj_info = {
-                        "index": idx,
-                        "zip_path": bin_name,
-                        "size": len(data),
-                        "is_ole": data[:8] == _OLE_MAGIC,
-                    }
-                    findings["embedded_objects"].append(obj_info)
-
-                    # Check Equation Editor in embedded OLE
-                    if data[:8] == _OLE_MAGIC and (
-                        b"Equation" in data[:1024] or b"equation" in data[:1024]
-                    ):
-                        findings["exploit_indicators"].append(
-                            {
-                                "type": "equation_editor_ooxml_embed",
-                                "detail": f"Embedded OLE '{bin_name}' references Equation Editor",
-                                "cves": ["CVE-2017-11882", "CVE-2018-0802"],
-                            }
+                        metadata_total += info.file_size
+                        with zf.open(info) as stream:
+                            data = stream.read(1_000_001)
+                        if len(data) != info.file_size or len(data) > 1_000_000:
+                            findings["errors"].append("document_relationships_invalid")
+                            continue
+                        self._scan_rels_xml(
+                            data.decode("utf-8", errors="replace"), dangerous_rels, findings
                         )
+                    except Exception:
+                        findings["errors"].append("document_relationships_unavailable")
 
-                    ext = _guess_artifact_ext(data, bin_name)
-                    safe_name = _safe_filename(os.path.basename(bin_name), idx, ext)
-                    out_path = extract_dir / safe_name
-                    self._write_artifact(ctx, out_path, data, budget_origin=provisional_name)
-
-                    art = {
-                        "filename": safe_name,
-                        "sha256": _sha256_bytes(data),
-                        "size": len(data),
-                        "source": f"ooxml_embed_{bin_name}",
-                        "path": str(out_path),
-                        "budget_origin": provisional_name,
+                for index, (info, aliases) in enumerate(candidates):
+                    source = f"ooxml_embed_{info.filename}"
+                    item: dict[str, Any] = {
+                        "source": source,
+                        "zip_path": info.filename,
+                        "relationships": aliases,
                     }
-                    findings["extracted_artifacts"].append(art)
-                    artifacts.append(art)
-                    idx += 1
-
-        except zipfile.BadZipFile as exc:
-            findings["errors"].append(f"Bad OOXML ZIP: {exc}")
-        except Exception as exc:
-            findings["errors"].append(f"OOXML parse error: {exc}")
+                    coverage["items"].append(item)
+                    try:
+                        if index >= MAX_EMBEDDED_OBJECTS:
+                            raise BudgetExceeded("document_embedded_object_count_limit")
+                        if info.file_size > maximum:
+                            raise BudgetExceeded("document_embedded_bytes_limit")
+                        if ctx.reserve_output:
+                            ctx.reserve_output(source, 1, info.file_size)
+                        with zf.open(info) as stream:
+                            data = stream.read(maximum + 1)
+                        if len(data) != info.file_size or len(data) > maximum:
+                            raise ValueError("document_embedded_size_mismatch")
+                        filename = embedded_filename(info.filename, data, index)
+                        output = extract_dir / f"ooxml-{index:03d}-{filename}"
+                        self._write_artifact(ctx, output, data, budget_origin=source)
+                        digest = _sha256_bytes(data)
+                        item.update(
+                            status="extracted", filename=filename, size=len(data), sha256=digest
+                        )
+                        coverage["extracted"] += 1
+                        obj_info = {
+                            "index": index,
+                            "zip_path": info.filename,
+                            "size": len(data),
+                            "is_ole": data.startswith(_OLE_MAGIC),
+                            "is_pe": _looks_like_pe(data),
+                            "relationships": aliases,
+                        }
+                        findings["embedded_objects"].append(obj_info)
+                        if data.startswith(_OLE_MAGIC) and (
+                            b"Equation" in data[:1024] or b"equation" in data[:1024]
+                        ):
+                            findings["exploit_indicators"].append(
+                                {
+                                    "type": "equation_editor_ooxml_embed",
+                                    "detail": "Embedded OLE references Equation Editor",
+                                    "cves": ["CVE-2017-11882", "CVE-2018-0802"],
+                                }
+                            )
+                        artifact = {
+                            "filename": filename,
+                            "sha256": digest,
+                            "size": len(data),
+                            "source": source,
+                            "path": str(output),
+                            "budget_origin": source,
+                        }
+                        findings["extracted_artifacts"].append(artifact)
+                        artifacts.append(artifact)
+                    except BudgetExceeded as exc:
+                        coverage.update(status="partial")
+                        coverage["unavailable"] += 1
+                        item.update(status="unavailable", reason=exc.reason)
+                        findings["resource_limited"] = True
+                        findings["limit_reason"] = exc.reason
+                        findings["errors"].append(exc.reason)
+                        if exc.reason.startswith(("root_", "analysis_")):
+                            break
+                    except Exception:
+                        coverage.update(status="partial")
+                        coverage["unavailable"] += 1
+                        item.update(status="unavailable", reason="document_embedded_unavailable")
+                        findings["errors"].append("document_embedded_unavailable")
+        except Exception:
+            findings["errors"].append("OOXML package unavailable")
 
         if dangerous_rels:
             findings["parser_findings"].append(
@@ -1332,7 +1343,17 @@ class DocumentAnalysisStage(Stage):
         reserve = ctx.reserve_output if ctx else None
         if reserve:
             reserve(budget_origin or path.name, 1, len(data))
-        path.write_bytes(data)
+        created = False
+        try:
+            # Each parser invocation owns its outputs. Existing paths (including
+            # symlinks) cannot be overwritten, even when display names collide.
+            with path.open("xb") as output:
+                created = True
+                output.write(data)
+        except BaseException:
+            if created:
+                path.unlink(missing_ok=True)
+            raise
 
     # ------------------------------------------------------------------
     # Utilities

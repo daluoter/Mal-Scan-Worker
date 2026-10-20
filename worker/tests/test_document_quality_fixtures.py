@@ -106,7 +106,12 @@ async def test_office_external_references_retain_both_actual_targets(tmp_path: P
     ctx = _context(tmp_path, "office-external-references")
     ctx.previous_results = [await FileTypeStage().execute(ctx)]
     result = await FormatAnalysisStage().execute(ctx)
-    assert result.status == "ok"
+    # The external oleObject target cannot be fetched or scanned. Structural
+    # observations remain present, while content coverage is explicitly partial.
+    assert result.status == "partial"
+    coverage = result.findings["features"]["embedded_extraction"]
+    assert coverage["status"] == "partial"
+    assert coverage["items"][0]["reason"] == "office_embedded_external_not_fetched"
     indicators = result.findings["indicators"]
     external = [item for item in indicators if item["type"] == "external_relationship"]
     assert len(external) == 2
@@ -203,7 +208,7 @@ async def test_office_metadata_limit_is_partial_in_both_document_paths(tmp_path:
     assert document.findings["limit_reason"] == "document_metadata_bytes_limit"
     assert result.findings["features"]["limit_reason"] == "document_metadata_bytes_limit"
     assert result.findings["features"]["resource_limited"] is True
-    assert any("exceeds parse limit" in item for item in result.findings["errors"])
+    assert "document_metadata_bytes_limit" in result.findings["errors"]
 
 
 @pytest.mark.asyncio

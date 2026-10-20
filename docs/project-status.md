@@ -9,6 +9,13 @@
 **完成（限定案例）**依列出的本機／雲端人工證據結案，不擴張為所有格式或操作的完整保證。
 完成一個基礎批次，不代表該格式、誤報問題或整個 P0 都已完成。
 
+本批 F-03 已完成程式／本機驗證，涵蓋 PDF 附件／Office 嵌入物件：從宣告的 PDF filespec／stream、
+OOXML member／relationship 與 OLE Package 取得實際 bytes，建立來源與子檔後進入共用靜態掃描。
+同一來源的 aliases 與不同 occurrence 分開處理；不支援、損壞、超限或提交失敗保留 partial。
+能力邊界見[文件附件說明](document-embedded.md)，更新操作見[Job 部署手冊](deploy-document-embedded.md)。
+F-03 的程式／本機結果與 **F-11 正式雲端 smoke（待辦）**分開結案，不使用先前 Office／PDF 報告代替。
+本批尚未部署，不改變正式 demo 的已驗收範圍；DO 清理、真實回退、自動病毒庫更新及成本維護照原 ID 追蹤。
+
 本批 F-02 已完成 Office 密碼恢復的程式與本機驗證；Office 14／14、一般 40／40、PDF 12／12 原生案例通過，見[本批紀錄](milestones/2026-10-19-office-password.json)。固定 `office-password-v1.json` 為 14 個 profile，
 包含 Agile AES-256、Standard AES-128、六種常見 OOXML 副檔名、外部範本、不同密碼 ZIP、
 雙 Office sibling、第二組 Office 密碼與損壞／不支援對照。這是固定驗收範圍，不代表全部可接受 header 都已逐一原生驗證。
@@ -23,7 +30,7 @@ ZIP 已用 1 時 Office 初始仍為 0／3 依使用者人工確認。最新 ZIP
 Office 已用 2／剩餘 1、工作及靜態分析完成，累計提取 8 檔／19,196 bytes，與固定樣本預期相符。
 見[Office 雲端驗收紀錄](milestones/2026-10-20-office-cloud-acceptance.json)；沒有新增 agent-run 雲端掃描或獨立的每次 execution 映像／物件 bytes 查詢。
 Office 三次耗盡及其他 Office 格式未在本輪雲端演練，各 root 私有 status／保留期及清理仍列 P0-18，
-DO 清理、成本、真實回退及自動病毒庫更新維持原狀。下一項功能為 F-03 PDF 附件與 Office 嵌入物件深化。
+DO 清理、成本、真實回退及自動病毒庫更新維持原狀。F-03 PDF 附件與 Office 嵌入物件本機交付完成；正式驗收另追 F-11。
 2026-10-19 本機開發批次後端 233、前端 54 項通過；worker 完整回歸為 1,202 通過、3 項 PostgreSQL opt-in 跳過，
 一項新增測試的 fixture 密碼預期修正後，所屬 3 項續跑測試補驗通過，共 1,203 個不同測試已有通過證據。
 上述本機完整執行及補驗分開記錄；Ruff、strict mypy、lock、前端型別／lint／build 均通過。
@@ -54,7 +61,7 @@ DO 清理、真實回退、自動病毒庫與長期成本仍待辦；新工作�
 worker 852、backend 233、frontend 52、控制層 25 項通過；四項 PostgreSQL opt-in 與一項既有完整 Python fixture 跳過。
 PDF 原生 12／12 通過；一般 32 份原生報告以修正後 manifest 重新核對通過，沒有重跑偵測器，
 初次 manifest 的舊政策斷言及失敗彙總保留，詳見 [本批紀錄](milestones/2026-10-18-pdf-feedback.json)。
-本表共 49 個固定 ID，本批新增 F-10 追蹤 Office 正式雲端 smoke；P0-19 繼續追蹤使用者回報的安全通知，
+本表共 50 個固定 ID，本批新增 F-11 追蹤文件附件正式雲端 smoke；P0-19 繼續追蹤使用者回報的安全通知，
 每完成一項即更新其證據與剩餘條件，並在該批交付訊息明列。
 
 ## 清理、回退與病毒庫更新是什麼
@@ -115,7 +122,7 @@ Durable Object（DO）像工作登記簿，另存工作、票證與派送狀態�
 | --- | --- | --- | --- |
 | F-01 | 完成（限定格式／案例） | **PDF 使用者密碼恢復**：RC4／AES、缺密碼→錯誤→正確、原檔與解密子檔、持久 checkpoint 與累計預算已有本機驗證；直接 AES-128 與 ZIP 內 AES-128 已由使用者完成人工 smoke | 本機格式範圍見 [原生紀錄](milestones/2026-10-18-pdf-password.json)，雲端限定案例見 F-08；不支援 crypt filter 保留 partial，不代表所有 PDF 變種均已正式測試 |
 | F-02 | 完成（程式／本機驗證） | **Office 使用者密碼解密／恢復**：現代 OOXML、原始明文 bytes 子檔、共用掃描、既有密碼／checkpoint／預算契約；固定 suite 14 個 profile | [本批紀錄](milestones/2026-10-19-office-password.json)：Office 14／14、一般 40／40、PDF 12／12 原生案例，另有 57 組真實加密演算法測試。完整掃描固定案例與演算法單元覆蓋分開記錄。正式雲端另列 F-10；舊式 DOC／XLS／PPT 加密、IRM 不支援，詳見 [能力邊界](office-password.md) |
-| F-03 | 待辦 | **PDF 附件提取與 Office 嵌入物件深化**；現有部分 Office 提取與來源樹不代表所有附件 | 附件有來源、實際 bytes、hash、遞迴掃描、密碼與資源限制證據；PDF 附件描述不能當成已掃描 |
+| F-03 | 完成（程式／本機驗證） | **PDF 附件提取與 Office 嵌入物件深化**：宣告 PDF 附件位置、有界解碼、OOXML member／內部 relationship、OLE native／Package payload 與來源子檔整合 | [本批紀錄](milestones/2026-10-20-document-embedded.json)：附件原生 12／12、worker 1,379 通過／3 PostgreSQL opt-in 跳過；PDF 密碼 12／12、Office 密碼 14／14，更多回歸範圍見紀錄。來源、實際 bytes／hash、掃描、密碼及逐 occurrence 預算已核對，範圍見[能力邊界](document-embedded.md)；正式雲端另列 F-11 |
 | F-04 | 進行中 | ZIP／7z 巢狀、不同密碼、同名 entries 與 budget 已有案例 | 補更多損壞／深度／加密變種與 RAR 外部解壓器相容性，未知／缺工具有明確原因 |
 | F-05 | 待辦 | **PE／LNK／scripts 深度分析**；已有基礎 PE 結構及腳本啟發式 | 增加資源、overlay、捷徑與去混淆衍生檔的正常／異常對照、來源與限制，樣本不執行 |
 | F-06 | 待辦 | 郵件、ELF／Mach-O、ISO、APK 等專用能力 | 按需求逐格式定義 parser／extractor、資源邊界與成功／失敗案例；現有通用掃描不等於完整支援 |
@@ -123,6 +130,8 @@ Durable Object（DO）像工作登記簿，另存工作、票證與派送狀態�
 | F-08 | 完成（限定案例） | **PDF 回饋修正正式 demo 人工驗收**：先前 Job／Worker 發布輸出，加上新畫面、兩份新 JSON 與使用者明確人工通過聲明 | [驗收紀錄](milestones/2026-10-19-pdf-feedback-acceptance.json)：錯誤紅字、逐檔三次、父子檔高風險；兩個 PDF 報告可獨立核對，外層 ZIP／第三次限制為人工聲明；Pages ID 未單獨蒐集；到期清理、費用與維護不在此項結案範圍 |
 | F-09 | 完成（限定案例） | **每個加密檔案獨立三次補交**：接受派送的正確與錯誤密碼均計本檔；本機 workerd／SQLite、持久化與耗盡後其他節點續跑已有測試 | 新 JSON 各自 PDF 已用 2／剩餘 1／上限 3；ZIP 不扣內層 PDF 及第三次限制依使用者人工通過聲明記錄，完成 JSON 不能重播該歷史；見 [F-08 紀錄](milestones/2026-10-19-pdf-feedback-acceptance.json) |
 | F-10 | 完成（限定案例） | **Office 密碼正式 demo smoke**：Job／Pages 發布、三個宣告案例的完整根報告（正常 DOCX 8 節點／0 分、外部範本 DOCX 10 節點／父檔 15 分與子檔 53 分、不同密碼 ZIP→Office 9 節點／6 分），加上兩份 Office 詳細子樹、錯誤紅字畫面與逐檔初始次數的人工確認已核對 | [Office 雲端驗收紀錄](milestones/2026-10-20-office-cloud-acceptance.json)限所列 DOCX／ZIP 案例：最終 ZIP 1／2、Office 2／1、累計提取 8 檔／19,196 bytes，身份、明文 hash、來源與適用掃描符合固定預期。Office 三次耗盡及其他格式未在本輪雲端演練；各 root 的 status／保留期／清理另追 P0-18，每次 execution 映像與物件 bytes 未獨立查詢 |
+
+| F-11 | 待辦 | **PDF 附件／Office 嵌入檔正式 demo smoke**；與 F-03 程式及本機驗證分開 | 依[Job 更新手冊](deploy-document-embedded.md)保存部署 digest 與新上傳根報告，核對 PDF 文字附件、Flate EICAR 附件、Office 非 `.bin` 內嵌 PDF 的來源／身份與實際掃描；雲端密碼與其他變種不從本機結果推定，各 root 保留期／清理仍追 P0-18 |
 
 ## P2：效能、狀態與報告體驗
 

@@ -1,0 +1,388 @@
+{
+  "schema_version": 1,
+  "date": "2026-10-20",
+  "scope": "F-03 implementation and local synthetic/native validation only",
+  "base_commit": "ef22a9ec72cba40ee33747657a5b658710664c31",
+  "completed_checklist_ids": [
+    "F-03"
+  ],
+  "pending_cloud_checklist_ids": [
+    "F-11"
+  ],
+  "cloud_run_executed": false,
+  "production_deployed": false,
+  "cloud_cost_verified": false,
+  "implementation": {
+    "pdf": [
+      "Catalog EmbeddedFiles name tree including Kids",
+      "Catalog/page AF and FileAttachment annotation filespecs",
+      "Unfiltered and single Flate/Fl predictor1 streams; other filters explicitly partial",
+      "Exact decoded bytes, hashes, safe names, alias references and separate same-content stream occurrences"
+    ],
+    "office": [
+      "OOXML embedding members with any suffix and validated internal package/oleObject targets",
+      "Strict bounded Ole10Native embedded payload and raw Package stream restoration",
+      "Wrapper and recovered payload retain separate lineage/depth; external resources never fetched",
+      "Unrecognized application-specific layouts remain outside the declared restoration scope; observed unsupported CONTENTS stays partial"
+    ],
+    "shared": [
+      "Per-output identity and real child submission evidence",
+      "Successful siblings survive invalid bytes or failed sibling submission",
+      "Different stage occurrences each consume root budget; same-stage checkpoint retries reuse high-water grants",
+      "Private unique work directories, exclusive output writes, no file execution or external fetches"
+    ],
+    "dependency_versions_changed": false,
+    "rule_files_changed": false,
+    "risk_policy_changed": false
+  },
+  "source_snapshots": {
+    "native_v1": {
+      "files": 137,
+      "identity_sha256": "6ce4d5abd08f1abe91346666601c378f9b117d3dda0c0c50156b6336266962ea"
+    },
+    "v6_control_v2": {
+      "files": 138,
+      "identity_sha256": "16dd6464e90c2ec97b8b5ed06bb07595e3f407ec51a3f52e828609d2726af5a5"
+    },
+    "final_v3": {
+      "files": 138,
+      "identity_sha256": "04090ddcdbb17880fe0686b3dd4e1449e45e4928810366ff8ae0dd6d7f5eb012"
+    }
+  },
+  "native_environment": {
+    "image_config_id": "sha256:c68556066d9443cf701fefa9faeb6b8296b0e610d80622ad537489b979f10467",
+    "network": "none",
+    "read_only_root": true,
+    "uid": 1000,
+    "uid_note": "Non-root test override for private host evidence; production remains10001",
+    "cpu_per_suite": 2,
+    "memory_per_suite": "4GiB",
+    "tmpfs_per_suite": "256MiB",
+    "clamav": "ClamAV 1.4.3/28152/Tue Oct 13 06:26:14 2026",
+    "yara_python": "4.5.4",
+    "rules_sha256": "52cc7df2f9732941bce0f079bb70b36f01f04008b0a458398ef3ee58679a7dcc",
+    "risk_policy": "msrs-v1.2",
+    "database_refresh_performed": false,
+    "test_database_max_age_seconds": 1209600,
+    "production_database_max_age_seconds_unchanged": 604800,
+    "freshness_note": "Retained previously verified image used for offline regression; the test-only14day window does not prove current production database freshness. Cloud upgrade must refresh and verify signed databases.",
+    "embedded_suite_limits": {
+      "max_files": 30,
+      "max_bytes": 5000000,
+      "attempt_seconds": 300,
+      "case_seconds": 600,
+      "max_depth": 4
+    }
+  },
+  "native_results": {
+    "document_embedded_final": {
+      "suite_version": "document-embedded-v1.0.0",
+      "case_count": 12,
+      "passed_count": 12,
+      "quality_report_sha256": "202e614c526191a2328da17d64c3db5b00664c9bbb50b379e3788e30c5fa7c6f",
+      "manifest_sha256": "aff33e91d3115b2a1d9cc58d3ec365fb838c63b5f2737754ae5dc254aed2ced0",
+      "source_snapshot": "final_v3",
+      "cases": [
+        {
+          "id": "pdf-name-tree-text",
+          "passed": true,
+          "fixture_sha256": "af16ec9bafdc60808f2acf5df16e85402c4031181d1a87d38b412c777e7d42c9",
+          "artifact_count": 2,
+          "stored_children_verified": 1,
+          "static_status": "complete",
+          "score": 0,
+          "risk_level": "clean",
+          "root_budget": {
+            "used_files": 1,
+            "used_bytes": 41
+          },
+          "report_sha256": "3d24f7365d657ad108a1173fa717c53f0dd016e1655c9c0a84edd43023577567"
+        },
+        {
+          "id": "pdf-flate-eicar",
+          "passed": true,
+          "fixture_sha256": "3497a52ce3bc0a3b971aee8c92987a06f0697d4bc0c1eb593ec01fac42287c60",
+          "artifact_count": 2,
+          "stored_children_verified": 1,
+          "static_status": "complete",
+          "score": 100,
+          "risk_level": "malicious",
+          "root_budget": {
+            "used_files": 1,
+            "used_bytes": 68
+          },
+          "report_sha256": "8315d6cea53e1da869014272da65541dc2e0ec12718e26895c6e3060714bc585"
+        },
+        {
+          "id": "pdf-alias-and-duplicate-names",
+          "passed": true,
+          "fixture_sha256": "27ae39478194a92de74f3d6200dbc86ddc9041c4c4a18aae8953b88b01dfdfd3",
+          "artifact_count": 4,
+          "stored_children_verified": 3,
+          "static_status": "complete",
+          "score": 0,
+          "risk_level": "clean",
+          "root_budget": {
+            "used_files": 3,
+            "used_bytes": 143
+          },
+          "report_sha256": "29fe54c1ab7848026d1381849e9fea0ddca6a241fdadf131403e879d4970eef0"
+        },
+        {
+          "id": "pdf-associated-and-annotation",
+          "passed": true,
+          "fixture_sha256": "3fe566b18d1b0e955f0d78ff83c64864086a8797ff45cc33e15281edd6e1a0d2",
+          "artifact_count": 3,
+          "stored_children_verified": 2,
+          "static_status": "complete",
+          "score": 0,
+          "risk_level": "clean",
+          "root_budget": {
+            "used_files": 2,
+            "used_bytes": 102
+          },
+          "report_sha256": "f4b859788f21d132317957ac3849ddec9f527932bdbdcc085b432d11f5abd21a"
+        },
+        {
+          "id": "pdf-password-child",
+          "passed": true,
+          "fixture_sha256": "1f69fa55b76bddc43512c811a5a165a3cd015f938a1fc7b5fbda84ba28894582",
+          "artifact_count": 3,
+          "stored_children_verified": 2,
+          "static_status": "complete",
+          "score": 0,
+          "risk_level": "clean",
+          "root_budget": {
+            "used_files": 2,
+            "used_bytes": 1678
+          },
+          "report_sha256": "24e7bb06f6c143665093971b4bec79adf7ebce549fd9ea589f425896c96ecd60"
+        },
+        {
+          "id": "pdf-unsupported-filter",
+          "passed": true,
+          "fixture_sha256": "d192fead5a0066d0717e30d06bb31fd994942c5f46340b1fa8c0606088351e7f",
+          "artifact_count": 1,
+          "stored_children_verified": 0,
+          "static_status": "partial",
+          "score": 0,
+          "risk_level": "clean",
+          "root_budget": {
+            "used_files": 0,
+            "used_bytes": 0
+          },
+          "report_sha256": "350c2f85d14ea8c82365a102d6b624a238b65cd8f126b5541ef9357630d57141"
+        },
+        {
+          "id": "pdf-missing-stream",
+          "passed": true,
+          "fixture_sha256": "d09718d8ef8451207b2e4ad485ce7d8edf50bdc67a2797798b3bce9cc5094156",
+          "artifact_count": 1,
+          "stored_children_verified": 0,
+          "static_status": "partial",
+          "score": 0,
+          "risk_level": "clean",
+          "root_budget": {
+            "used_files": 0,
+            "used_bytes": 0
+          },
+          "report_sha256": "00ae5a25af940b837618284b0adfdbb39c6273eff27359c7fb2f80481e8fd5d8"
+        },
+        {
+          "id": "office-embedded-pdf",
+          "passed": true,
+          "fixture_sha256": "5bf1d10062c735ac3627a5234bb8060baa24537b739cbc6e0ffd8c4fd6b3c289",
+          "artifact_count": 8,
+          "stored_children_verified": 7,
+          "static_status": "complete",
+          "score": 0,
+          "risk_level": "clean",
+          "root_budget": {
+            "used_files": 7,
+            "used_bytes": 2226
+          },
+          "report_sha256": "a6f6e47940d04f6d71910f3c82f01d7ef5eaacab730154e55bd4848b49a3e4f5"
+        },
+        {
+          "id": "office-relationship-package",
+          "passed": true,
+          "fixture_sha256": "051f46894c486cda33dfaa4f26b11f228e735e53fdc16c5fa124dbeb138ac4d1",
+          "artifact_count": 8,
+          "stored_children_verified": 7,
+          "static_status": "complete",
+          "score": 0,
+          "risk_level": "clean",
+          "root_budget": {
+            "used_files": 7,
+            "used_bytes": 2220
+          },
+          "report_sha256": "4a0952ea94b29e0b39457ee71e26c342b4474efb3cd255063bcc90832b9edfe8"
+        },
+        {
+          "id": "ole-native-text",
+          "passed": true,
+          "fixture_sha256": "2f19ec9c250ee79f1d4b356f248be72189f14bedc9e9abc1d2fc2debc7406b15",
+          "artifact_count": 3,
+          "stored_children_verified": 2,
+          "static_status": "complete",
+          "score": 0,
+          "risk_level": "clean",
+          "root_budget": {
+            "used_files": 2,
+            "used_bytes": 82
+          },
+          "report_sha256": "7f7280b79618e1cb23475bc831ee2a19b210f62d0dc6d8a198523ab069c1a83a"
+        },
+        {
+          "id": "ole-package-pdf",
+          "passed": true,
+          "fixture_sha256": "d9762ff6c81d2db4d3f89ce12382790ed31c542fab5ba4ea32820478bdedded8",
+          "artifact_count": 3,
+          "stored_children_verified": 2,
+          "static_status": "complete",
+          "score": 0,
+          "risk_level": "clean",
+          "root_budget": {
+            "used_files": 2,
+            "used_bytes": 704
+          },
+          "report_sha256": "92d804ada937226f372bca7e1073a5a4545573a47d121ee49e8d5ee23d48c7e1"
+        },
+        {
+          "id": "ole-native-truncated",
+          "passed": true,
+          "fixture_sha256": "86c8545f7d9f44f2d71d00e1d6e8ac8946f750e5d6f391c7ab0d50b48826b4d9",
+          "artifact_count": 1,
+          "stored_children_verified": 0,
+          "static_status": "partial",
+          "score": 0,
+          "risk_level": "clean",
+          "root_budget": {
+            "used_files": 0,
+            "used_bytes": 0
+          },
+          "report_sha256": "b7dc3e2cab732471d949d00a98ab368766b608abb0a601e9fed6ecc77c01d545"
+        }
+      ]
+    },
+    "pdf_password_regression": {
+      "suite_version": "pdf-password-v2.0.0",
+      "case_count": 12,
+      "passed_count": 12,
+      "quality_report_sha256": "81438db4224d8903a13d3fcc17e867f4929a93e1edf6eeb797521f08304eea4c",
+      "manifest_sha256": "17e9070f8b360de742d946db381e07b289eef01de097a9dc75340a308bc53908",
+      "source_snapshot": "native_v1"
+    },
+    "office_password_regression_before_final_accounting_fix": {
+      "suite_version": "office-password-v1.0.0",
+      "case_count": 14,
+      "passed_count": 14,
+      "quality_report_sha256": "e7b3896938e778ce33cf36bf5a262d9d98d765cd2bfaa1bb5b366e51b7450e51",
+      "manifest_sha256": "04ee07d8df24574e5cec221a122e4dfd7a6eeb80261a60e76e39f268e60f45ec",
+      "source_snapshot": "native_v1"
+    },
+    "office_affected_macro_regression_after_accounting_fix": {
+      "suite_version": "office-password-v1.0.0",
+      "case_count": 3,
+      "passed_count": 3,
+      "quality_report_sha256": "b830957ee120cc19fb8d22637ebdde9ae0885961f8028847622fd69895d1a520",
+      "manifest_sha256": "04ee07d8df24574e5cec221a122e4dfd7a6eeb80261a60e76e39f268e60f45ec",
+      "source_snapshot": "final_v3",
+      "final_accounting_checks": [
+        {
+          "profile": "agile-aes256-docm",
+          "artifact_count": 12,
+          "used_files": 11,
+          "used_bytes": 11026
+        },
+        {
+          "profile": "agile-aes256-pptm",
+          "artifact_count": 13,
+          "used_files": 12,
+          "used_bytes": 12750
+        },
+        {
+          "profile": "agile-aes256-xlsm",
+          "artifact_count": 13,
+          "used_files": 12,
+          "used_bytes": 12190
+        }
+      ]
+    },
+    "general_quality": {
+      "original_manifest": "worker/quality/corpus-v5.json",
+      "original_passed_count": 39,
+      "case_count": 40,
+      "original_quality_report_sha256": "e9ebb59bf83c5831fe7374bac16943cb163826263d36e336669821f87fa1d232",
+      "expected_change": "External oleObject contents are not fetched; format and document coverage now explicitly partial. All fixture bytes, rule inventory and score requirements unchanged.",
+      "new_manifest": "worker/quality/corpus-v6.json",
+      "revalidation_passed_count": 40,
+      "revalidation_detectors_rerun": false,
+      "revalidation_sha256": "550043f030a947f4192d1f526468a38faa04703f676597a06ab273ef3c2ca449",
+      "changed_case_fresh_rerun": {
+        "suite_version": "static-quality-v6.0.0",
+        "case_count": 1,
+        "passed_count": 1,
+        "quality_report_sha256": "975fe32e0c84378b22d918d7256d0fb7d5f45eead2ebb7b3e746d043401ac829",
+        "manifest_sha256": "37e924d261e032eb2dc2ea817129f075609d86f7ee5d07f1f9bc001245585a51",
+        "source_snapshot": "v6_control_v2"
+      }
+    }
+  },
+  "local_checks": {
+    "worker": {
+      "passed": 1379,
+      "skipped": 3,
+      "failures": 0,
+      "errors": 0,
+      "skip_scope": "Only the3 opt-in PostgreSQL tests",
+      "junit_sha256": "4e78757d69dfe6354fefa6e5234283ea22dba896c0bdd6b08b1979e0ffb39ad1",
+      "mode": "CI asyncio auto, installed7z on PATH, sandbox restrictions lifted for local eventloop/socket tests"
+    },
+    "ruff": "passed worker sources and tests",
+    "strict_mypy": {
+      "passed": true,
+      "source_files": 95
+    },
+    "black_changed_python": "passed",
+    "poetry_check_lock": "passed with existing metadata deprecation warnings",
+    "cloudshell_guide_fixture_generation": "3 fixtures generated with system Python standard library; pinned sizes and hashes matched",
+    "frontend_backend_control_changes": false
+  },
+  "retained_diagnostics": [
+    "First native startup failed before any case because cached backend sources were not mounted; corrected full source mounts before native runs.",
+    "Default sandbox worker run stalled in async thread notification; final suite ran with original assertions outside that restriction.",
+    "Initial unrestricted full suite1370pass/2fail/7skip: external object coverage and sanitized metadata reason expectations updated; CI async mode and installed7z restored4 skipped checks. Final1379pass/3PostgreSQLskips.",
+    "Original generalv5 39/40 retained, versionedv6 changes only explicit external embedding coverage;40 retained reports revalidated and changed case freshly rerun.",
+    "Initial native embedded12 passed before the extra per-occurrence budget check;final12 rerun verifies both stored bytes and exact occurrence accounting."
+  ],
+  "limitations": [
+    "Synthetic controls do not establish real-world detection rate or universal PDF/Office compatibility.",
+    "No production rollout, Cloudflare/GCP mutation, cloud upload or billing validation occurred in this batch.",
+    "PostgreSQL opt-in tests were not run; queue submission contracts were exercised with explicit DB/service ports.",
+    "Native suites use separate documented snapshots. Final accounting change was validated with the12case suite and the3 affected macro profiles, not claimed as a second full14case Office run."
+  ],
+  "maintenance_still_open": [
+    "P0-06",
+    "P0-07",
+    "P0-11",
+    "P0-12",
+    "P0-14",
+    "P0-15",
+    "P0-18",
+    "P0-19"
+  ],
+  "next_step": {
+    "id": "F-11",
+    "guide": "docs/deploy-document-embedded.md",
+    "deployment_scope": "Existing Cloud Run Job image only; no Pages/Worker/IAM/secrets changes",
+    "basic_cloud_cases": [
+      "pdf-name-tree-text",
+      "pdf-flate-eicar",
+      "office-embedded-pdf"
+    ],
+    "basic_expected_executions": 3,
+    "new_root_retention_requires_independent_evidence": true
+  },
+  "data_boundary": "Only reviewed synthetic metadata and hashes are public; native raw reports/logs/states and user secrets remain private."
+}

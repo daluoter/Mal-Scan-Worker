@@ -85,6 +85,7 @@ class OfficeAnalyzerAdapter(FormatAnalyzer):
             "document_type": document_type if isinstance(document_type, str) else None,
             "macros": findings.get("macros", {}),
             "embedded_objects": embedded_objects,
+            "embedded_extraction": findings.get("embedded_extraction", {}),
             "parser_findings": parser_findings,
             "resource_limited": bool(findings.get("resource_limited")),
             "limit_reason": findings.get("limit_reason"),

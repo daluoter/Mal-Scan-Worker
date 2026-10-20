@@ -1,0 +1,397 @@
+{
+  "schema_version": 1,
+  "suite_version": "document-embedded-v1.0.0",
+  "scope": "local_real_document_embedded_acceptance",
+  "recipe_version": 1,
+  "rules_sha256": "52cc7df2f9732941bce0f079bb70b36f01f04008b0a458398ef3ee58679a7dcc",
+  "policy_version": "msrs-v1.2",
+  "accuracy_claim": "Synthetic embedded-file preservation and static coverage contracts; no real-world accuracy claim",
+  "cases": [
+    {
+      "id": "pdf-name-tree-text",
+      "profile": "pdf-name-tree-text",
+      "sha256": "af16ec9bafdc60808f2acf5df16e85402c4031181d1a87d38b412c777e7d42c9",
+      "bytes": 664,
+      "scenario": "normal",
+      "direct_inventory": [
+        {
+          "sha256": "c181b017b5331e18b38f953598a9f9f406cac3834d3e1d46208b35bcf31f2fbe",
+          "size": 41,
+          "extraction_source": "format-analysis",
+          "origin_path": "pdf-attachment/0000",
+          "archive_type": "pdf"
+        }
+      ],
+      "expect": {
+        "static_status": "complete",
+        "artifact_count": 2,
+        "yara_rules": [],
+        "infected_artifacts": 0
+      }
+    },
+    {
+      "id": "pdf-flate-eicar",
+      "profile": "pdf-flate-eicar",
+      "sha256": "3497a52ce3bc0a3b971aee8c92987a06f0697d4bc0c1eb593ec01fac42287c60",
+      "bytes": 720,
+      "scenario": "normal",
+      "direct_inventory": [
+        {
+          "sha256": "275a021bbfb6489e54d471899f7db9d1663fc695ec2fe2a2c4538aabf651fd0f",
+          "size": 68,
+          "extraction_source": "format-analysis",
+          "origin_path": "pdf-attachment/0000",
+          "archive_type": "pdf"
+        }
+      ],
+      "expect": {
+        "static_status": "complete",
+        "artifact_count": 2,
+        "yara_rules": [
+          "eicar"
+        ]
+      }
+    },
+    {
+      "id": "pdf-alias-and-duplicate-names",
+      "profile": "pdf-alias-and-duplicate-names",
+      "sha256": "27ae39478194a92de74f3d6200dbc86ddc9041c4c4a18aae8953b88b01dfdfd3",
+      "bytes": 1414,
+      "scenario": "normal",
+      "direct_inventory": [
+        {
+          "sha256": "c181b017b5331e18b38f953598a9f9f406cac3834d3e1d46208b35bcf31f2fbe",
+          "size": 41,
+          "extraction_source": "format-analysis",
+          "origin_path": "pdf-attachment/0000",
+          "archive_type": "pdf"
+        },
+        {
+          "sha256": "956e87217fa540316f49e29dffece11af059a590e3c8d88b9372ca18721b2942",
+          "size": 61,
+          "extraction_source": "format-analysis",
+          "origin_path": "pdf-attachment/0001",
+          "archive_type": "pdf"
+        },
+        {
+          "sha256": "c181b017b5331e18b38f953598a9f9f406cac3834d3e1d46208b35bcf31f2fbe",
+          "size": 41,
+          "extraction_source": "format-analysis",
+          "origin_path": "pdf-attachment/0002",
+          "archive_type": "pdf"
+        }
+      ],
+      "expect": {
+        "static_status": "complete",
+        "artifact_count": 4,
+        "yara_rules": [],
+        "infected_artifacts": 0
+      }
+    },
+    {
+      "id": "pdf-associated-and-annotation",
+      "profile": "pdf-associated-and-annotation",
+      "sha256": "3fe566b18d1b0e955f0d78ff83c64864086a8797ff45cc33e15281edd6e1a0d2",
+      "bytes": 1006,
+      "scenario": "normal",
+      "direct_inventory": [
+        {
+          "sha256": "c181b017b5331e18b38f953598a9f9f406cac3834d3e1d46208b35bcf31f2fbe",
+          "size": 41,
+          "extraction_source": "format-analysis",
+          "origin_path": "pdf-attachment/0000",
+          "archive_type": "pdf"
+        },
+        {
+          "sha256": "956e87217fa540316f49e29dffece11af059a590e3c8d88b9372ca18721b2942",
+          "size": 61,
+          "extraction_source": "format-analysis",
+          "origin_path": "pdf-attachment/0001",
+          "archive_type": "pdf"
+        }
+      ],
+      "expect": {
+        "static_status": "complete",
+        "artifact_count": 3,
+        "yara_rules": [],
+        "infected_artifacts": 0
+      }
+    },
+    {
+      "id": "pdf-password-child",
+      "profile": "pdf-password-child",
+      "sha256": "1f69fa55b76bddc43512c811a5a165a3cd015f938a1fc7b5fbda84ba28894582",
+      "bytes": 1658,
+      "scenario": "password",
+      "direct_inventory": [
+        {
+          "sha256": "cf6270701f72cb3a657c05049d1a740005e64c338032b37bdfaa2cd93a828dd8",
+          "size": 1034,
+          "extraction_source": "format-analysis",
+          "origin_path": "pdf-attachment/0000",
+          "archive_type": "pdf"
+        }
+      ],
+      "expect": {
+        "static_status": "complete",
+        "artifact_count": 3,
+        "yara_rules": [],
+        "infected_artifacts": 0
+      }
+    },
+    {
+      "id": "pdf-unsupported-filter",
+      "profile": "pdf-unsupported-filter",
+      "sha256": "d192fead5a0066d0717e30d06bb31fd994942c5f46340b1fa8c0606088351e7f",
+      "bytes": 688,
+      "scenario": "partial",
+      "direct_inventory": [],
+      "expect": {
+        "static_status": "partial",
+        "artifact_count": 1,
+        "yara_rules": [],
+        "infected_artifacts": 0,
+        "root_stages": {
+          "format-analysis": "partial"
+        },
+        "partial_stages": [
+          "format-analysis",
+          "document-analysis"
+        ]
+      }
+    },
+    {
+      "id": "pdf-missing-stream",
+      "profile": "pdf-missing-stream",
+      "sha256": "d09718d8ef8451207b2e4ad485ce7d8edf50bdc67a2797798b3bce9cc5094156",
+      "bytes": 485,
+      "scenario": "partial",
+      "direct_inventory": [],
+      "expect": {
+        "static_status": "partial",
+        "artifact_count": 1,
+        "yara_rules": [],
+        "infected_artifacts": 0,
+        "root_stages": {
+          "format-analysis": "partial"
+        },
+        "partial_stages": [
+          "format-analysis",
+          "document-analysis"
+        ]
+      }
+    },
+    {
+      "id": "office-embedded-pdf",
+      "profile": "office-embedded-pdf",
+      "sha256": "5bf1d10062c735ac3627a5234bb8060baa24537b739cbc6e0ffd8c4fd6b3c289",
+      "bytes": 2134,
+      "scenario": "normal",
+      "direct_inventory": [
+        {
+          "sha256": "2d2267e7925f825482f79b9a241a91a19cb0baae30e76d734e387d649da40d50",
+          "size": 412,
+          "extraction_source": "archive-extract",
+          "origin_path": "[Content_Types].xml",
+          "archive_type": "zip"
+        },
+        {
+          "sha256": "737f8dfc276e8f3fe5afd5c285ceabd020379fef289d1c001c395bc3b393a513",
+          "size": 280,
+          "extraction_source": "archive-extract",
+          "origin_path": "_rels/.rels",
+          "archive_type": "zip"
+        },
+        {
+          "sha256": "5c1c4675f22fb87343750bf085b806ee4480797704bd43933fb3f10f3699d943",
+          "size": 226,
+          "extraction_source": "archive-extract",
+          "origin_path": "word/document.xml",
+          "archive_type": "zip"
+        },
+        {
+          "sha256": "1763d5c81ad189607e30ff0333212828b850733b676a43e868beeedc40673e5f",
+          "size": 252,
+          "extraction_source": "archive-extract",
+          "origin_path": "word/_rels/document.xml.rels",
+          "archive_type": "zip"
+        },
+        {
+          "sha256": "d93949d0eff53eb91a3cd28d5d52f3efbb0caca2e876f9c56c1a934a3be46f1b",
+          "size": 352,
+          "extraction_source": "archive-extract",
+          "origin_path": "word/embeddings/attachment.pdf",
+          "archive_type": "zip"
+        },
+        {
+          "sha256": "d93949d0eff53eb91a3cd28d5d52f3efbb0caca2e876f9c56c1a934a3be46f1b",
+          "size": 352,
+          "extraction_source": "format-analysis",
+          "origin_path": "ooxml_embed_word/embeddings/attachment.pdf",
+          "archive_type": "office"
+        },
+        {
+          "sha256": "d93949d0eff53eb91a3cd28d5d52f3efbb0caca2e876f9c56c1a934a3be46f1b",
+          "size": 352,
+          "extraction_source": "document-analysis",
+          "origin_path": "ooxml_embed_word/embeddings/attachment.pdf",
+          "archive_type": null
+        }
+      ],
+      "expect": {
+        "static_status": "complete",
+        "artifact_count": 8,
+        "yara_rules": [
+          "network_iocs"
+        ],
+        "infected_artifacts": 0
+      }
+    },
+    {
+      "id": "office-relationship-package",
+      "profile": "office-relationship-package",
+      "sha256": "051f46894c486cda33dfaa4f26b11f228e735e53fdc16c5fa124dbeb138ac4d1",
+      "bytes": 2104,
+      "scenario": "normal",
+      "direct_inventory": [
+        {
+          "sha256": "2d2267e7925f825482f79b9a241a91a19cb0baae30e76d734e387d649da40d50",
+          "size": 412,
+          "extraction_source": "archive-extract",
+          "origin_path": "[Content_Types].xml",
+          "archive_type": "zip"
+        },
+        {
+          "sha256": "737f8dfc276e8f3fe5afd5c285ceabd020379fef289d1c001c395bc3b393a513",
+          "size": 280,
+          "extraction_source": "archive-extract",
+          "origin_path": "_rels/.rels",
+          "archive_type": "zip"
+        },
+        {
+          "sha256": "5c1c4675f22fb87343750bf085b806ee4480797704bd43933fb3f10f3699d943",
+          "size": 226,
+          "extraction_source": "archive-extract",
+          "origin_path": "word/document.xml",
+          "archive_type": "zip"
+        },
+        {
+          "sha256": "c2750120af575c6b8898644471009d446d0d67c8441368fd6c31c68f18d697e8",
+          "size": 246,
+          "extraction_source": "archive-extract",
+          "origin_path": "word/_rels/document.xml.rels",
+          "archive_type": "zip"
+        },
+        {
+          "sha256": "d93949d0eff53eb91a3cd28d5d52f3efbb0caca2e876f9c56c1a934a3be46f1b",
+          "size": 352,
+          "extraction_source": "archive-extract",
+          "origin_path": "custom/payload.pdf",
+          "archive_type": "zip"
+        },
+        {
+          "sha256": "d93949d0eff53eb91a3cd28d5d52f3efbb0caca2e876f9c56c1a934a3be46f1b",
+          "size": 352,
+          "extraction_source": "format-analysis",
+          "origin_path": "ooxml_embed_custom/payload.pdf",
+          "archive_type": "office"
+        },
+        {
+          "sha256": "d93949d0eff53eb91a3cd28d5d52f3efbb0caca2e876f9c56c1a934a3be46f1b",
+          "size": 352,
+          "extraction_source": "document-analysis",
+          "origin_path": "ooxml_embed_custom/payload.pdf",
+          "archive_type": null
+        }
+      ],
+      "expect": {
+        "static_status": "complete",
+        "artifact_count": 8,
+        "yara_rules": [
+          "network_iocs"
+        ],
+        "infected_artifacts": 0
+      }
+    },
+    {
+      "id": "ole-native-text",
+      "profile": "ole-native-text",
+      "sha256": "2f19ec9c250ee79f1d4b356f248be72189f14bedc9e9abc1d2fc2debc7406b15",
+      "bytes": 2560,
+      "scenario": "normal",
+      "direct_inventory": [
+        {
+          "sha256": "c181b017b5331e18b38f953598a9f9f406cac3834d3e1d46208b35bcf31f2fbe",
+          "size": 41,
+          "extraction_source": "format-analysis",
+          "origin_path": "ole-native/0",
+          "archive_type": "office"
+        },
+        {
+          "sha256": "c181b017b5331e18b38f953598a9f9f406cac3834d3e1d46208b35bcf31f2fbe",
+          "size": 41,
+          "extraction_source": "document-analysis",
+          "origin_path": "ole-native/0",
+          "archive_type": null
+        }
+      ],
+      "expect": {
+        "static_status": "complete",
+        "artifact_count": 3,
+        "yara_rules": [],
+        "infected_artifacts": 0
+      }
+    },
+    {
+      "id": "ole-package-pdf",
+      "profile": "ole-package-pdf",
+      "sha256": "d9762ff6c81d2db4d3f89ce12382790ed31c542fab5ba4ea32820478bdedded8",
+      "bytes": 2560,
+      "scenario": "normal",
+      "direct_inventory": [
+        {
+          "sha256": "d93949d0eff53eb91a3cd28d5d52f3efbb0caca2e876f9c56c1a934a3be46f1b",
+          "size": 352,
+          "extraction_source": "format-analysis",
+          "origin_path": "ole-package/0",
+          "archive_type": "office"
+        },
+        {
+          "sha256": "d93949d0eff53eb91a3cd28d5d52f3efbb0caca2e876f9c56c1a934a3be46f1b",
+          "size": 352,
+          "extraction_source": "document-analysis",
+          "origin_path": "ole-package/0",
+          "archive_type": null
+        }
+      ],
+      "expect": {
+        "static_status": "complete",
+        "artifact_count": 3,
+        "yara_rules": [],
+        "infected_artifacts": 0
+      }
+    },
+    {
+      "id": "ole-native-truncated",
+      "profile": "ole-native-truncated",
+      "sha256": "86c8545f7d9f44f2d71d00e1d6e8ac8946f750e5d6f391c7ab0d50b48826b4d9",
+      "bytes": 2560,
+      "scenario": "partial",
+      "direct_inventory": [],
+      "expect": {
+        "static_status": "partial",
+        "artifact_count": 1,
+        "yara_rules": [],
+        "infected_artifacts": 0,
+        "root_stages": {
+          "format-analysis": "partial",
+          "document-analysis": "partial"
+        },
+        "partial_stages": [
+          "format-analysis",
+          "document-analysis"
+        ]
+      }
+    }
+  ]
+}

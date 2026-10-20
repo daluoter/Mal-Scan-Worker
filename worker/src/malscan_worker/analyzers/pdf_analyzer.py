@@ -21,6 +21,7 @@ from malscan_worker.analyzers.base import (
     FormatAnalyzer,
     JsonValue,
 )
+from malscan_worker.analyzers.pdf_attachments import extract_pdf_attachments
 from malscan_worker.analyzers.pdf_decryption import decrypt_to_child
 from malscan_worker.budget import BudgetExceeded
 from malscan_worker.config import get_settings
@@ -134,6 +135,7 @@ class PDFAnalyzer(FormatAnalyzer):
                         output_path=work / "decrypted.pdf",
                         reserve=reserve,
                         maximum_bytes=maximum_bytes,
+                        maximum_files=settings.extraction_max_files,
                         job_id=ctx.job_id,
                         depth_limited=depth >= max_depth,
                     )
@@ -176,6 +178,7 @@ class PDFAnalyzer(FormatAnalyzer):
         output_path: Path,
         reserve: Callable[[str, int, int], None],
         maximum_bytes: int,
+        maximum_files: int,
         job_id: str,
         depth_limited: bool,
     ) -> AnalyzerResult:
@@ -233,6 +236,24 @@ class PDFAnalyzer(FormatAnalyzer):
                     }
             else:
                 self._scan_structured(reader, features)
+                attachments = extract_pdf_attachments(
+                    reader,
+                    output_dir=output_path.parent,
+                    reserve=reserve,
+                    maximum_bytes=maximum_bytes,
+                    maximum_files=maximum_files,
+                    job_id=job_id,
+                    depth_limited=depth_limited,
+                )
+                result.extracted_artifacts.extend(attachments.artifacts)
+                features["embedded_files"] = attachments.entries
+                features["attachment_extraction"] = attachments.summary(
+                    maximum_bytes, maximum_files
+                )
+                result.errors.extend(attachments.errors)
+                if attachments.limited:
+                    features["resource_limited"] = True
+                    features["limit_reason"] = attachments.limit_reason
             parser_ok = True
         except BudgetExceeded as exc:
             features["resource_limited"] = True
@@ -296,19 +317,6 @@ class PDFAnalyzer(FormatAnalyzer):
 
     def _scan_root(self, root: dict[str, Any], features: dict[str, JsonValue]) -> None:
         self._scan_action_container(root, features)
-
-        names = self._resolve_indirect(root.get("/Names"))
-        if not isinstance(names, dict):
-            return
-
-        embedded = self._resolve_indirect(names.get("/EmbeddedFiles"))
-        if not isinstance(embedded, dict):
-            return
-
-        embedded_files = self._as_list(features["embedded_files"])
-        self._collect_embedded_files(embedded, embedded_files, set())
-
-        features["embedded_files"] = embedded_files
 
     def _scan_action_container(
         self, container: dict[str, Any], features: dict[str, JsonValue]
@@ -597,55 +605,6 @@ class PDFAnalyzer(FormatAnalyzer):
             severity = str(indicator.get("severity", ""))
             score += _SEVERITY_WEIGHTS.get(severity, 0)
         return min(score, 100)
-
-    def _collect_embedded_files(
-        self,
-        node: Any,
-        embedded_files: list[JsonValue],
-        visited: set[int],
-    ) -> None:
-        resolved = self._resolve_indirect(node)
-        if not isinstance(resolved, dict):
-            return
-
-        node_id = id(resolved)
-        if node_id in visited:
-            return
-        visited.add(node_id)
-
-        names_array = self._resolve_indirect(resolved.get("/Names"))
-        if isinstance(names_array, list):
-            self._collect_names_array(names_array, embedded_files)
-
-        kids = self._resolve_indirect(resolved.get("/Kids"))
-        if not isinstance(kids, list):
-            return
-
-        for kid in kids:
-            self._collect_embedded_files(kid, embedded_files, visited)
-
-    def _collect_names_array(
-        self,
-        names_array: list[Any],
-        embedded_files: list[JsonValue],
-    ) -> None:
-        for index in range(0, len(names_array), 2):
-            name_obj = names_array[index]
-            file_spec = names_array[index + 1] if index + 1 < len(names_array) else None
-            filename = self._stringify(name_obj)
-            file_spec_obj = self._resolve_indirect(file_spec)
-
-            file_meta: dict[str, JsonValue] = {"name": filename}
-            if isinstance(file_spec_obj, dict):
-                fs_name = self._stringify(file_spec_obj.get("/F"))
-                if fs_name:
-                    file_meta["name"] = fs_name
-                    filename = fs_name
-
-            if filename.lower().endswith(_EXECUTABLE_SUFFIXES):
-                file_meta["executable"] = True
-
-            embedded_files.append(file_meta)
 
     def _extract_launch_target(self, action: dict[str, Any]) -> str:
         nested_win = self._resolve_indirect(action.get("/Win"))

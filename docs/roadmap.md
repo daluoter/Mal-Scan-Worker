@@ -49,7 +49,7 @@ Office 錯誤紅字與 1／2 有畫面，ZIP 已用 1 時 Office 初始 0／3 �
 最終 ZIP JSON 為 ZIP 1／2、Office 2／1、累計提取 8 檔／19,196 bytes，見[Office 雲端驗收紀錄](milestones/2026-10-20-office-cloud-acceptance.json)。
 本輪未在雲端演練 Office 三次耗盡或其他 Office 格式，不擴大為所有加密版本的相容性保證。
 新工作的私有 status／保留期另追 P0-18，不用先前 PDF 的雲端結論代替 Office 操作證據。
-後續功能接續 F-03 文件附件與 Office 嵌入物件深化。
+F-03 文件附件與 Office 嵌入物件已完成程式／本機驗證；正式雲端另列 F-11，見[附件能力](document-embedded.md)及[Job 更新手冊](deploy-document-embedded.md)。
 其他格式品質與實際來源樣本仍列 Q-06 進行中，詳見[本批紀錄](milestones/2026-10-19-base64-quality.json)。
 P0-06 DO 清理、P0-11 真實回退、P0-12 自動更新與 P0-14 長期成本持續並行，
 功能完成不會關閉這些維護項目。
@@ -114,7 +114,7 @@ P0-06 DO 清理、P0-11 真實回退、P0-12 自動更新與 P0-14 長期成本�
 其中加密 PDF 與無可解析 VBA 來源如實為 partial；不是將第 3 項的密碼／附件能力全部完成。
 F-01 PDF 密碼及四項回饋修正已完成本輪 F-08 雲端人工驗收。
 Q-06 PDF token／Base64 弱候選批次已核對三案雲端 smoke；P0-19 本筆通知完成程式碼分類，平台結案另追蹤。
-F-02 Office 本機交付與 F-10 三個宣告 DOCX／ZIP 雲端案例已完成各自範圍，下一項為 F-03 PDF 附件／Office 嵌入物件，
+F-02 Office 本機交付與 F-10 三個宣告 DOCX／ZIP 雲端案例已完成各自範圍；F-03 PDF 附件／Office 嵌入物件已完成程式／本機驗證，正式 smoke 另列 F-11，
 持續擴充格式品質與 IOC／去混淆雜訊；
 F-05 PE／LNK 等項目保留各自狀態與驗收條件。維護待辦與這些功能並行。
 
@@ -127,7 +127,7 @@ F-05 PE／LNK 等項目保留各自狀態與驗收條件。維護待辦與這些
 Office 本批限 OLE `EncryptedPackage` 裝載的現代 OOXML；Agile 接受有 HMAC 的限定 AES／SHA header，
 Standard 接受限定 AES／SHA1 header，但格式本身沒有認證完整性。固定加密案例目前為 Agile AES-256、
 Standard AES-128，不把其他 header、舊式 DOC／XLS／PPT 或 IRM 一併宣稱已驗收。
-部署依 [Office Job→Pages 手冊](deploy-office-password.md)，不更改 Worker、dispatcher 或現有額度。
+Office 密碼的既有部署依 [Job→Pages 手冊](deploy-office-password.md)；本批文件附件依[Job 更新手冊](deploy-document-embedded.md)，沿用 Worker、dispatcher、Pages 及現有額度。
 
 **出口條件：** 每個宣告支援的格式／加密方式均有成功、錯誤密碼、不支援、損壞及資源超限的案例，並同步更新矩陣與 UI。
 

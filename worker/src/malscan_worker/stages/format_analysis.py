@@ -85,6 +85,9 @@ class FormatAnalysisStage(Stage):
         )
         decrypted_office = decrypted_document and analysis.analyzer_name == "office"
         artifacts = analysis.extracted_artifacts
+        document_outputs = analysis.analyzer_name in {"pdf", "office"}
+        for artifact in artifacts:
+            artifact["analysis_state"] = "not_submitted"
         if decrypted_office and (
             len(artifacts) != 1 or artifacts[0].get("source") != "office-decrypted"
         ):
@@ -112,7 +115,7 @@ class FormatAnalysisStage(Stage):
                     )
                     errors.extend(submit_errors)
                 except Exception as exc:
-                    detail = type(exc).__name__ if decrypted_document else str(exc)
+                    detail = type(exc).__name__ if document_outputs else str(exc)
                     log.error(
                         "format_analysis_artifact_submission_failed",
                         job_id=ctx.job_id,
@@ -120,10 +123,16 @@ class FormatAnalysisStage(Stage):
                     )
                     errors.append(f"artifact submission failed: {detail}")
         finally:
-            if decrypted_office:
+            if document_outputs:
                 # Submission ports persist bytes before returning; cancellation
                 # and failed submission must also remove local plaintext.
-                self._cleanup_office_plaintext(ctx, analysis.extracted_artifacts)
+                self._cleanup_document_outputs(ctx, analysis.extracted_artifacts)
+
+        if document_outputs:
+            for artifact in artifacts:
+                if artifact.get("analysis_state") == "not_submitted":
+                    errors.append("document_output_not_submitted")
+            self._link_embedded_outputs(analysis.features, artifacts)
 
         if decrypted_document:
             # Unlocking is not a successful content scan. The plaintext must be
@@ -154,6 +163,21 @@ class FormatAnalysisStage(Stage):
             "features": analysis.features,
             "extracted_strings": analysis.extracted_strings[:200],
             "extracted_artifacts_count": len(analysis.extracted_artifacts),
+            "extracted_outputs": [
+                {
+                    key: dict(artifact)[key]
+                    for key in (
+                        "source",
+                        "filename",
+                        "sha256",
+                        "size",
+                        "artifact_id",
+                        "analysis_state",
+                    )
+                    if key in artifact
+                }
+                for artifact in artifacts
+            ],
             "sub_jobs_created": sub_jobs_created,
             "errors": errors,
         }
@@ -176,10 +200,10 @@ class FormatAnalysisStage(Stage):
         )
 
     @staticmethod
-    def _cleanup_office_plaintext(ctx: StageContext, artifacts: list[AnalyzerArtifact]) -> None:
+    def _cleanup_document_outputs(ctx: StageContext, artifacts: list[AnalyzerArtifact]) -> None:
         for artifact in artifacts:
             raw_path = artifact.get("path")
-            if artifact.get("source") != "office-decrypted" or not raw_path:
+            if not raw_path:
                 continue
             try:
                 output = Path(raw_path)
@@ -191,7 +215,27 @@ class FormatAnalysisStage(Stage):
                     continue
                 output.unlink(missing_ok=True)
             except OSError:
-                log.warning("office_plaintext_cleanup_failed", job_id=ctx.job_id)
+                log.warning("document_output_cleanup_failed", job_id=ctx.job_id)
+
+    @staticmethod
+    def _link_embedded_outputs(features: dict[str, Any], artifacts: list[AnalyzerArtifact]) -> None:
+        """Extraction and submission are separate observations, neither implies a scan."""
+        by_source = {artifact.get("source"): artifact for artifact in artifacts}
+        embedded = features.get("embedded_extraction", {})
+        groups = [features.get("embedded_files", [])]
+        if isinstance(embedded, dict):
+            groups.append(embedded.get("items", []))
+        for items in groups:
+            if not isinstance(items, list):
+                continue
+            for item in items:
+                if not isinstance(item, dict):
+                    continue
+                artifact = by_source.get(item.get("source"))
+                if artifact is not None:
+                    item["analysis_state"] = artifact.get("analysis_state", "not_submitted")
+                    if artifact.get("artifact_id"):
+                        item["artifact_id"] = artifact["artifact_id"]
 
     @staticmethod
     def _get_mime(ctx: StageContext) -> str:
@@ -259,6 +303,7 @@ class FormatAnalysisStage(Stage):
 
         for art in artifacts:
             source = str(art.get("source", ""))
+            document_output = analyzer_name in {"pdf", "office"}
             decrypted_kind = (
                 analyzer_name
                 if analyzer_name in {"pdf", "office"} and source == f"{analyzer_name}-decrypted"
@@ -274,12 +319,16 @@ class FormatAnalysisStage(Stage):
                     errors.append(f"decrypted_{decrypted_kind}_output_missing")
                 continue
 
-            if decrypted_kind == "office" and (
+            if document_output and (
                 not art_path.is_file()
                 or art_path.is_symlink()
                 or (ctx.file_path and art_path.resolve() == ctx.file_path.resolve())
             ):
-                errors.append("decrypted_office_output_identity_mismatch")
+                errors.append(
+                    f"decrypted_{decrypted_kind}_output_identity_mismatch"
+                    if decrypted_kind
+                    else "document_output_identity_mismatch"
+                )
                 continue
 
             file_sha256 = str(art.get("sha256", "")).strip()
@@ -287,8 +336,6 @@ class FormatAnalysisStage(Stage):
                 file_sha256 = self._hash_file_sha256(art_path)
 
             cycle = file_sha256 in ancestor_hashes or file_sha256 == ctx.sha256
-            duplicate = file_sha256 in seen_hashes
-            seen_hashes.add(file_sha256)
 
             # Actual output identity/size, never trust analyzer metadata for accounting.
             file_size = art_path.stat().st_size
@@ -299,14 +346,18 @@ class FormatAnalysisStage(Stage):
                 if decrypted_kind == "office"
                 else "application/octet-stream"
             )
-            if decrypted_kind:
+            if document_output:
                 actual_hash = self._hash_file_sha256(art_path)
                 if (
                     file_sha256 != actual_hash
                     or art.get("size") != file_size
-                    or (decrypted_kind == "office" and not art.get("sha256"))
+                    or not art.get("sha256")
                 ):
-                    errors.append(f"decrypted_{decrypted_kind}_output_identity_mismatch")
+                    errors.append(
+                        f"decrypted_{decrypted_kind}_output_identity_mismatch"
+                        if decrypted_kind
+                        else "document_output_identity_mismatch"
+                    )
                     continue
             if ctx.root_budget:
                 try:
@@ -323,29 +374,42 @@ class FormatAnalysisStage(Stage):
                     break
 
             if ctx.analysis_services:
-                child = await ctx.analysis_services.submit_child(
-                    file_path=str(art_path),
-                    filename=filename,
-                    content_type=content_type,
-                    sha256_hash=file_sha256,
-                    file_size=file_size,
-                    parent_job_id=parent_job_id,
-                    parent_job_depth=parent_job_depth,
-                    artifact_id=None,
-                    root_artifact_id=root_artifact_id,
-                    root_job_id=root_job_id,
-                    ancestor_hashes=ancestor_hashes | {ctx.sha256},
-                    origin_path=source,
-                    extraction_source="format-analysis",
-                    archive_type=analyzer_name,
-                )
+                try:
+                    child = await ctx.analysis_services.submit_child(
+                        file_path=str(art_path),
+                        filename=filename,
+                        content_type=content_type,
+                        sha256_hash=file_sha256,
+                        file_size=file_size,
+                        parent_job_id=parent_job_id,
+                        parent_job_depth=parent_job_depth,
+                        artifact_id=None,
+                        root_artifact_id=root_artifact_id,
+                        root_job_id=root_job_id,
+                        ancestor_hashes=ancestor_hashes | {ctx.sha256},
+                        origin_path=source,
+                        extraction_source="format-analysis",
+                        archive_type=analyzer_name,
+                    )
+                except Exception as exc:
+                    detail = type(exc).__name__ if document_output else str(exc)
+                    errors.append(f"artifact submission failed: {detail}")
+                    continue
                 if child:
                     created_ids.append(str(child))
-                    submitted += not (duplicate or cycle)
+                    # The root runner scans distinct occurrences with identical
+                    # content. An ancestor cycle only creates a limited record.
+                    submitted += not cycle
+                    art["artifact_id"] = str(child)
+                    art["analysis_state"] = "skipped_cycle" if cycle else "submitted"
                 elif decrypted_kind:
                     errors.append(f"decrypted_{decrypted_kind}_child_not_submitted")
                 continue
 
+            # Only an output whose queue submission succeeded can suppress a
+            # later identical output. Invalid bytes or a failed submission must
+            # leave a valid sibling eligible for analysis.
+            duplicate = file_sha256 in seen_hashes
             record = await create_artifact(
                 parent_id=parent_artifact_id,
                 root_id=root_artifact_id,
@@ -367,8 +431,10 @@ class FormatAnalysisStage(Stage):
                 ),
             )
             created_ids.append(record["id"])
+            art["artifact_id"] = record["id"]
 
             if duplicate or cycle:
+                art["analysis_state"] = "skipped_duplicate" if duplicate else "skipped_cycle"
                 continue
 
             try:
@@ -390,10 +456,12 @@ class FormatAnalysisStage(Stage):
                 )
                 if sub_job_id:
                     submitted += 1
+                    seen_hashes.add(file_sha256)
+                    art["analysis_state"] = "submitted"
                 elif decrypted_kind:
                     errors.append(f"decrypted_{decrypted_kind}_child_not_submitted")
             except Exception as exc:
-                detail = type(exc).__name__ if decrypted_kind else str(exc)
+                detail = type(exc).__name__ if document_output else str(exc)
                 log.error(
                     "format_analysis_subjob_failed",
                     job_id=ctx.job_id,

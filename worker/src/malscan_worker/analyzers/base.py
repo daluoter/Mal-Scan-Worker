@@ -33,6 +33,8 @@ class AnalyzerArtifact(TypedDict, total=False):
     path: str
     source: str
     budget_key: str
+    artifact_id: str
+    analysis_state: str
 
 
 @dataclass

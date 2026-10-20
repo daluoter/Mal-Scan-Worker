@@ -1,7 +1,18 @@
 # 靜態分析品質基準
 
 更新日期：2026-10-20（Asia/Taipei）。目標是讓偵測結果、分析範圍與子檔案證據可以重現及核對。
-目前一般基準為 `corpus-v5.json`（40 案／36 fixture、`msrs-v1.2`），PDF 密碼另用 `pdf-password-v2.json`（12 案），
+F-03 PDF 附件／Office 嵌入檔案的 `document-embedded-v1.json` 固定套件已完成 12／12 原生驗收。
+這批核對實際提取 bytes、SHA-256、來源與完整子檔掃描，包含 PDF 壓縮附件、aliases／同名來源、
+密碼續跑、OOXML 非 `.bin` member／內部 package relationship、OLE native／Package 與不支援／損壞對照。
+尚未取得本批最終測試結果，不能沿用下方歷史批次的數字宣稱通過。
+能力見[文件附件說明](document-embedded.md)，正式 Job 部署與新上傳另追 F-11，見[更新手冊](deploy-document-embedded.md)。
+本批 worker 完整回歸 1,379 通過／3 項 PostgreSQL opt-in 跳過，Ruff／strict mypy 95 個來源檔與 lock 檢查通過。
+一般 40 份新執行報告依 v6 重新核對 40／40（未重跑偵測器），唯一更動預期的外部嵌入參照另原生重跑 1／1；
+初次 v5 的 39／40 及原因保留。PDF 密碼 12／12、Office 密碼 14／14 亦完成回歸；最終計數修正後受影響的三個巨集／嵌入物件 profile 另原生補驗 3／3。
+固定快取病毒庫只用於這次離線測試，測試新鮮度窗為 14 日；正式 7 日限制不變，新部署仍需刷新與簽章驗證。
+逐次來源快照、補驗與限制見[本批紀錄](milestones/2026-10-20-document-embedded.json)。
+
+目前一般基準為 `corpus-v6.json`（40 案／36 fixture、`msrs-v1.2`），PDF 密碼另用 `pdf-password-v2.json`（12 案），
 Office 密碼另用 `office-password-v1.json`（14 個 profile）。F-02 本批已完成程式／本機驗證。
 2026-10-20 的[Office 雲端驗收紀錄](milestones/2026-10-20-office-cloud-acceptance.json)已核對三份完整根報告及兩份 Office 詳細子樹，涵蓋三個宣告 smoke 案例。
 同一提交 `4a81bfd` 的三組 GitHub CI 已查核為成功；沒有增加 agent-run 雲端掃描或費用驗收。
@@ -49,7 +60,10 @@ PDF 密碼首批已取得使用者提供的 Job 切換與兩組原檔／解密�
 
 ## 版本化樣本與驗收
 
-[`worker/quality/corpus-v5.json`](../worker/quality/corpus-v5.json) 是目前一般基準，40 案例／36 fixture，使用 `msrs-v1.2`。
+[`worker/quality/corpus-v6.json`](../worker/quality/corpus-v6.json) 是目前一般基準，40 案例／36 fixture，使用 `msrs-v1.2`。
+v6 保留全部 v5 fixture bytes、規則與分數要求，只將 Office 外部 `oleObject` 內容未取得明確列為 partial，
+並要求兩條適用階段及未取得原因；不能把可見 relationship 當成已掃描遠端物件。v1–v5 歷史檔不修改。
+下段八個 Base64 對照是 v5 引入的範圍，v6 繼續保留。
 保留 v4 原有輸入，新增八個 PDF 名稱、真實 PDF 編碼字串、opaque bytes、padding／非標準 pad bits、
 有效文字及大量雜訊前綴對照。歷史 v1–v4 均不修改。
 加密 PDF 的預期改為等待密碼；其餘案例沿用已審查的行為。manifest 保存版本、每個 fixture 的 SHA-256、
@@ -97,7 +111,7 @@ relationship 依 XML 結構讀取，不把註解內範例當成外部 target；Z
 存在 VBA project 卻無可解析來源時，保留 partial 與原因。PDF 需非空密碼而無法存取內容時也為 partial，
 保留 `encrypted`／`content_access=password_required`；這是第二批的歷史預期。
 2026-10-18 新增的 PDF 密碼恢復會等待補交密碼，正確解鎖後建立另行掃描的子檔，
-詳見 [PDF 密碼流程](pdf-password.md)。PDF 附件提取尚未提供。
+詳見 [PDF 密碼流程](pdf-password.md)。PDF 附件當時尚未提取；後續 F-03 進度與宣告範圍見上方本批說明。
 
 ## 已量測的前後差異
 
@@ -124,7 +138,7 @@ CLAMAV_MODE=cli \
 CLAMAV_DATABASE_PATH=/absolute/path/to/verified-clamav-databases \
 SANDBOX_ENABLED=false \
 poetry run python -m malscan_worker.quality \
-  --manifest quality/corpus-v5.json \
+  --manifest quality/corpus-v6.json \
   --jobs 1 \
   --output-dir /absolute/path/to/new-quality-run
 ```
@@ -137,7 +151,7 @@ poetry run python -m malscan_worker.quality \
 
 輸出目錄必須是新路徑。每個案例保留完整 report 與 runner log，根目錄的
 `quality-report.json` 保存 corpus 版本、manifest／fixture／report 雜湊、耗時、
-各案例 coverage／命中／失敗、已知限制與總結果。v2／v3／v4／v5 核對 manifest 固定的規則內容雜湊，
+各案例 coverage／命中／失敗、已知限制與總結果。v2／v3／v4／v5／v6 核對 manifest 固定的規則內容雜湊，
 並檢查報告中的指定結構欄位，不能以 parser 程序退出成功取代證據。
 執行器核對執行前後的 manifest 身分與分析後原檔雜湊；程序退出碼 0 才表示所選案例皆通過。
 這些案例只使用本機 stores，不呼叫 Cloud Run 或外部沙箱。
