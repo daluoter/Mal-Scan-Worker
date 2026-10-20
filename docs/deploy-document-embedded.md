@@ -23,7 +23,7 @@ API Token、OAuth 設定、R2 keys、HMAC、工作 capability、真實文件密�
   set -e
   umask 077
   V2_EMBEDDED_SOURCE=$(mktemp -d "$HOME/malscan-v2-document-embedded.XXXXXX")
-  git clone --quiet https://github.com/daluoter/MalScanWorker.git "$V2_EMBEDDED_SOURCE"
+  git clone --quiet https://github.com/daluoter/Mal-Scan-Worker.git "$V2_EMBEDDED_SOURCE"
   cd "$V2_EMBEDDED_SOURCE"
   git rev-parse HEAD
   test -f worker/quality/document-embedded-v1.json

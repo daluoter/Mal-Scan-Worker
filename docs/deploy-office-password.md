@@ -27,7 +27,7 @@ dispatcher、R2、IAM、secrets 與現有額度，無須發布 Worker 範本或�
   set -e
   umask 077
   V2_OFFICE_SOURCE=$(mktemp -d "$HOME/malscan-v2-office-password.XXXXXX")
-  git clone --quiet https://github.com/daluoter/MalScanWorker.git "$V2_OFFICE_SOURCE"
+  git clone --quiet https://github.com/daluoter/Mal-Scan-Worker.git "$V2_OFFICE_SOURCE"
   cd "$V2_OFFICE_SOURCE"
   git rev-parse HEAD
   python3 - <<'PY_CHECK'

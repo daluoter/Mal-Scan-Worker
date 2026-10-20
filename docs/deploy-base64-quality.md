@@ -15,7 +15,7 @@
   set -e
   umask 077
   V2_BASE64_SOURCE=$(mktemp -d "$HOME/malscan-v2-base64.XXXXXX")
-  git clone --quiet https://github.com/daluoter/MalScanWorker.git "$V2_BASE64_SOURCE"
+  git clone --quiet https://github.com/daluoter/Mal-Scan-Worker.git "$V2_BASE64_SOURCE"
   cd "$V2_BASE64_SOURCE"
   git rev-parse HEAD
   python3 - <<'PY'

@@ -15,7 +15,7 @@ bucket、secret、IAM 與保留政策不需重建。這是部署操作手冊；�
   set -e
   umask 077
   V2_QUALITY_SOURCE=$(mktemp -d "$HOME/malscan-v2-quality.XXXXXX")
-  git clone --quiet https://github.com/daluoter/MalScanWorker.git "$V2_QUALITY_SOURCE"
+  git clone --quiet https://github.com/daluoter/Mal-Scan-Worker.git "$V2_QUALITY_SOURCE"
   cd "$V2_QUALITY_SOURCE"
   git rev-parse HEAD
   python3 - <<'PY'

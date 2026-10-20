@@ -35,7 +35,7 @@ R2 keys、HMAC、capability、原始報告與帳單都保留在本機私人目�
   set -e
   umask 077
   V2_PDF_FIX_SOURCE=$(mktemp -d "$HOME/malscan-v2-pdf-feedback.XXXXXX")
-  git clone --quiet https://github.com/daluoter/MalScanWorker.git "$V2_PDF_FIX_SOURCE"
+  git clone --quiet https://github.com/daluoter/Mal-Scan-Worker.git "$V2_PDF_FIX_SOURCE"
   cd "$V2_PDF_FIX_SOURCE"
   git rev-parse HEAD
   python3 - <<'PY_CHECK'

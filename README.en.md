@@ -1,6 +1,6 @@
 English | [繁體中文](README.md)
 
-# MalScanWorker
+# Mal-Scan-Worker
 
 A file analysis platform built around static analysis: upload files, trace archives and embedded children, and read reports with evidence, artifact lineage, coverage and explicit reasons for unfinished work. Self-hosted installations can add CAPE dynamic analysis. The cloud demo runs the same static core with separate usage limits.
 
@@ -97,9 +97,17 @@ To deploy your own cloud environment, read the [Cloud Run guide](deployment/clou
 
 Install Git, Docker Compose v2 and Node.js/npm for the frontend. These steps use Compose's local development defaults; Supabase, Kubernetes and sandbox VMs are not prerequisites.
 
+For an existing checkout, update the remote from its current directory:
+
 ```bash
-git clone https://github.com/daluoter/MalScanWorker.git
-cd MalScanWorker
+git remote set-url origin https://github.com/daluoter/Mal-Scan-Worker.git
+```
+
+Keep existing local and Cloud Shell directory names, along with the paths saved in `malscan-v2-*-source-path.txt`. A new clone below creates a `Mal-Scan-Worker` directory.
+
+```bash
+git clone https://github.com/daluoter/Mal-Scan-Worker.git
+cd Mal-Scan-Worker
 docker compose up -d --build
 docker compose ps
 ```
@@ -109,7 +117,7 @@ The API creates tables for a new installation. If a root `.env` already exists, 
 Start the frontend in another terminal:
 
 ```bash
-cd MalScanWorker/frontend
+cd Mal-Scan-Worker/frontend
 npm ci
 VITE_BASE_PATH=/ VITE_API_BASE_URL=http://localhost:8000 npm run dev
 ```

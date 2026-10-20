@@ -1,6 +1,6 @@
 [English](README.en.md) | 繁體中文
 
-# MalScanWorker
+# Mal-Scan-Worker
 
 以靜態分析為核心的檔案分析平台：上傳檔案，追蹤壓縮檔與嵌入子檔，取得包含偵測證據、來源關係、分析範圍與未完成原因的報告。自架部署可另外啟用 CAPE 動態分析；雲端 demo 使用相同靜態核心，以有限額度展示產品。
 
@@ -98,9 +98,17 @@ Worker 保存工作身份、單次上傳授權與額度；dispatcher 驗證簽�
 
 需要 Git、Docker Compose v2，以及啟動前端用的 Node.js／npm。以下採用 Compose 的本機開發預設，不需要 Supabase、Kubernetes 或沙箱 VM。
 
+既有 checkout 請在原目錄更新遠端：
+
 ```bash
-git clone https://github.com/daluoter/MalScanWorker.git
-cd MalScanWorker
+git remote set-url origin https://github.com/daluoter/Mal-Scan-Worker.git
+```
+
+既有本機／Cloud Shell 目錄不必改名；先前保存來源路徑的 `malscan-v2-*-source-path.txt` 仍沿用原路徑。以下新 clone 才會建立 `Mal-Scan-Worker` 目錄。
+
+```bash
+git clone https://github.com/daluoter/Mal-Scan-Worker.git
+cd Mal-Scan-Worker
 docker compose up -d --build
 docker compose ps
 ```
@@ -110,7 +118,7 @@ docker compose ps
 在另一個終端機啟動前端：
 
 ```bash
-cd MalScanWorker/frontend
+cd Mal-Scan-Worker/frontend
 npm ci
 VITE_BASE_PATH=/ VITE_API_BASE_URL=http://localhost:8000 npm run dev
 ```
