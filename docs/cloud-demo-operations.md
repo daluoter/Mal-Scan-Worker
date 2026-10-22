@@ -1,9 +1,23 @@
 # 雲端 demo 驗收與維護
 
-更新日期：2026-10-16（Asia/Taipei）。這份操作手冊實作[路線圖第一項](roadmap.md)：正式 v2 驗收、病毒庫更新、到期清理與成本取證。首次良性檔成功與本輪進階驗收分開記錄；工具準備完成不表示遠端驗收全部通過。
+更新日期：2026-10-22（Asia/Taipei）。這份操作手冊實作[路線圖第一項](roadmap.md)：正式 v2 驗收、病毒庫更新、到期清理與成本取證。首次良性檔成功與本輪進階驗收分開記錄；工具準備完成不表示遠端驗收全部通過。
 
 本輪核心雲端流程、人工映像更新與四筆 R2 保留期觀察已完成；目前專案 TWD 月報費用也已核對。
 完整證據與仍待追蹤的 DO／lifecycle、跨服務用量、回退及更新排程見[P0 紀錄](milestones/2026-10-15-p0-acceptance.md)。
+
+## 目前先處理儲存成本
+
+2026-10-22 起至 11/1 前暫停新增功能、功能部署與雲端掃描，維持目前月額度設定。
+當期私人 SKU 報表已確認 Artifact Registry 映像儲存為主要淨費用，Cloud Storage 另有操作、傳輸與儲存費用；
+原始 CSV、帳單帳戶資訊與精確金額不提交公開 repository。
+先依[映像清理手冊](registry-cleanup.md)盤點完整 digest，保留目前 Job、服務與必要回退版本，再處理可刪版本。
+舊 PoC Job 使用中的映像仍屬參照；沒有 tag 或版本較舊，都不能單獨作為刪除依據。
+尚未取得遠端刪除、用量下降與後續帳單證據，不能把工具備妥或 SKU 分析當成清理完成。
+
+2026-11-01 00:00 UTC（台北時間 08:00）後，先核對實際月份額度及 ClamAV daily 年齡。
+七天新鮮度 gate 保持有效；必要時先做一次受控的人工簽章病毒庫更新與離線控制，
+再依[附件部署手冊](deploy-document-embedded.md)新上傳 F-11 剩餘兩案：Flate EICAR PDF、Office 嵌入 PDF。
+額度恢復不會自動續跑先前遭拒的工作；不因月額度拒絕而重建功能版本。
 
 ## 目前工具與權限邊界
 
@@ -12,6 +26,7 @@
 | [驗收 client](../deployment/acceptance/README.md) | Python 3.11+；準備 fixtures 使用 worker 依賴 | 固定正式 API，以最多 3 個工作驗證巢狀／密碼／20 MB；有意圖檢查點及防重送 |
 | [maintain-demo.py](../deployment/cloud-run/maintain-demo.py) | 已登入原專案的 Cloud Shell | 保存基準、非同步建置、驗證候選映像；明確執行 promote 才更新既有 Job 的 image |
 | [collect-demo-evidence.py](../deployment/cloud-run/collect-demo-evidence.py) | 已登入原專案的 Cloud Shell | 唯讀 GCP 執行／資源／建置／Registry／Secret 版本 metadata；不讀 Secret payload 或原始 log 內容 |
+| [cleanup-registry.py](../deployment/cloud-run/cleanup-registry.py) | 已登入原專案的 Cloud Shell | `inspect --output` 產生映像參照／保留與待核對清單；僅唯讀 metadata，不刪除映像或設定清理策略 |
 | [verify-demo-retention.py](../deployment/cloud-run/verify-demo-retention.py) | 同上，需既有 R2 Secret 讀取權 | 僅在記憶體讀來源／結果 R2 憑證，列出指定工作的七個 prefixes；不寫入或刪除物件 |
 
 這些工具使用現有 project `malscan-v2-poc`、region `us-central1`、Job `malscan-v2-static-demo`，不建立新的 service account、Google 私鑰或測試管理 API。GitHub CI 只執行離線工具測試。

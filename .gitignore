@@ -96,6 +96,7 @@ keyless-dispatcher-service.flags.json
 .malscan-v2-acceptance/
 .cloud-acceptance/
 demo-cloud-evidence*.json
+registry-inventory*.json
 
 # Private Cloudflare and operator deployment output
 .dev.vars
