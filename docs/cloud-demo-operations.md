@@ -11,11 +11,14 @@
 當期私人 SKU 報表已確認 Artifact Registry 映像儲存為主要淨費用，Cloud Storage 另有操作、傳輸與儲存費用；
 原始 CSV、帳單帳戶資訊與精確金額不提交公開 repository。
 已核對使用者提供的 14 版本唯讀盤點，沒有列出的讀取缺口，正式 Job 與對應回退 checkpoint 匹配。
-依[映像清理手冊](registry-cleanup.md)準備第一批 7 個舊 `full-worker` 完整 digest；
-保留現行與必要回退版、所有 dispatcher 版本及整組 `engine-poc`，不刪除 index 的未標籤子 manifest。
+第一批 7 個舊 `full-worker` 的使用者執行結果已核對：completed、無 pending、digest 與限定批次一致，版本數 14 → 7，沒有啟動掃描。
+工具的前後引用／版本比對保留現行與必要回退版、所有 dispatcher 版本及整組 `engine-poc`，不刪除 index 的未標籤子 manifest；
+見[限定批次紀錄](milestones/2026-10-22-registry-cleanup.json)與[映像清理手冊](registry-cleanup.md)。
 舊 PoC Job 使用中的映像仍屬參照；沒有 tag 或版本較舊，都不能單獨作為刪除依據。
 `prepare` 僅寫本機私人計畫；明確執行 `apply` 才重新查核引用並逐一刪除固定 digest。
-目前尚未取得遠端刪除、用量下降與後續帳單證據，不能把工具備妥或 SKU 分析當成清理完成。
+本批版本清理已取得證據，但即時倉庫容量仍幾乎不變，未證明大量空間回收或帳單節省。
+官方映像管理文件指出未引用 layer 每日清理；此倉庫的實際回收與計費效果仍待後續唯讀 `check` 及用量核對。
+不重新執行這批刪除，自動保留政策與建置來源保留工作仍待完成。
 
 2026-11-01 00:00 UTC（台北時間 08:00）後，先核對實際月份額度及 ClamAV daily 年齡。
 七天新鮮度 gate 保持有效；必要時先做一次受控的人工簽章病毒庫更新與離線控制，

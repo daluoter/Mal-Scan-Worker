@@ -80,10 +80,18 @@ Cloud Build 來源 bucket 是另一項費用：待映像批次處理後，另外
 盤點中 full-worker 各版皆為 Docker schema 2 image manifest；有新的 index／未知 media type 時，工具停止。
 表格只方便人工辨識，實際計畫保存並使用完整 URI／digest，不能用前綴代替。
 
-此批的版本數目標為 14 → 7；尚未取得遠端刪除結果，不宣稱清理已完成。
+**本批版本清理已取得使用者結果並核對完成**：`phase=completed`、無 pending、七個完整 digest
+與已審閱批次完全一致，版本數 14 → 7；沒有啟動掃描。見[限定批次紀錄](milestones/2026-10-22-registry-cleanup.json)。
+這是使用者提供的 operator 輸出，不是 agent 另行登入 provider 查核；輸出未另外列出完整保留身份表，
+保留條件由工具前後的完整引用／版本比對支持。**這批已完成，不再重新 prepare／apply。**
+
+即時倉庫讀數僅減少 25,795 bytes，仍約 4.24 GiB，尚未證明大量容量回收或帳單節省。
+官方[映像管理說明](https://cloud.google.com/artifact-registry/docs/docker/manage-images)指出：
+刪除映像不會立即刪除其 layer，未被引用的 layer 每日清理。這能說明為何需要後續觀察，
+但不能據此斷言此倉庫已完成回收或必定於某時刻降至零費用。
 版本顯示大小合計不等於可回收或可省下的帳單空間，保留正式／回退映像仍可能產生儲存費。
 
-### 產生私人計畫與執行
+### 首批已執行的步驟（留存供核對）
 
 先取包含 `prune-registry.py` 的新版來源；不要重建容器或重新部署應用程式。
 在已登入的 Cloud Shell、沒有其他部署／建置／映像標籤修改同時進行的時段執行：
@@ -140,6 +148,28 @@ Cloud Build 來源 bucket 是另一項費用：待映像批次處理後，另外
 
 把工具最後輸出的結果與新的盤點交給維護者核對。若停止在不確定狀態，先核對雲端結果，
 不刪除檢查點或自行強制續跑。最終刪除與後續儲存 SKU 的改善證據分開記錄。
+
+### 完成後的唯讀複查
+
+10/22 首批已完成。待下一輪每日 layer 清理與容量統計更新後，建議 10/23 下午或之後，
+沿用同一計畫與檢查點執行 `check`。它不送出刪除，計畫超過 24 小時仍可查核：
+
+```bash
+(
+  set -e
+  set -o pipefail
+  umask 077
+  cd "$(cat "$HOME/malscan-v2-cost-source-path.txt")"
+  python3 deployment/cloud-run/prune-registry.py check \
+    --plan "$(cat "$HOME/malscan-v2-registry-prune-plan-path.txt")" \
+    --state-dir "$(cat "$HOME/malscan-v2-registry-prune-state-path.txt")" \
+    | tee "$HOME/registry-prune-check-$(date -u +%Y%m%dT%H%M%SZ).json"
+)
+```
+
+回傳 `registry-prune-check-*.json`，比對版本仍為 7、無 pending 與新的 `observed_repository_size_bytes`。
+若資料未變，先核對完整剩餘 digest、共享 layer、provider 用量／儲存指標與入帳時間，
+不能為了降低顯示數字而刪除保護映像。實際減少的倉庫容量與實際帳單節省仍分開記錄。
 
 ## 3. 11/1 的恢復順序
 

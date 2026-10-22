@@ -1,0 +1,73 @@
+{
+  "schema_version": 1,
+  "date_taipei": "2026-10-22",
+  "scope": "first_bounded_full_worker_cleanup_acceptance",
+  "status": "completed_limited_batch",
+  "project": "malscan-v2-poc",
+  "repository_region": "us-central1",
+  "evidence": {
+    "source": "User-provided authenticated Cloud Shell inventory and operator result; no new agent-authenticated provider query",
+    "inventory_sha256": "9adad28fe2610b438b77f9a4ac29818528fb2bbb70e7c7da880c0e433a05c944",
+    "result_sha256": "71afcc9100426f6c8cbda5325a531b829529a7fcdcf40b6b19e44545e510c3a6",
+    "operator_commit": "7adc4ccc35a3b7947e7cface0ae4a60325420083",
+    "raw_inventory_result_and_private_home_paths_published": false
+  },
+  "verified_report_fields": {
+    "phase": "completed",
+    "pending": null,
+    "candidate_count": 7,
+    "removed_count": 7,
+    "version_count_before": 14,
+    "observed_version_count_after": 7,
+    "exact_reviewed_removed_set_matches": true,
+    "removed_includes_protected_or_retained_versions": false,
+    "cloud_run_executed": false,
+    "billed_savings_verified": false
+  },
+  "removed_full_worker_digests": [
+    "sha256:0e81e655f561a84c4b56de729869b0da70e93a571c8ab4cc4259a6bedb9e5843",
+    "sha256:361ce60bfeb1e285471ee3e8dbaba9d458f4d5e5f15297d9058a73c1d5fd57f6",
+    "sha256:69fe7ceb96249e126c4c9741b2cf0b20a9fc2e584648adfec7227e3056a19aa4",
+    "sha256:776c6fa1f4609840e753586a4ea2683538d4e09eea234089ed078206da702a42",
+    "sha256:861b6ffdb13f8fd0b2a8fd0443c7bd9853fef37dadb552fcb65d43d43fcc3e20",
+    "sha256:9b5c2663f7a99e36d5700f970d3a89893abd7bf0de21f765c25659e86ee141bc",
+    "sha256:e7029d90fb3b8928eb6a6676033dd9337e2be0c025a9565ddd6aec54ef6b9ac5"
+  ],
+  "expected_retained_packages": {
+    "full-worker": 2,
+    "demo-dispatcher": 2,
+    "engine-poc": 3
+  },
+  "retained_identity_evidence": "Protected current/rollback, dispatcher, and engine index/dependency versions are preserved by operator pre/post comparison. Uploaded result contains final count, not a separate full remaining identity listing.",
+  "repository_storage_observations": {
+    "before_bytes": 4556014750,
+    "immediate_after_bytes": 4555988955,
+    "immediate_difference_bytes": 25795,
+    "material_storage_reduction_verified": false,
+    "provider_layer_garbage_collection_observed": false,
+    "reported_image_size_sum_is_savings": false,
+    "billing_savings_verified": false
+  },
+  "official_behavior_reference": {
+    "url": "https://cloud.google.com/artifact-registry/docs/docker/manage-images",
+    "retrieved_date_taipei": "2026-10-22",
+    "text": "Deleting images does not immediately delete referenced layers; unreferenced layers are deleted daily.",
+    "this_repository_gc_cycle_verified": false
+  },
+  "follow_up": [
+    "Use read-only check with the same plan/state after a daily cleanup/measurement interval; keep the checkpoint.",
+    "Capture complete remaining digest identities and repository bytes, and then billed-storage usage before claiming savings.",
+    "Review automatic retention and Cloud Build source lifecycle separately; no additional resources retired in this batch."
+  ],
+  "not_closed": [
+    "P0-07 retention policies and additional lifecycle work",
+    "P0-14 long-term billed costs",
+    "P0-06 DO row cleanup",
+    "P0-11 actual cloud rollback",
+    "P0-12 scheduled database refresh",
+    "P0-15 Cloudflare costs",
+    "P0-18 per-root retention",
+    "F-11 remaining two cloud smoke cases"
+  ],
+  "feature_pause_until": "2026-11-01; check quota and seven-day database freshness before F-11"
+}
