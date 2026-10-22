@@ -39,9 +39,10 @@ Cloud Shell 斷線後，`$HOME` 下已完成的報告與來源路徑紀錄可沿
 缺權限、逾時、清單截斷、部署格式不符或本機回退狀態不足，都保留為明確缺口。
 成功保存報告不代表清理條件已滿足。
 
-## 2. 核對後才列出刪除批次
+## 2. 核對後產生限定批次
 
-目前工具**沒有刪除、套用政策或修改標籤的操作**。取得新報告後，依序處理：
+`cleanup-registry.py` 維持唯讀。新增的 `prune-registry.py` 將已核對報告轉為私人計畫，
+只有明確執行 `apply` 才刪除計畫內的完整 digest；不設定自動清理政策。清理前依序核對：
 
 1. 保留現行 Cloud Run Job、服務 revision、執行中工作引用的映像；舊 PoC Job 若仍存在，也先保留其引用。
 2. 由目前映像與對應維護 checkpoint 確認必要的前一版回退 digest，不只依建立時間猜測。
@@ -56,6 +57,89 @@ Cloud Shell 斷線後，`$HOME` 下已完成的報告與來源路徑紀錄可沿
 
 Cloud Build 來源 bucket 是另一項費用：待映像批次處理後，另外盤點來源物件、lifecycle 與 soft delete，
 再決定保留期限。本步不刪除來源 bucket、R2、DO、Secret 或 Cloud Run 資源。
+
+### 10/22 第一批
+
+已收到使用者在已登入 Cloud Shell 產生的盤點。清單共 14 版，讀取沒有缺口，
+正式 Job 與已 promoted 的維護 checkpoint 相符。第一批只處理 `full-worker` package 的舊版：
+
+| 處理 | digest 前綴 | 備註 |
+| --- | --- | --- |
+| 保留 | `03099c77e41e` | 正式 `malscan-v2-static-demo` Job |
+| 保留 | `aad2b4e3d03c` | 與目前正式版相符的前一版回退紀錄 |
+| 刪除 | `0e81e655f561` | 舊 full-worker |
+| 刪除 | `361ce60bfeb1` | 舊 full-worker |
+| 刪除 | `69fe7ceb9624` | 舊 full-worker |
+| 刪除 | `776c6fa1f460` | 舊 full-worker |
+| 刪除 | `861b6ffdb13f` | 舊 full-worker |
+| 刪除 | `9b5c2663f7a9` | 舊 full-worker |
+| 刪除 | `e7029d90fb3b` | 舊 full-worker |
+
+兩個 `demo-dispatcher` 版本及整組三個 `engine-poc` 版本保留。engine 的 OCI index、
+子 manifest 與 attestation 不因未被 Job 直接引用而刪除；本批不需要更動它們。
+盤點中 full-worker 各版皆為 Docker schema 2 image manifest；有新的 index／未知 media type 時，工具停止。
+表格只方便人工辨識，實際計畫保存並使用完整 URI／digest，不能用前綴代替。
+
+此批的版本數目標為 14 → 7；尚未取得遠端刪除結果，不宣稱清理已完成。
+版本顯示大小合計不等於可回收或可省下的帳單空間，保留正式／回退映像仍可能產生儲存費。
+
+### 產生私人計畫與執行
+
+先取包含 `prune-registry.py` 的新版來源；不要重建容器或重新部署應用程式。
+在已登入的 Cloud Shell、沒有其他部署／建置／映像標籤修改同時進行的時段執行：
+
+```bash
+(
+  set -e
+  umask 077
+
+  V2_PRUNE_SOURCE=$(mktemp -d "$HOME/malscan-v2-prune.XXXXXX")
+  git clone --quiet --depth=1 \
+    https://github.com/daluoter/Mal-Scan-Worker.git "$V2_PRUNE_SOURCE"
+  cd "$V2_PRUNE_SOURCE"
+  pwd > "$HOME/malscan-v2-cost-source-path.txt"
+
+  V2_PRUNE_PLAN="$HOME/registry-prune-plan-$(date -u +%Y%m%dT%H%M%SZ).json"
+  python3 deployment/cloud-run/prune-registry.py prepare \
+    --inventory "$HOME/registry-inventory-20261022T022930Z.json" \
+    --inventory-sha256 9adad28fe2610b438b77f9a4ac29818528fb2bbb70e7c7da880c0e433a05c944 \
+    --plan "$V2_PRUNE_PLAN"
+  printf '%s\n' "$V2_PRUNE_PLAN" > "$HOME/malscan-v2-registry-prune-plan-path.txt"
+
+  V2_PRUNE_STATE="$HOME/.malscan-v2-operations/registry-cleanup/$(date -u +%Y%m%dT%H%M%SZ)"
+  printf '%s\n' "$V2_PRUNE_STATE" > "$HOME/malscan-v2-registry-prune-state-path.txt"
+  python3 deployment/cloud-run/prune-registry.py apply \
+    --plan "$V2_PRUNE_PLAN" --state-dir "$V2_PRUNE_STATE"
+)
+```
+
+`prepare` 先核對這份已審閱報告的 SHA256，再產生有時效、不可覆寫的本機計畫，
+且限制為沒有部署／回退引用、早於保留版本的 full-worker Docker schema 2 版本。
+`apply` 會重新讀取雲端引用與版本，核對原始 metadata、tags、保護集合與回退紀錄；
+只允許本批已確認刪除的 digest 缺席。任何新版本、標籤移動、引用改變、讀取缺口或受保護版本缺失都停止。
+它不以最新清單重新擴充刪除對象。
+
+每次刪除都使用完整 digest URI，寫入私人檢查點後才送出。逾時、斷線或結果不確定時，
+讀回確認缺席才記錄完成；若目標仍存在，不自動再送一次刪除。
+各次 API 讀取不是跨服務原子快照，執行期間須保持部署、建置與標籤修改暫停。
+
+若中斷，沿用已保存的計畫與狀態，**不要重建一份計畫開始另一批**：
+
+```bash
+(
+  set -e
+  cd "$(cat "$HOME/malscan-v2-cost-source-path.txt")"
+  python3 deployment/cloud-run/prune-registry.py apply \
+    --plan "$(cat "$HOME/malscan-v2-registry-prune-plan-path.txt")" \
+    --state-dir "$(cat "$HOME/malscan-v2-registry-prune-state-path.txt")"
+)
+```
+
+也可以把上述 `apply` 改為 `check`，只讀回並核對同一批的狀態，不送出新的刪除。
+計畫超過時效後只能先 `check`，不得修改計畫時間戳或建立另一批繞過尚未核對的狀態。
+
+把工具最後輸出的結果與新的盤點交給維護者核對。若停止在不確定狀態，先核對雲端結果，
+不刪除檢查點或自行強制續跑。最終刪除與後續儲存 SKU 的改善證據分開記錄。
 
 ## 3. 11/1 的恢復順序
 

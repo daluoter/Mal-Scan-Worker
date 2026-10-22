@@ -97,6 +97,7 @@ keyless-dispatcher-service.flags.json
 .cloud-acceptance/
 demo-cloud-evidence*.json
 registry-inventory*.json
+registry-prune*.json
 
 # Private Cloudflare and operator deployment output
 .dev.vars

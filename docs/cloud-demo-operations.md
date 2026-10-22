@@ -10,9 +10,12 @@
 2026-10-22 起至 11/1 前暫停新增功能、功能部署與雲端掃描，維持目前月額度設定。
 當期私人 SKU 報表已確認 Artifact Registry 映像儲存為主要淨費用，Cloud Storage 另有操作、傳輸與儲存費用；
 原始 CSV、帳單帳戶資訊與精確金額不提交公開 repository。
-先依[映像清理手冊](registry-cleanup.md)盤點完整 digest，保留目前 Job、服務與必要回退版本，再處理可刪版本。
+已核對使用者提供的 14 版本唯讀盤點，沒有列出的讀取缺口，正式 Job 與對應回退 checkpoint 匹配。
+依[映像清理手冊](registry-cleanup.md)準備第一批 7 個舊 `full-worker` 完整 digest；
+保留現行與必要回退版、所有 dispatcher 版本及整組 `engine-poc`，不刪除 index 的未標籤子 manifest。
 舊 PoC Job 使用中的映像仍屬參照；沒有 tag 或版本較舊，都不能單獨作為刪除依據。
-尚未取得遠端刪除、用量下降與後續帳單證據，不能把工具備妥或 SKU 分析當成清理完成。
+`prepare` 僅寫本機私人計畫；明確執行 `apply` 才重新查核引用並逐一刪除固定 digest。
+目前尚未取得遠端刪除、用量下降與後續帳單證據，不能把工具備妥或 SKU 分析當成清理完成。
 
 2026-11-01 00:00 UTC（台北時間 08:00）後，先核對實際月份額度及 ClamAV daily 年齡。
 七天新鮮度 gate 保持有效；必要時先做一次受控的人工簽章病毒庫更新與離線控制，
@@ -27,9 +30,12 @@
 | [maintain-demo.py](../deployment/cloud-run/maintain-demo.py) | 已登入原專案的 Cloud Shell | 保存基準、非同步建置、驗證候選映像；明確執行 promote 才更新既有 Job 的 image |
 | [collect-demo-evidence.py](../deployment/cloud-run/collect-demo-evidence.py) | 已登入原專案的 Cloud Shell | 唯讀 GCP 執行／資源／建置／Registry／Secret 版本 metadata；不讀 Secret payload 或原始 log 內容 |
 | [cleanup-registry.py](../deployment/cloud-run/cleanup-registry.py) | 已登入原專案的 Cloud Shell | `inspect --output` 產生映像參照／保留與待核對清單；僅唯讀 metadata，不刪除映像或設定清理策略 |
+| [prune-registry.py](../deployment/cloud-run/prune-registry.py) | 同上；使用已核對的私人盤點與計畫 | `prepare` 寫本機私人計畫；`apply` 在引用、回退、版本及標籤檢查通過後，僅逐一刪除計畫內固定 `full-worker` digest。保留其他 package，不啟動 Job 或建置 |
 | [verify-demo-retention.py](../deployment/cloud-run/verify-demo-retention.py) | 同上，需既有 R2 Secret 讀取權 | 僅在記憶體讀來源／結果 R2 憑證，列出指定工作的七個 prefixes；不寫入或刪除物件 |
 
-這些工具使用現有 project `malscan-v2-poc`、region `us-central1`、Job `malscan-v2-static-demo`，不建立新的 service account、Google 私鑰或測試管理 API。GitHub CI 只執行離線工具測試。
+操作目標使用現有 project `malscan-v2-poc`、映像 repository 所在 region `us-central1` 與正式 Job `malscan-v2-static-demo`；
+映像盤點另讀取同專案所有 Cloud Run 區域的引用。這些工具不建立新的 service account、Google 私鑰或測試管理 API。
+GitHub CI 只執行離線工具測試，不執行正式雲端刪除。
 
 操作狀態、fixture、capability 與基準 Job JSON 放在 repository 外的持久化 HOME 目錄，並使用私有檔案權限。Cloud Shell 重連後讀既有檢查點；不要再建立一輪同樣工作。驗收 client 的 `campaign.json` 含 owner capability 與 ticket，不能貼到聊天、提交 Git 或收入公開附件。
 
