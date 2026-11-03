@@ -153,7 +153,7 @@ export default function ReportPage() {
     }
 
     return (
-        <div className="container">
+        <div className="container report-content">
             {/* Header */}
             <div className="flex items-center justify-between mb-6">
                 <h1 className="text-3xl font-bold bg-gradient-to-r from-neon-cyan to-neon-purple bg-clip-text text-transparent">
@@ -327,7 +327,7 @@ export default function ReportPage() {
                         <div className="code-block">
                             {report.results.iocs.urls.map((url, i) => (
                                 <div key={i} className="flex">
-                                    <span className="text-slate-500 select-none mr-4">{String(i + 1).padStart(2, '0')}</span>
+                                    <span className="shrink-0 text-slate-500 select-none mr-4">{String(i + 1).padStart(2, '0')}</span>
                                     <span className="text-caution-yellow break-all">{url}</span>
                                 </div>
                             ))}
@@ -343,7 +343,7 @@ export default function ReportPage() {
                         <div className="code-block">
                             {report.results.iocs.domains.map((domain, i) => (
                                 <div key={i} className="flex">
-                                    <span className="text-slate-500 select-none mr-4">{String(i + 1).padStart(2, '0')}</span>
+                                    <span className="shrink-0 text-slate-500 select-none mr-4">{String(i + 1).padStart(2, '0')}</span>
                                     <span className="text-neon-purple break-all">{domain}</span>
                                 </div>
                             ))}
@@ -359,7 +359,7 @@ export default function ReportPage() {
                         <div className="code-block">
                             {report.results.iocs.ips.map((ip, i) => (
                                 <div key={i} className="flex">
-                                    <span className="text-slate-500 select-none mr-4">{String(i + 1).padStart(2, '0')}</span>
+                                    <span className="shrink-0 text-slate-500 select-none mr-4">{String(i + 1).padStart(2, '0')}</span>
                                     <span className="text-alert-red">{ip}</span>
                                 </div>
                             ))}

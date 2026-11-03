@@ -17,6 +17,7 @@ for (const extension of ['.ts', '.tsx']) {
 }
 
 const { artifactRiskPresentations, reportRiskPresentation } = require('../src/components/report/reportRisk.ts')
+const { reportCoverageSummary } = require('../src/components/report/reportState.ts')
 const VerdictSummaryPanel = require('../src/components/report/VerdictSummaryPanel.tsx').default
 const ArtifactTreePanel = require('../src/components/report/ArtifactTreePanel.tsx').default
 const ScoreTracePanel = require('../src/components/report/ScoreTracePanel.tsx').default
@@ -173,7 +174,7 @@ test('higher confidence malicious root and ordinary completed clean report retai
     const maliciousHtml = render(VerdictSummaryPanel, { report: malicious })
     assert.match(maliciousHtml, /☠️ 惡意/)
     assert.match(maliciousHtml, /95<span/)
-    const cleanHtml = render(VerdictSummaryPanel, { report: report(node('c'), { score: 0 }) })
+    const cleanHtml = render(VerdictSummaryPanel, { report: report(node('c'), { score: 0, analysis: completeAnalysis() }) })
     assert.match(cleanHtml, /verdict-clean/)
     assert.match(cleanHtml, /✅ 未發現威脅/)
     assert.doesNotMatch(cleanHtml, /text-alert-red|內含高風險/)
@@ -202,4 +203,111 @@ test('descendant floor remains explicit in score formation and keeps source path
     assert.match(html, /來源分數 84/)
     assert.match(html, /來源路徑 locked.pdf!\/pdf-decrypted/)
     assert.match(html, /不代表新增偵測/)
+})
+
+function completeAnalysis(status = 'complete', antivirus = 'ok') {
+    return { static: { status, stage_coverage: [
+        { stage: 'file-type', status: 'ok' }, { stage: 'clamav', status: antivirus },
+        { stage: 'format-analysis', status: 'skipped' },
+    ] } }
+}
+
+test('terminal PDF and Office partial reports show incomplete analysis rather than a green low-risk success', () => {
+    for (const [filename, rootScore, childScore] of [['pdf-flate-eicar.pdf', 6, 25], ['office-embedded-pdf.docx', 4, 4]]) {
+        const child = node('child', { score: childScore, risk_level: 'low', analysis: completeAnalysis('partial', 'failed') })
+        const data = report(node('root', { filename, score: rootScore, children: [child] }), {
+            score: rootScore, report_complete: true, job_status: 'done',
+            analysis: completeAnalysis('partial', 'failed'),
+            batch_analysis: { status: 'partial', artifact_count: 2, incomplete_artifacts: [{ artifact_id: 'child', status: 'partial' }] },
+        })
+        const before = JSON.stringify(data)
+        const html = render(VerdictSummaryPanel, { report: data })
+        assert.match(html, /目前已知風險（分析未完整）/)
+        assert.match(html, /❓ 分析未完整/)
+        assert.match(html, /防毒掃描未完成，低分不代表安全/)
+        assert.match(html, /role="alert"/)
+        assert.doesNotMatch(html, /verdict-clean|✅/)
+        assert.deepEqual(reportCoverageSummary(data), { complete: false, antivirusStatus: 'incomplete' })
+        assert.equal(JSON.stringify(data), before)
+    }
+})
+
+test('a failed child antivirus scan remains visible when the root scan completed', () => {
+    const child = node('child', { analysis: completeAnalysis('partial', 'failed') })
+    const data = report(node('root', { children: [child] }), { analysis: completeAnalysis() })
+    const html = render(VerdictSummaryPanel, { report: data })
+    assert.match(html, /防毒掃描未完成，低分不代表安全/)
+    assert.doesNotMatch(html, /verdict-clean|✅/)
+})
+
+test('an empty or inconsistent tree cannot hide a child report failure or missing child coverage', () => {
+    for (const tree of [node('root'), node('root', { children: [node('child', { analysis: completeAnalysis() })] })]) {
+        const data = report(tree, {
+            job_id: 'root', analysis: completeAnalysis(), artifacts: [{ artifact_id: 'child', status: 'done',
+                report: { analysis: completeAnalysis('partial', 'failed') },
+            }],
+        })
+        const html = render(VerdictSummaryPanel, { report: data })
+        assert.match(html, /防毒掃描未完成，低分不代表安全/)
+        assert.doesNotMatch(html, /verdict-clean|✅/)
+    }
+    const missing = report(node('root'), { job_id: 'root', analysis: completeAnalysis(),
+        child_jobs: [{ job_id: 'missing', status: 'done' }], batch_analysis: { status: 'complete', artifact_count: 2 },
+    })
+    const html = render(VerdictSummaryPanel, { report: missing })
+    assert.match(html, /防毒掃描完成狀態未確認/)
+    assert.doesNotMatch(html, /verdict-clean|✅/)
+})
+
+test('batch partial, failed and unknown states override a terminal complete root', () => {
+    for (const status of ['partial', 'failed', 'unknown']) {
+        const html = render(VerdictSummaryPanel, { report: report(null, {
+            analysis: completeAnalysis(), batch_analysis: { status },
+        }) })
+        assert.match(html, /分析未完整/)
+        assert.match(html, /靜態分析範圍尚未完整/)
+        assert.doesNotMatch(html, /verdict-clean|✅/)
+    }
+})
+
+test('high-risk and malicious findings retain their priority when antivirus coverage is partial', () => {
+    for (const [score, level, verdict, label] of [[84, 'high', 'suspicious', '⚠️ 高風險'], [95, 'malicious', 'malicious', '☠️ 惡意']]) {
+        const data = report(null, { score, risk_level: level, verdict, analysis: completeAnalysis('partial', 'failed') })
+        const html = render(VerdictSummaryPanel, { report: data })
+        assert.match(html, /verdict-malicious/)
+        assert.ok(html.includes(label))
+        assert.match(html, new RegExp(`${score}<span`))
+        assert.match(html, /防毒掃描未完成，低分不代表安全/)
+        assert.doesNotMatch(html, /❓ 分析未完整|verdict-clean/)
+    }
+})
+
+test('legacy missing coverage remains unknown even after the job ended', () => {
+    const data = report(node('root'), { report_complete: true, analysis: undefined })
+    const html = render(VerdictSummaryPanel, { report: data })
+    assert.match(html, /分析未完整/)
+    assert.match(html, /防毒掃描完成狀態未確認，低分不代表安全/)
+    assert.doesNotMatch(html, /verdict-clean|✅/)
+})
+
+test('complete root and child coverage allow the ordinary clean presentation', () => {
+    const child = node('child', { analysis: completeAnalysis() })
+    const data = report(node('root', { children: [child] }), {
+        analysis: completeAnalysis(), batch_analysis: { status: 'complete', incomplete_artifacts: [] },
+    })
+    const html = render(VerdictSummaryPanel, { report: data })
+    assert.match(html, /verdict-clean/)
+    assert.match(html, /✅ 未發現威脅/)
+    assert.doesNotMatch(html, /分析未完整|role="alert"/)
+})
+
+test('verified inherited child coverage preserves a failed source scan instead of inventing completion', () => {
+    const child = node('child', { analysis_reference: { mode: 'inherited', status: 'verified',
+        source_sha256: 'child'.repeat(64), source_size: 1200, source_analysis_status: 'partial',
+        source_stage_coverage: [{ stage: 'clamav', status: 'failed' }],
+    } })
+    const data = report(node('root', { children: [child] }), { analysis: completeAnalysis() })
+    const html = render(VerdictSummaryPanel, { report: data })
+    assert.match(html, /防毒掃描未完成，低分不代表安全/)
+    assert.doesNotMatch(html, /verdict-clean|✅/)
 })

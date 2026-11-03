@@ -1,21 +1,23 @@
 import type { Report } from '../../api/types'
 import { reportRiskPresentation, riskIsElevated, riskLabel } from './reportRisk'
+import { reportCoverageSummary } from './reportState'
 
 export default function VerdictSummaryPanel({ report }: { report: Report }) {
     const risk = reportRiskPresentation(report)
     const elevated = riskIsElevated(risk.effective)
     const malicious = risk.effective.verdict === 'malicious' || risk.effective.level === 'malicious'
     const warning = elevated || risk.effective.level === 'medium'
+    const coverage = reportCoverageSummary(report)
     const cardClass = elevated ? 'verdict-malicious' : warning ? 'verdict-suspicious'
-        : risk.effective.verdict === 'clean' && report.report_complete === true ? 'verdict-clean' : 'glass-card'
+        : risk.effective.verdict === 'clean' && coverage.complete ? 'verdict-clean' : 'glass-card'
     const hasRiskyDescendant = Boolean(risk.descendant && riskIsElevated(risk.descendant))
     return (
         <section className={`verdict-card ${cardClass} mb-6`} aria-label="包含子檔的整體風險">
             <div className="flex items-center justify-between gap-4">
                 <div>
-                    <p className="text-sm font-mono text-slate-400 mb-1">{report.report_complete === false ? '目前已知風險（分析尚未完成）' : '包含子檔的整體風險'}</p>
+                    <p className="text-sm font-mono text-slate-400 mb-1">{report.report_complete === false ? '目前已知風險（分析尚未完成）' : !coverage.complete ? '目前已知風險（分析未完整）' : '包含子檔的整體風險'}</p>
                     <p className={`text-3xl font-bold ${elevated ? 'text-alert-red' : ''}`}>
-                        {malicious ? '☠️' : warning ? '⚠️' : risk.effective.verdict === 'clean' ? '✅' : '❓'} {riskLabel(risk.effective)}
+                        {malicious ? '☠️' : warning ? '⚠️' : !coverage.complete ? '❓' : risk.effective.verdict === 'clean' ? '✅' : '❓'} {!warning && !coverage.complete ? '分析未完整' : riskLabel(risk.effective)}
                     </p>
                 </div>
                 <div className="text-right">
@@ -25,6 +27,11 @@ export default function VerdictSummaryPanel({ report }: { report: Report }) {
                     </p>
                 </div>
             </div>
+            {!coverage.complete && !warning && <p className="mt-3 text-sm text-slate-300">已取得證據的風險標示：{riskLabel(risk.effective)}。分數僅反映目前成果。</p>}
+            {coverage.antivirusStatus !== 'complete' ? <div role="alert" className="mt-4 rounded-lg border border-caution-yellow/50 bg-caution-yellow/10 p-3 text-caution-yellow">
+                <p className="font-bold">{coverage.antivirusStatus === 'incomplete' ? '防毒掃描未完成，低分不代表安全。' : '防毒掃描完成狀態未確認，低分不代表安全。'}</p>
+                <p className="mt-1 text-sm">本檔或內層檔案尚未取得完整防毒掃描成果，請查看分析範圍與限制。</p>
+            </div> : !coverage.complete && <p className="mt-3 text-sm text-caution-yellow">靜態分析範圍尚未完整，不能以目前分數判定檔案安全。</p>}
             {hasRiskyDescendant && <div className="mt-4 rounded-lg border border-alert-red/40 bg-alert-red/10 p-3 text-alert-red">
                 <p className="font-bold">⚠️ 內含{riskLabel(risk.descendant!)}檔案：{risk.descendant?.sourceFilename}</p>
                 <p className="mt-1 break-all font-mono text-xs">{risk.descendant?.sourcePath}</p>

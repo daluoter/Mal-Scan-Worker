@@ -392,6 +392,11 @@ export interface Report {
     risk_level: string
     report_schema_version?: string
     analysis?: AnalysisState
+    batch_analysis?: {
+        status: string
+        artifact_count?: number
+        incomplete_artifacts?: Array<{ artifact_id: string; status?: string; reason?: string }>
+    }
     job_status?: JobStatus['status']
     report_complete?: boolean
     pending_descendants?: number

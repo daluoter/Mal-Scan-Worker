@@ -1,0 +1,212 @@
+{
+  "schema_version": 1,
+  "date_taipei": "2026-11-03",
+  "scope": "F-11 user-supplied cloud reports blocked by stale ClamAV daily database",
+  "checklist_id": "F-11",
+  "checklist_status": "in_progress",
+  "declared_cases": 3,
+  "accepted_cases": 1,
+  "previous_accepted_case": {
+    "case_id": "pdf-name-tree-text",
+    "record": "2026-10-20-document-embedded-cloud-acceptance.json",
+    "acceptance_reused_as_historical_only": true
+  },
+  "source": {
+    "type": "User-provided root JSON reports and screenshot",
+    "raw_reports_or_screenshot_published": false,
+    "fixture_manifest_sha256": "aff33e91d3115b2a1d9cc58d3ec365fb838c63b5f2737754ae5dc254aed2ced0",
+    "identity_verification_scope": "Reported input and child identities/provenance match frozen fixture metadata; cloud object bytes were not independently read."
+  },
+  "reported_versions": {
+    "risk_policy": "msrs-v1.2",
+    "yara": "4.5.4",
+    "yara_rules_sha256": "52cc7df2f9732941bce0f079bb70b36f01f04008b0a458398ef3ee58679a7dcc",
+    "clamav_version_available_from_failed_stage": false,
+    "exact_daily_version_or_age_verified": false
+  },
+  "cases": [
+    {
+      "case_id": "pdf-flate-eicar",
+      "status": "executed_but_full_static_acceptance_blocked",
+      "job_id": "d7979017-8a36-4668-9418-e910e697daa3",
+      "report_sha256": "88bbea3b1f1452c085e855e1ef56265a926fd595fe51a34605d966ad0e1eb957",
+      "reported_root_identity": {
+        "sha256": "3497a52ce3bc0a3b971aee8c92987a06f0697d4bc0c1eb593ec01fac42287c60",
+        "bytes": 720
+      },
+      "reported_input_identity_matches_frozen_fixture": true,
+      "reported_direct_occurrence_inventory_matches_frozen_fixture": true,
+      "reported_artifact_count": 2,
+      "expected_artifact_count": 2,
+      "root_score": 6,
+      "root_local_score": 0,
+      "job_status": "done",
+      "report_complete": true,
+      "batch_static_status": "partial",
+      "reported_clamav_status_counts": {
+        "failed": 2,
+        "ok": 0
+      },
+      "clamav_error": "ClamAV daily database is stale; rebuild the signed database image",
+      "reported_yara_rule_occurrences": {
+        "eicar": 1
+      },
+      "reported_root_budget": {
+        "used_files": 1,
+        "used_bytes": 68,
+        "limits": {
+          "max_bytes": 100000000,
+          "max_files": 20,
+          "timeout_seconds": 840
+        }
+      },
+      "declared_full_static_acceptance_passed": false,
+      "first_reported_stage_started_at_utc": "2026-11-02T15:42:02.491825Z",
+      "first_reported_stage_started_at_taipei": "2026-11-02T23:42:02.491825+08:00",
+      "attachment": {
+        "artifact_id": "1cdb8d2f-0e29-5801-86ff-b5e428cffd2a",
+        "sha256": "275a021bbfb6489e54d471899f7db9d1663fc695ec2fe2a2c4538aabf651fd0f",
+        "bytes": 68,
+        "extraction_source": "format-analysis",
+        "origin_path": "pdf-attachment/0000",
+        "local_score": 25,
+        "risk_level": "low",
+        "yara_rule": "eicar",
+        "yara_classification": "generic",
+        "clamav_status": "failed"
+      },
+      "root_inherited_points": 6,
+      "interpretation": "Standard 68-byte EICAR control was reported extracted and recognized by YARA. Failed ClamAV leaves only generic YARA evidence; 25-point child and 6-point parent do not prove clean content or full AV detection."
+    },
+    {
+      "case_id": "office-embedded-pdf",
+      "status": "executed_but_full_static_acceptance_blocked",
+      "job_id": "15bdb16d-a8a6-422d-bdc2-a05d597841c1",
+      "report_sha256": "8c90b4a8c393c1b17dc62f422bcd82a79ad6a3800f5a7124ca6c222a71c0dfd5",
+      "reported_root_identity": {
+        "sha256": "5bf1d10062c735ac3627a5234bb8060baa24537b739cbc6e0ffd8c4fd6b3c289",
+        "bytes": 2134
+      },
+      "reported_input_identity_matches_frozen_fixture": true,
+      "reported_direct_occurrence_inventory_matches_frozen_fixture": true,
+      "reported_artifact_count": 8,
+      "expected_artifact_count": 8,
+      "root_score": 0,
+      "root_local_score": 0,
+      "job_status": "done",
+      "report_complete": true,
+      "batch_static_status": "partial",
+      "reported_clamav_status_counts": {
+        "failed": 8,
+        "ok": 0
+      },
+      "clamav_error": "ClamAV daily database is stale; rebuild the signed database image",
+      "reported_yara_rule_occurrences": {
+        "network_iocs": 5
+      },
+      "reported_root_budget": {
+        "used_files": 7,
+        "used_bytes": 2226,
+        "limits": {
+          "max_bytes": 100000000,
+          "max_files": 20,
+          "timeout_seconds": 840
+        }
+      },
+      "declared_full_static_acceptance_passed": false,
+      "first_reported_stage_started_at_utc": "2026-11-02T15:28:44.299045Z",
+      "first_reported_stage_started_at_taipei": "2026-11-02T23:28:44.299045+08:00",
+      "embedded_pdf": {
+        "sha256": "d93949d0eff53eb91a3cd28d5d52f3efbb0caca2e876f9c56c1a934a3be46f1b",
+        "bytes": 352,
+        "reported_occurrences": 3,
+        "sources": [
+          "format-analysis",
+          "document-analysis",
+          "archive-extract"
+        ]
+      },
+      "interpretation": "The frozen Office package has five ZIP members and two additional PDF extraction occurrences. All seven children match expected identities/provenance. Three XML children have existing four-point XOR observations; no complete AV-negative finding is established."
+    }
+  ],
+  "acceptance_boundary": {
+    "job_done_or_report_complete_means_all_tools_completed": false,
+    "failed_clamav_infected_false_is_completed_negative_scan": false,
+    "manual_score_increase_used_to_pass_smoke": false,
+    "freshness_guard_relaxed": false,
+    "cloud_api_queries_by_agent": false,
+    "per_execution_image_digest_verified": false,
+    "physical_cloud_object_bytes_independently_read": false,
+    "configured_quota_or_actual_counter_independently_verified": false
+  },
+  "report_ui_followup": {
+    "observed_issue": "Long URL evidence titles and text extend beyond Office report cards",
+    "local_fix_verification": "passed",
+    "production_publication_verified": false,
+    "long_text_preserved_without_clipping": true,
+    "low_risk_partial_reports_receive_green_clean_style": false,
+    "incomplete_antivirus_warning_visible": true,
+    "known_high_risk_or_malicious_still_prominent": true,
+    "browser": "Local Chromium with stubbed API; two user reports and one synthetic long-token variant",
+    "viewport_widths": [
+      320,
+      375,
+      768,
+      1024,
+      1280,
+      1440
+    ],
+    "browser_case_width_combinations": 18,
+    "page_or_finding_card_overflow_count": 0,
+    "downloaded_report_content_unchanged": true,
+    "frontend_tests_passed": 62,
+    "frontend_typecheck_lint_cloud_demo_bundle": "passed"
+  },
+  "next_required_evidence": [
+    "Complete one controlled signed database image refresh with normal/EICAR offline controls and digest/Job checks.",
+    "Verify report overflow/failure presentation locally, then publish only the intended frontend change.",
+    "Create new pdf-flate-eicar and office-embedded-pdf jobs within existing quota, verify all applicable stage coverage and actual AV detection/negative results.",
+    "Preserve private status retention_expires_at for each new root and verify physical retention separately."
+  ],
+  "retention_followup": {
+    "checklist_id": "P0-18",
+    "job_ids": [
+      "d7979017-8a36-4668-9418-e910e697daa3",
+      "15bdb16d-a8a6-422d-bdc2-a05d597841c1"
+    ],
+    "retention_expires_at_provided": false,
+    "r2_physical_absence_confirmed": false,
+    "durable_object_row_deletion_confirmed": false,
+    "note": "Do not derive expiration from report completion; job done and partial are not deletion evidence."
+  },
+  "unchanged_maintenance": [
+    "P0-06 DO physical row cleanup",
+    "P0-07 lifecycle and image storage recovery",
+    "P0-11 real cloud rollback",
+    "P0-12 scheduled signed database updates",
+    "P0-14 long-term billed costs",
+    "P0-15 Cloudflare usage",
+    "P0-19 GitGuardian platform closure"
+  ],
+  "cost_followup": {
+    "new_post_cleanup_repository_size_or_billing_evidence_provided": false,
+    "registry_layer_reclamation_verified": false,
+    "zero_cost_claim": false
+  },
+  "agent_operations": {
+    "cloud_jobs_started": false,
+    "remote_mutations": false,
+    "provider_api_reads": false,
+    "secrets_read": false,
+    "scope": "Cloud resources only; local checks and GitHub source publication are separate"
+  },
+  "completion_claim": "Only the historical text-attachment case is accepted. The two new cases verify reported extraction identity but fail full static acceptance because every ClamAV stage failed freshness. F-11 remains one of three.",
+  "local_regression": {
+    "worker_tests_passed": 23,
+    "scope": "New frozen PDF extraction/native YARA stale-database regression, ClamAV adapters and PDF subtree propagation tests",
+    "stale_database_test": "A controlled expired header rejects the ClamAV command before invocation; real PDF parser and native YARA execute. Complete embedded-document acceptance rejects the partial result.",
+    "fresh_official_database_download_or_native_clamav_scan_performed_by_this_test": false,
+    "worker_runtime_or_risk_policy_changed": false,
+    "black_ruff": "passed"
+  }
+}

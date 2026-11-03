@@ -318,6 +318,17 @@ body {
   @apply max-w-4xl mx-auto px-6 py-8;
 }
 
+/* Reports contain URLs, hashes and nested file paths without word boundaries.
+   Keep their full text readable inside cards rather than clipping it. */
+.report-content {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.report-content :where(.flex, .grid) > * {
+  min-width: 0;
+}
+
 /* Links */
 a {
   @apply text-neon-cyan hover:text-neon-purple transition-colors duration-200;

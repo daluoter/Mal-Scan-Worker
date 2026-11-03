@@ -1,8 +1,11 @@
 # PDF 附件與 Office 嵌入檔案
 
-更新日期：2026-10-20（Asia/Taipei）。F-03 已完成程式／本機驗證；正式雲端驗收另外追蹤 F-11。
+更新日期：2026-11-03（Asia/Taipei）。F-03 已完成程式／本機驗證；正式雲端驗收另外追蹤 F-11。
 本頁只宣告下列提取範圍，驗證結果見[進度清單](project-status.md)及[品質基準](static-quality.md)。
-F-11 已核對使用者部署輸出與 PDF 文字附件報告，1／3 通過；另兩案仍待正式證據，見[本輪紀錄](milestones/2026-10-20-document-embedded-cloud-acceptance.json)。
+F-11 保留 PDF 文字附件 1／3 通過的[10 月紀錄](milestones/2026-10-20-document-embedded-cloud-acceptance.json)。
+11/2 使用者補上 Flate EICAR 與 Office 嵌入 PDF 的新報告：固定輸入及逐 occurrence 提取身份皆符合預期，
+但 2／8 節點的 AV 全因 daily 病毒庫過期失敗，兩案保持 partial，不能算完整通過；見[11 月跟進](milestones/2026-11-03-document-embedded-cloud-followup.json)。
+受控更新病毒庫後需以新工作重驗，不以工作 done、低分或 YARA 單獨命中代替所有適用工具完成。
 
 這項功能將文件裡實際包含的檔案取出，建立有來源的子檔，再執行相同的 ClamAV、YARA、IOC、
 格式分析與適用的文件分析。例如 PDF 附有 ZIP，ZIP 再包含 Office 文件，報告會保留各層關係。
@@ -73,6 +76,9 @@ format、document 與 archive 的不同來源 occurrence 各計入額度；同�
 
 部分內容失敗時保留已成功提取及掃描的兄弟檔案，並留下剩餘內容的未完成原因。
 報告中的「沒有命中」只能描述已完成的範圍，不能推定未提取附件安全。
+病毒庫過期時 ClamAV 會留下 failed，已提取子檔與其他工具結果仍可閱讀；
+此時 `report_complete=true` 只表示報告已收尾，`batch_analysis.status=partial` 才是本批分析完整度，
+失敗階段的 `av_result.infected=false` 不代表實際掃描陰性。先更新官方簽章病毒庫，不能放寬新鮮度限制來通過驗收。
 
 正式更新操作見[Job 部署手冊](deploy-document-embedded.md)。F-03 本機證據與 F-11 正式 smoke 分開記錄；
 DO 清理、真實回退、自動病毒庫更新、長期成本及每批工作的保留期核對仍按各自 P0 ID 追蹤。
