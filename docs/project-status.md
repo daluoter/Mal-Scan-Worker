@@ -1,6 +1,6 @@
 # 專案進度清單
 
-更新日期：2026-11-03（Asia/Taipei）。這份清單集中記錄已完成、進行中與尚未完成的工作；
+更新日期：2026-11-04（Asia/Taipei）。這份清單集中記錄已完成、進行中與尚未完成的工作；
 [路線圖](roadmap.md)說明排序，[支援矩陣](analysis-support.md)說明目前可用能力。
 每一批開發、測試或部署都要更新相關 ID 的狀態、證據與剩餘條件。項目未取得完成條件的證據前，不標為完成。
 
@@ -9,7 +9,7 @@
 **完成（限定案例）**依列出的本機／雲端人工證據結案，不擴張為所有格式或操作的完整保證。
 完成一個基礎批次，不代表該格式、誤報問題或整個 P0 都已完成。
 
-**目前先修復病毒庫過期造成的掃描缺口與報告介面，再補驗 F-11；成本維護繼續進行。**
+**F-11 已完成三個限定案例的雲端驗收；接著優先規劃病毒庫自動更新與映像／建置來源保留成本，維護待辦繼續追蹤。**
 2026-10-22 曾依使用者要求暫停功能開發與新增雲端掃描至 2026-11-01；10 月額度已有拒絕證據，
 仍按 P0-08 的範圍記錄，不因此宣稱已查得管理端 counter。
 10/22 的 SKU 報表已確認目前淨費用主要來自 Artifact Registry 映像儲存，Cloud Storage 另有讀寫、傳輸與儲存費用。
@@ -29,22 +29,26 @@
 PDF 已取出 68-byte EICAR 附件並命中 YARA，但子檔僅有 generic YARA 25 分，父檔繼承 6 分；
 不能為讓測試變紅而人工提高分數，也不能把失敗階段的 `infected=false` 當成防毒陰性。
 見[本輪跟進紀錄](milestones/2026-11-03-document-embedded-cloud-followup.json)。
-先保留七天新鮮度檢查，完成一次受控人工簽章病毒庫更新與報告介面修正，再以新工作重驗這兩案。
-前端長 URL／路徑換行與 partial 提示已完成本機驗證，正式 Pages 尚待發布；既有成本、保留期與後續功能依原 ID 追蹤。
+上述 11/2 partial 報告保留為歷史；七天新鮮度檢查維持啟用，這次未透過加分或放寬 gate 通過驗收。
+11/4 使用者補上新 root 報告並確認介面修正：EICAR PDF 父子檔各 100 分、Office 根檔 0 分，10 個節點的 ClamAV／YARA 皆完成，兩份 static／batch 皆 complete。
+長 URL／路徑在卡片內換行已由使用者聲明及截圖佐證；本輪沒有 Pages revision／部署 ID 的獨立查詢。
 11/3 的使用者維護輸出已證明候選建置與離線正常／EICAR 控制成功；daily 28172、三份官方簽章通過。
-更新後 Job 已 Ready、image 等於候選，但因執行範本 `client-version` 註記差異而停在 `promotion_pending`。
-維護工具已補精確路徑比較修正與既有 state 接續流程，依[接續手冊第 3.1 節](deploy-report-followup.md#31-已套用候選映像卻停在-promotion_pending)
-更新本機工具後只執行 `status` 核對；尚未取得修正後 `promoted` 與新掃描報告，不提前將 F-11 或自動更新結案。
+當時更新後 Job 已 Ready、image 等於候選，但因執行範本 `client-version` 註記差異而停在 `promotion_pending`；
+維護工具已補精確路徑比較與[既有 state 接續流程](deploy-report-followup.md#31-已套用候選映像卻停在-promotion_pending)。
+本輪新報告的 ClamAV 確實使用 daily 28172 並完成掃描，足以結束限定案例的功能驗收；
+未補上修正後 `promoted` 輸出或每次 execution 的 provider image 查核，不由報告推定這些管理端證據已取得。
+完整新紀錄見[11/4 雲端驗收](milestones/2026-11-04-document-embedded-cloud-acceptance.json)；自動更新與成本／保留期不在此項結案範圍。
 
 本批 F-03 已完成程式／本機驗證，涵蓋 PDF 附件／Office 嵌入物件：從宣告的 PDF filespec／stream、
 OOXML member／relationship 與 OLE Package 取得實際 bytes，建立來源與子檔後進入共用靜態掃描。
 同一來源的 aliases 與不同 occurrence 分開處理；不支援、損壞、超限或提交失敗保留 partial。
 能力邊界見[文件附件說明](document-embedded.md)，更新操作見[Job 部署手冊](deploy-document-embedded.md)。
-F-03 的程式／本機結果與 **F-11 正式雲端 smoke（進行中，1／3 通過）**分開結案，不使用先前 Office／PDF 報告代替。
+F-03 的程式／本機結果與 **F-11 正式雲端 smoke（完成，限定 3／3 案例）**分開結案，不使用其他 Office／PDF 報告代替。
 已核對使用者提供的 Job 建置／映像切換與 PDF 文字附件報告：2 節點／0 分、實際報告身份／來源與子檔掃描符合固定預期，提取 1 檔／41 bytes。
 10 月 EICAR 曾被公司端防毒阻擋轉移、Office 曾遭月額度拒絕；11/2 的兩案已取得新掃描報告，
-提取身份符合預期，但所有節點的 AV 仍因病毒庫過期失敗，F-11 保持 1／3 通過。
-歷史證據見[10 月紀錄](milestones/2026-10-20-document-embedded-cloud-acceptance.json)，新證據見[11 月跟進](milestones/2026-11-03-document-embedded-cloud-followup.json)；
+當時提取身份符合預期，但所有節點的 AV 因病毒庫過期失敗。更新後，11/4 的新兩案皆完成適用掃描，F-11 累計 3／3 通過。
+歷史證據見[10 月紀錄](milestones/2026-10-20-document-embedded-cloud-acceptance.json)與[11/3 跟進](milestones/2026-11-03-document-embedded-cloud-followup.json)，
+本輪證據見[11/4 驗收](milestones/2026-11-04-document-embedded-cloud-acceptance.json)；
 未獨立讀取雲端物件 bytes、每次 execution 映像、實際 counter 或保留期。
 DO 清理、真實回退、自動病毒庫更新及成本維護照原 ID 追蹤。
 
@@ -62,7 +66,7 @@ ZIP 已用 1 時 Office 初始仍為 0／3 依使用者人工確認。最新 ZIP
 Office 已用 2／剩餘 1、工作及靜態分析完成，累計提取 8 檔／19,196 bytes，與固定樣本預期相符。
 見[Office 雲端驗收紀錄](milestones/2026-10-20-office-cloud-acceptance.json)；沒有新增 agent-run 雲端掃描或獨立的每次 execution 映像／物件 bytes 查詢。
 Office 三次耗盡及其他 Office 格式未在本輪雲端演練，各 root 私有 status／保留期及清理仍列 P0-18，
-DO 清理、成本、真實回退及自動病毒庫更新維持原狀。F-03 PDF 附件與 Office 嵌入物件本機交付完成；正式驗收 F-11 進行中（1／3）。
+DO 清理、成本、真實回退及自動病毒庫更新維持原狀。F-03 PDF 附件與 Office 嵌入物件本機交付完成；正式驗收 F-11 已完成限定 3／3 案例。
 2026-10-19 本機開發批次後端 233、前端 54 項通過；worker 完整回歸為 1,202 通過、3 項 PostgreSQL opt-in 跳過，
 一項新增測試的 fixture 密碼預期修正後，所屬 3 項續跑測試補驗通過，共 1,203 個不同測試已有通過證據。
 上述本機完整執行及補驗分開記錄；Ruff、strict mypy、lock、前端型別／lint／build 均通過。
@@ -132,7 +136,7 @@ Durable Object（DO）像工作登記簿，另存工作、票證與派送狀態�
 | P0-15 | 待辦 | Cloudflare 實際用量與費用仍待獨立核對 | 核對 Workers／DO／R2／Pages 用量及可用額度，連同 GCP 判斷成本 |
 | P0-16 | 完成 | 共用核心、前端、控制層與 dispatcher 的持續整合已建立並執行 | 新改動持續通過相關 CI；不等於正式 provider 驗收 |
 | P0-17 | 待辦 | 仍有 advisory 的開發／部署相依工具需持續審查 | 依影響做相容升級，保存 audit 差異與回歸結果，不直接強制升級所有套件 |
-| P0-18 | 待辦 | 第二批三筆正式 demo 工作、前後兩批 PDF 密碼工作與前次兩個 PDF root 與本次三個 Base64 smoke root 及本輪 Office smoke 工作的到期清理尚未核對 | 每批／每個 root 到期後分別檢查指定 R2 前綴與存取撤回；Office root 的 status／retention_expires_at 尚未提供，包含本輪新增 ZIP root `94d643f0-0f74-45a6-9d3c-2f8dc16d8653`，不從完成報告推算；F-11 的文字附件 root `57dd5d67-9941-49d4-9692-7586e9ab3c39`、拒絕 root `0f2e9ed9-9504-4628-af8d-deb91e8cdc3c`，及 11 月新 root `d7979017-8a36-4668-9418-e910e697daa3`／`15bdb16d-a8a6-422d-bdc2-a05d597841c1` 也未提供私有 status／保留期，失敗或 partial 不等於物件已刪除。不能沿用四筆早期驗收的結果，DO 清理仍另列 P0-06 |
+| P0-18 | 待辦 | 第二批三筆正式 demo 工作、前後兩批 PDF 密碼工作與前次兩個 PDF root 與本次三個 Base64 smoke root 及本輪 Office smoke 工作的到期清理尚未核對 | 每批／每個 root 到期後分別檢查指定 R2 前綴與存取撤回；Office root 的 status／retention_expires_at 尚未提供，包含本輪新增 ZIP root `94d643f0-0f74-45a6-9d3c-2f8dc16d8653`，不從完成報告推算；F-11 的文字附件 root `57dd5d67-9941-49d4-9692-7586e9ab3c39`、拒絕 root `0f2e9ed9-9504-4628-af8d-deb91e8cdc3c`，及 11 月新 root `d7979017-8a36-4668-9418-e910e697daa3`／`15bdb16d-a8a6-422d-bdc2-a05d597841c1`，以及 11/4 新驗收 root `04f8568f-a775-453b-b205-b055e78a8f4a`／`6434b517-4659-459e-b2cd-aa8b369cb174` 也未提供私有 status／retention_expires_at；不從報告時間推算，完成、失敗或 partial 都不等於物件已刪除。不能沿用四筆早期驗收的結果，DO 清理仍另列 P0-06 |
 | P0-19 | 進行中 | **GitGuardian 通知核對**：已將 `95396c1`／PDF acceptance 第 172 行精確定位為合成 fixture profile，屬非憑證資料誤報，見[核對紀錄](security-notes.md) | 程式碼分類完成；GitGuardian 平台單筆 False positive 標記尚未操作。其他通知仍逐筆審查；真實憑證另須撤銷／輪替，不能以 Gitleaks 零發現取代核對 |
 
 ## P1：靜態證據、規則與品質
@@ -144,7 +148,7 @@ Durable Object（DO）像工作登記簿，另存工作、票證與派送狀態�
 | Q-03 | 完成 | 已量測的網址／Java API／正常 OOXML 風險誤報調整；context、原始 IOC 與風險偵測分開 | 規則 `1.1.0`、評分 `msrs-v1.1`；一般觀察保留證據而不單獨加分，其他誤報見 Q-06 |
 | Q-04 | 完成 | 兩批品質變更的 worker／Pages 部署與三份正式 demo 報告核對 | 使用者部署輸出與報告證據；這三個新工作的到期清理、帳單不是此項結論 |
 | Q-05 | 進行中 | YARA 來源、分類、逐檔雜湊、版本及限制已有 manifest | 規則授權仍為 `NOASSERTION`；擴充前補齊可確認的授權、來源及更新／停用政策 |
-| Q-06 | 進行中 | **更多格式品質與雜訊改善**：PDF 名稱／弱 Base64 批次本機 40／40＋PDF v2 12／12；Job 切換及三份雲端報告 0／29／84 分已核對 | [本輪雲端驗收](milestones/2026-10-19-base64-cloud-acceptance.json)限三個固定案例；其他格式與真實來源樣本仍待擴充，合成對照不能估計真實準確率；新工作的保留期另列 P0-18 |
+| Q-06 | 進行中 | **更多格式品質與雜訊改善**：PDF 名稱／弱 Base64 批次本機 40／40＋PDF v2 12／12；Job 切換及三份雲端報告 0／29／84 分已核對。11/4 正常 Office 的三個 XML 子檔仍各有弱 XOR 觀察 +4 分 | [既有雲端驗收](milestones/2026-10-19-base64-cloud-acceptance.json)限三個固定案例；Office XML 雜訊另需正常／有效 XOR 對照，與 YARA 零分 context 分開處理。其他格式與真實來源樣本仍待擴充，合成對照不能估計真實準確率；新工作的保留期另列 P0-18 |
 | Q-07 | 待辦 | 更大 corpus 的時間／記憶體與資料回退比較 | 固定輸入、工具／規則版本與執行條件，核對 coverage、證據及性能變化 |
 | Q-08 | 完成（限定案例） | **解密子檔風險逐層回傳**：`msrs-v1.2` 保留本檔分數，已驗證高風險子孫作為有效風險下限 | 本機 v4／PDF v2 與回歸通過；[雲端人工驗收](milestones/2026-10-19-pdf-feedback-acceptance.json)的直接根／內層 PDF 子樹皆本檔 4、整體 84，外層 ZIP 顯示依使用者聲明；限所列案例 |
 
@@ -162,7 +166,7 @@ Durable Object（DO）像工作登記簿，另存工作、票證與派送狀態�
 | F-08 | 完成（限定案例） | **PDF 回饋修正正式 demo 人工驗收**：先前 Job／Worker 發布輸出，加上新畫面、兩份新 JSON 與使用者明確人工通過聲明 | [驗收紀錄](milestones/2026-10-19-pdf-feedback-acceptance.json)：錯誤紅字、逐檔三次、父子檔高風險；兩個 PDF 報告可獨立核對，外層 ZIP／第三次限制為人工聲明；Pages ID 未單獨蒐集；到期清理、費用與維護不在此項結案範圍 |
 | F-09 | 完成（限定案例） | **每個加密檔案獨立三次補交**：接受派送的正確與錯誤密碼均計本檔；本機 workerd／SQLite、持久化與耗盡後其他節點續跑已有測試 | 新 JSON 各自 PDF 已用 2／剩餘 1／上限 3；ZIP 不扣內層 PDF 及第三次限制依使用者人工通過聲明記錄，完成 JSON 不能重播該歷史；見 [F-08 紀錄](milestones/2026-10-19-pdf-feedback-acceptance.json) |
 | F-10 | 完成（限定案例） | **Office 密碼正式 demo smoke**：Job／Pages 發布、三個宣告案例的完整根報告（正常 DOCX 8 節點／0 分、外部範本 DOCX 10 節點／父檔 15 分與子檔 53 分、不同密碼 ZIP→Office 9 節點／6 分），加上兩份 Office 詳細子樹、錯誤紅字畫面與逐檔初始次數的人工確認已核對 | [Office 雲端驗收紀錄](milestones/2026-10-20-office-cloud-acceptance.json)限所列 DOCX／ZIP 案例：最終 ZIP 1／2、Office 2／1、累計提取 8 檔／19,196 bytes，身份、明文 hash、來源與適用掃描符合固定預期。Office 三次耗盡及其他格式未在本輪雲端演練；各 root 的 status／保留期／清理另追 P0-18，每次 execution 映像與物件 bytes 未獨立查詢 |
-| F-11 | 進行中（1／3 通過） | **PDF 附件／Office 嵌入檔正式 demo smoke**：PDF 文字附件已完整通過；11/2 新 EICAR／Office 報告的固定輸入、2／8 節點及提取 occurrence 身份符合預期，但 10 個節點 AV 皆因 daily 過期失敗，兩案均為 partial | [11 月跟進](milestones/2026-11-03-document-embedded-cloud-followup.json)：先受控更新簽章病毒庫並驗證，再新上傳兩案；EICAR 要有實際 AV 偵測與子檔／父檔一致的風險，Office 要有完整適用掃描。每次 execution 映像／物件 bytes 未獨立查詢，保留期另追 P0-18；低分不能代替完整 coverage |
+| F-11 | 完成（限定案例，3／3 通過） | **PDF 附件／Office 嵌入檔正式 demo smoke**：歷史文字附件加上 11/4 新 Flate EICAR 與 Office 嵌入 PDF，三個宣告案例通過。新 PDF 2 節點／父子各 100 分、68-byte EICAR 子檔實際 AV／YARA 命中；Office 8 節點／根檔 0 分、7 次提取／2,226 bytes，10 個新節點的適用掃描皆完整 | [11/4 驗收紀錄](milestones/2026-11-04-document-embedded-cloud-acceptance.json)：固定輸入及 occurrence 身份／來源、daily 28172、static／batch complete 已核對。限所列案例，不代表所有 PDF／Office 變種；每次 execution 映像、物件 bytes 與修正後 promoted state 未獨立查詢，新 root 保留期仍追 P0-18 |
 
 ## P2：效能、狀態與報告體驗
 
@@ -172,7 +176,7 @@ Durable Object（DO）像工作登記簿，另存工作、票證與派送狀態�
 | UX-02 | 待辦 | **排隊狀態細分** | 依可取得證據區分準備／分析／保存，刷新與不確定結果保留實意，不顯示虛構百分比 |
 | UX-03 | 待辦 | Python import、AV 載庫、YARA compile、R2 發布與 polling 主要瓶頸 | 同輸入比較時間、記憶體與費用，再選擇優化，持續通過恢復與品質驗收 |
 | UX-04 | 待辦 | 執行資源／常駐引擎等效能方案的成本比較 | 有前後量測與成本依據，不以增加資源直接取代分析 |
-| UX-05 | 進行中 | 摘要、來源樹、證據／版本、partial 原因與 JSON 下載已有介面；11 月回報 Office 長 URL 證據卡片越界，列本批修正 | 本批長 URL／路徑換行與 partial 提示已通過前端 62 項測試、型別／lint／cloud-demo 前端打包 及本機 Chromium 18 組寬度驗證，JSON 下載內容不變；正式 Pages 尚待發布。大型 artifact tree 與其他等候狀態仍需可用性驗收 |
+| UX-05 | 進行中 | 摘要、來源樹、證據／版本、partial 原因與 JSON 下載已有介面；本批長 URL／路徑換行修正已由使用者確認，截圖顯示 Office 證據卡片內容未越界 | 本機前端 62 項測試、型別／lint／cloud-demo 打包及 Chromium 18 組寬度驗證通過，JSON 下載內容不變；[11/4 紀錄](milestones/2026-11-04-document-embedded-cloud-acceptance.json)記錄換行人工驗收。Pages revision 未單獨取得，partial 提示正式人工過程、大型 artifact tree 與其他等候狀態仍需可用性驗收 |
 | UX-06 | 完成（限定案例） | **錯誤密碼明確提示**：目前 artifact 顯示紅色錯誤、檔案路徑與剩餘次數，保留既有成果 | UI／transport 回歸通過；使用者截圖直接顯示「密碼不正確」、已用 1／剩餘 2，並確認人工驗收通過；新完成報告記錄已用 2；見 F-08 |
 | UX-07 | 完成（限定案例） | **高風險報告與節點醒目呈現**：紅色摘要／來源節點與來源說明，本檔與包含子檔的有效風險分開 | 前端 52／52；新報告直接根／內層 PDF 子樹皆本檔 4／整體 84，使用者確認父子檔紅色顯示通過；高風險不等於已確認惡意；見 F-08 |
 

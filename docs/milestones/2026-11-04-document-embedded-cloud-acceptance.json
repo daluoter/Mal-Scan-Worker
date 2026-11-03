@@ -1,0 +1,172 @@
+{
+  "schema_version": 1,
+  "date_taipei": "2026-11-04",
+  "scope": "F-11 declared cloud smoke acceptance after signed database refresh",
+  "checklist_id": "F-11",
+  "checklist_status": "completed_limited_cases",
+  "declared_cases": 3,
+  "accepted_cases": 3,
+  "evidence_source": {
+    "type": "Two user-uploaded complete root reports, user UI confirmation and screenshot, plus historical accepted text-attachment report",
+    "raw_reports_or_screenshot_published": false,
+    "fixture_manifest_sha256": "aff33e91d3115b2a1d9cc58d3ec365fb838c63b5f2737754ae5dc254aed2ced0",
+    "cloud_provider_queries_or_object_downloads_by_agent": false
+  },
+  "historical_accepted_case": {
+    "case_id": "pdf-name-tree-text",
+    "job_id": "57dd5d67-9941-49d4-9692-7586e9ab3c39",
+    "record": "2026-10-20-document-embedded-cloud-acceptance.json",
+    "scope": "Previously verified text attachment report; not rerun in this batch"
+  },
+  "historical_failure_and_refresh_record": "2026-11-03-document-embedded-cloud-followup.json",
+  "cases": [
+    {
+      "case_id": "pdf-flate-eicar",
+      "passed": true,
+      "job_id": "04f8568f-a775-453b-b205-b055e78a8f4a",
+      "report_sha256": "edbb49e57385c75e84b39a14d3d426c59d8928fdb788ed9413150806d9f18eea",
+      "input": {
+        "sha256": "3497a52ce3bc0a3b971aee8c92987a06f0697d4bc0c1eb593ec01fac42287c60",
+        "bytes": 720
+      },
+      "frozen_input_and_occurrence_inventory_match": true,
+      "artifact_count": 2,
+      "root_score": 100,
+      "root_verdict": "malicious",
+      "root_static_status": "complete",
+      "batch_static_status": "complete",
+      "all_artifact_static_statuses": "complete",
+      "all_clamav_and_yara_stages": "ok",
+      "infected_artifacts": 2,
+      "frozen_report_evaluator_passed": true,
+      "evaluator_errors": [],
+      "budget": {
+        "used_files": 1,
+        "used_bytes": 68
+      },
+      "first_reported_stage_utc": "2026-11-03T16:05:46.732444+00:00",
+      "first_reported_stage_taipei": "2026-11-04T00:05:46.732444+08:00",
+      "eicar_attachment": {
+        "artifact_id": "483a7319-9d75-594c-8aff-57a6b5f22c3c",
+        "sha256": "275a021bbfb6489e54d471899f7db9d1663fc695ec2fe2a2c4538aabf651fd0f",
+        "bytes": 68,
+        "source": "format-analysis",
+        "origin_path": "pdf-attachment/0000",
+        "score": 100,
+        "clamav_threat": "Eicar-Test-Signature",
+        "yara_rule": "eicar"
+      },
+      "root_clamav_also_detected_test_signature": true,
+      "root_and_child_risk_consistent": true,
+      "eicar_is_inert_standard_antivirus_test_control": true
+    },
+    {
+      "case_id": "office-embedded-pdf",
+      "passed": true,
+      "job_id": "6434b517-4659-459e-b2cd-aa8b369cb174",
+      "report_sha256": "fd6187e4b2e865ea8efb748948fc012eec9967f5b769f5fd6c29266b638c6156",
+      "input": {
+        "sha256": "5bf1d10062c735ac3627a5234bb8060baa24537b739cbc6e0ffd8c4fd6b3c289",
+        "bytes": 2134
+      },
+      "frozen_input_and_occurrence_inventory_match": true,
+      "artifact_count": 8,
+      "root_score": 0,
+      "root_verdict": "clean",
+      "root_static_status": "complete",
+      "batch_static_status": "complete",
+      "all_artifact_static_statuses": "complete",
+      "all_clamav_and_yara_stages": "ok",
+      "infected_artifacts": 0,
+      "frozen_report_evaluator_passed": true,
+      "evaluator_errors": [],
+      "budget": {
+        "used_files": 7,
+        "used_bytes": 2226
+      },
+      "first_reported_stage_utc": "2026-11-03T15:54:09.288457+00:00",
+      "first_reported_stage_taipei": "2026-11-03T23:54:09.288457+08:00",
+      "embedded_pdf": {
+        "sha256": "d93949d0eff53eb91a3cd28d5d52f3efbb0caca2e876f9c56c1a934a3be46f1b",
+        "bytes": 352,
+        "occurrences": 3,
+        "page_count_each": 1,
+        "extraction_sources": [
+          "format-analysis",
+          "document-analysis",
+          "archive-extract"
+        ]
+      },
+      "network_yara_classification": "informational; zero-risk context",
+      "known_quality_followup": "Three XML children retain existing four-point XOR observations; root remains zero. This noise is tracked under Q-06 and is not a YARA regression."
+    }
+  ],
+  "reported_tools": {
+    "clamav_engine": "1.4.3",
+    "clamav_daily_version": "28172",
+    "clamav_daily_timestamp": "Mon Nov  2 06:24:10 2026",
+    "yara": "4.5.4",
+    "yara_rules_sha256": "52cc7df2f9732941bce0f079bb70b36f01f04008b0a458398ef3ee58679a7dcc",
+    "risk_policy": "msrs-v1.2",
+    "upstream_latest_version_independently_checked": false,
+    "reported_scan_times_within_seven_day_daily_window": true
+  },
+  "consistency_checks": {
+    "root_and_child_report_identities_match": true,
+    "artifact_tree_matches_report_table": true,
+    "exact_direct_occurrence_provenance_matches_frozen_recipe": true,
+    "applicable_stage_provenance_and_completion_verified": true,
+    "root_budget_matches_all_extraction_occurrences": true,
+    "no_pending_descendants_or_reconciliation": true,
+    "dynamic_analysis": "disabled"
+  },
+  "ui_acceptance": {
+    "scope": "Long URL and file path wrapping in Office report evidence cards",
+    "user_explicit_confirmation": true,
+    "screenshot_reviewed": true,
+    "screenshot_hash_available": false,
+    "production_page_revision_independently_queried": false,
+    "other_mobile_and_partial_warning_coverage": "Earlier local Chromium/SSR verification retained; current screenshot is not a new partial-report or full mobile acceptance test",
+    "related_checklist": "UX-05 remains in progress for broader usability"
+  },
+  "deployment_evidence_boundary": {
+    "prior_user_diagnosis_showed_ready_and_candidate_image": true,
+    "new_promoted_state_output_received": false,
+    "per_execution_image_digest_independently_verified": false,
+    "reported_cloud_object_hashes_and_bytes_independently_downloaded": false,
+    "pages_deployment_output_or_revision_received": false,
+    "functional_acceptance_scope": "Reported fixed inputs, extraction lineage, actual recorded detector outcomes and user-verified overflow fix"
+  },
+  "retention_followup": {
+    "checklist_id": "P0-18",
+    "new_job_ids": [
+      "04f8568f-a775-453b-b205-b055e78a8f4a",
+      "6434b517-4659-459e-b2cd-aa8b369cb174"
+    ],
+    "private_status_or_retention_expires_at_provided": false,
+    "physical_r2_absence_confirmed": false,
+    "durable_object_rows_deleted": false,
+    "do_not_derive_retention_expiry_from_stage_times": true
+  },
+  "not_closed": [
+    "P0-06 DO physical row cleanup",
+    "P0-07 lifecycle and image storage recovery",
+    "P0-11 real cloud rollback",
+    "P0-12 scheduled signed database updates",
+    "P0-14 long-term costs",
+    "P0-15 Cloudflare usage",
+    "P0-18 per-root retention",
+    "P0-19 GitGuardian platform closure",
+    "Q-06 remaining quality samples and XOR noise",
+    "UX-05 broader report usability"
+  ],
+  "agent_operations": {
+    "scope": "Cloud resources; local evidence review and GitHub documentation publication tracked separately",
+    "cloud_jobs_started": false,
+    "remote_cloud_mutations": false,
+    "cloud_provider_api_reads": false,
+    "secrets_read": false
+  },
+  "next_priority": "Plan P0-12 scheduled signed database updates together with P0-07/P0-14 retention and cost controls; then continue Q-05/Q-06, F-04 and F-05 within their existing scope.",
+  "completion_claim": "The three declared F-11 smoke cases are accepted. This does not claim every PDF/Office variant is supported, all quality noise is fixed, or maintenance/cost/retention work is complete."
+}

@@ -1,11 +1,13 @@
 # PDF 附件與 Office 嵌入檔案
 
-更新日期：2026-11-03（Asia/Taipei）。F-03 已完成程式／本機驗證；正式雲端驗收另外追蹤 F-11。
+更新日期：2026-11-04（Asia/Taipei）。F-03 已完成程式／本機驗證；正式雲端驗收另外追蹤 F-11。
 本頁只宣告下列提取範圍，驗證結果見[進度清單](project-status.md)及[品質基準](static-quality.md)。
-F-11 保留 PDF 文字附件 1／3 通過的[10 月紀錄](milestones/2026-10-20-document-embedded-cloud-acceptance.json)。
-11/2 使用者補上 Flate EICAR 與 Office 嵌入 PDF 的新報告：固定輸入及逐 occurrence 提取身份皆符合預期，
-但 2／8 節點的 AV 全因 daily 病毒庫過期失敗，兩案保持 partial，不能算完整通過；見[11 月跟進](milestones/2026-11-03-document-embedded-cloud-followup.json)。
-受控更新病毒庫後需以新工作重驗，不以工作 done、低分或 YARA 單獨命中代替所有適用工具完成。
+**F-11 已完成三個限定案例的正式雲端驗收**：PDF 文字附件的[10 月紀錄](milestones/2026-10-20-document-embedded-cloud-acceptance.json)，
+加上 11/4 新 Flate EICAR PDF 與 Office 嵌入 PDF 報告。新兩案的固定輸入、逐 occurrence 提取身份及 10 個節點的適用掃描皆符合預期，
+static／batch 皆 complete；PDF 父子各 100 分，Office 根檔 0 分，見[11/4 驗收紀錄](milestones/2026-11-04-document-embedded-cloud-acceptance.json)。
+11/2 曾因病毒庫過期而 partial 的兩份報告保留為[歷史跟進](milestones/2026-11-03-document-embedded-cloud-followup.json)，
+不以工作 done、低分或 YARA 單獨命中代替所有適用工具完成。這次只接受列出的案例，不擴張為所有 PDF／Office 變種均完整支援。
+使用者並確認報告長 URL 換行已修正；原始報告、每次 execution 映像與 Pages revision 未由 agent 另行向 provider 取得。
 
 這項功能將文件裡實際包含的檔案取出，建立有來源的子檔，再執行相同的 ClamAV、YARA、IOC、
 格式分析與適用的文件分析。例如 PDF 附有 ZIP，ZIP 再包含 Office 文件，報告會保留各層關係。

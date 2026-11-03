@@ -1,12 +1,16 @@
 # 續接附件驗收：更新病毒庫與修正報告介面
 
-更新日期：2026-11-03（Asia/Taipei）。本輪來源已修正報告長網址／路徑換行及部分分析的判定呈現；
+更新日期：2026-11-04（Asia/Taipei）。本輪來源已修正報告長網址／路徑換行及部分分析的判定呈現；
 程式推送不會自動更新正式 Pages 或 Cloud Run Job。依發布訊息核對 commit 與驗證結果後再執行。
 
-使用者 11/2 的兩份報告已證明 PDF／Office 附件提取身份正確，但所有 ClamAV 階段均因
+**本輪已驗收完成：**11/4 新報告的 PDF 父子檔皆 100 分、Office 根檔 0 分，所有節點適用掃描 complete；
+使用者另確認長網址換行修正並提供截圖。F-11 已為 3／3 通過（限定案例），見[完成紀錄](milestones/2026-11-04-document-embedded-cloud-acceptance.json)。
+以下步驟留供重現與後續維護，不需要為本輪已通過案例再次建置、部署或上傳。
+
+歷史上，使用者 11/2 的兩份報告已證明 PDF／Office 附件提取身份正確，但所有 ClamAV 階段均因
 `ClamAV daily database is stale; rebuild the signed database image` 失敗。
 PDF 根檔 6 分來自 YARA-only 子檔 25 分的折算，不是完整掃描後的安全判定。
-F-11 維持 1／3 通過，見[本輪紀錄](milestones/2026-11-03-document-embedded-cloud-followup.json)。
+當時 F-11 維持 1／3，見[失敗與接續紀錄](milestones/2026-11-03-document-embedded-cloud-followup.json)。
 
 本輪只需一次受控病毒庫刷新建置、既有 Job 的 image 切換，以及 Pages 前端更新。
 沿用原有 Worker、dispatcher、IAM、R2、secrets 與額度；不重建這些資源。
@@ -178,7 +182,7 @@ AV 失敗及 partial 不會因此改變。確認長網址在卡片內完整換�
 
 保存兩份最外層完整 JSON，另將 status 的 `retention_expires_at` 私下保存以便 P0-18 到期核對。
 候選 digest、建置／promoted 摘要、Pages 發布結果可交給維護者核對；原始 capability、密碼與 secrets 不貼出。
-F-11 在新報告核對通過前維持 1／3；P0-06 DO 清理、P0-11 真實回退、P0-12 自動更新、
+F-11 本輪已於 11/4 完成三個限定案例；P0-06 DO 清理、P0-11 真實回退、P0-12 自動更新、
 P0-14 長期成本及建置來源保留等維護項目仍另行追蹤。
 
 ## 6. 發布失敗與後續更新
