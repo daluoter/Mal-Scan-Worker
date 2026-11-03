@@ -159,10 +159,10 @@ def job_configuration(job: dict) -> dict:
 
 
 def configuration_for_comparison(configuration: dict) -> dict:
-    """Omit only the two update-generated labels observed on the demo Job.
+    """Omit only the update-generated metadata observed on the demo Job.
 
     Keep this separate from job_configuration: existing v1 fingerprints include
-    these labels and must still detect changes to the saved baseline.
+    this metadata and must still detect changes to the saved baseline.
     """
     result = copy.deepcopy(configuration)
     result["labels"].pop("run.googleapis.com/lastUpdatedTime", None)
@@ -174,6 +174,11 @@ def configuration_for_comparison(configuration: dict) -> dict:
             labels.pop("client.knative.dev/nonce", None)
             if not labels:
                 del metadata["labels"]
+        annotations = metadata.get("annotations")
+        if annotations is not None:
+            annotations.pop("run.googleapis.com/client-version", None)
+            if not annotations:
+                del metadata["annotations"]
         if not metadata:
             del template["metadata"]
     return result

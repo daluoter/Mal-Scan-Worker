@@ -361,6 +361,98 @@ class MaintenanceTests(unittest.TestCase):
                     self.tool.load()
                 maintenance.write_private(baseline_path, baseline)
 
+    def test_template_client_version_comparison_is_exact_and_preserves_snapshots(self):
+        key = "run.googleapis.com/client-version"
+        for index, metadata in enumerate(
+            (
+                None,
+                {},
+                {"annotations": {}},
+                {"annotations": {key: "before"}},
+                {"annotations": {"user-note": "preserve", key: "before"}},
+                {"labels": {"user-label": "preserve"}},
+            )
+        ):
+            with self.subTest(metadata=metadata):
+                before = copy.deepcopy(maintenance.job_configuration(self.cloud.current))
+                template = before["spec"]["template"]
+                if metadata is None:
+                    del template["metadata"]
+                else:
+                    template["metadata"] = copy.deepcopy(metadata)
+                after = copy.deepcopy(before)
+                after["spec"]["template"].setdefault("metadata", {}).setdefault("annotations", {})[
+                    key
+                ] = f"after-{index}"
+                frozen_before, frozen_after = copy.deepcopy(before), copy.deepcopy(after)
+
+                self.assertTrue(maintenance.configurations_equal(before, after))
+                self.assertTrue(maintenance.configurations_equal(after, before))
+                self.assertEqual(before, frozen_before)
+                self.assertEqual(after, frozen_after)
+                self.assertNotEqual(maintenance.fingerprint(before), maintenance.fingerprint(after))
+
+    def test_pending_client_version_recovery_only_reads_job_and_preserves_v1_checkpoint(
+        self,
+    ):
+        key = "run.googleapis.com/client-version"
+        for rollback in (False, True):
+            with self.subTest(rollback=rollback):
+                cloud = FakeCloud()
+                cloud.current["spec"]["template"]["metadata"]["annotations"] = {
+                    key: "captured-before-update",
+                    "user-note": "preserve",
+                }
+                tool = maintenance.Maintenance(
+                    self.root / f"client-version-{rollback}" / RELEASE,
+                    self.repository,
+                    cloud,
+                )
+                tool.prepare()
+                baseline_path = tool.directory / "job-before.json"
+                baseline_bytes = baseline_path.read_bytes()
+                baseline_fingerprint = tool.load()["baseline_fingerprint"]
+                tool.submit()
+                self.assertEqual(tool.status()["phase"], "build_verified")
+                if rollback:
+                    self.assertEqual(tool.update_image()["phase"], "promoted")
+
+                # Model an existing v1 checkpoint left pending after the provider
+                # accepted the image write but changed this one client annotation.
+                cloud.call(
+                    [
+                        "run",
+                        "jobs",
+                        "update",
+                        maintenance.JOB,
+                        f"--region={maintenance.REGION}",
+                        f"--image={OLD if rollback else NEW}",
+                    ]
+                )
+                cloud.current["spec"]["template"]["metadata"]["annotations"][key] = "new-client"
+                state = tool.load()
+                state["phase"] = "rollback_pending" if rollback else "promotion_pending"
+                tool.save(state)
+                calls_before, reads_before, updates_before = (
+                    len(cloud.calls),
+                    cloud.job_reads,
+                    cloud.updates,
+                )
+
+                result = tool.status()
+                self.assertEqual(result["phase"], "rolled_back" if rollback else "promoted")
+                self.assertEqual(cloud.job_reads, reads_before + 1)
+                self.assertEqual(len(cloud.calls), calls_before)
+                self.assertEqual(cloud.updates, updates_before)
+                self.assertEqual(baseline_path.read_bytes(), baseline_bytes)
+                self.assertEqual(tool.load()["baseline_fingerprint"], baseline_fingerprint)
+
+                baseline = maintenance.read_private(baseline_path)
+                baseline["spec"]["template"]["metadata"]["annotations"][key] = "tampered"
+                maintenance.write_private(baseline_path, baseline)
+                with self.assertRaisesRegex(maintenance.MaintenanceError, "fingerprint changed"):
+                    tool.load()
+
     def test_added_nonce_only_metadata_does_not_block_image_update(self):
         for index, baseline_metadata in enumerate(
             ({}, {"annotations": {"user-note": "preserve"}}, None)
@@ -409,6 +501,42 @@ class MaintenanceTests(unittest.TestCase):
             (
                 ("spec", "template", "spec", "template", "metadata", "labels"),
                 {"client.knative.dev/nonce": "not-ignored-in-task-template"},
+            ),
+            (
+                ("spec", "template", "metadata", "annotations", "user-note"),
+                "not-ignored",
+            ),
+            (
+                (
+                    "spec",
+                    "template",
+                    "metadata",
+                    "annotations",
+                    "run.googleapis.com/client-name",
+                ),
+                "not-an-observed-template-exception",
+            ),
+            (
+                (
+                    "spec",
+                    "template",
+                    "metadata",
+                    "labels",
+                    "run.googleapis.com/client-version",
+                ),
+                "not-ignored-as-a-label",
+            ),
+            (
+                (
+                    "spec",
+                    "template",
+                    "spec",
+                    "template",
+                    "metadata",
+                    "annotations",
+                    "run.googleapis.com/client-version",
+                ),
+                "not-ignored-in-task-template",
             ),
         ]
         for rollback in (False, True):

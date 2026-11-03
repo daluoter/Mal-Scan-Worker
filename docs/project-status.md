@@ -30,7 +30,11 @@ PDF 已取出 68-byte EICAR 附件並命中 YARA，但子檔僅有 generic YARA 
 不能為讓測試變紅而人工提高分數，也不能把失敗階段的 `infected=false` 當成防毒陰性。
 見[本輪跟進紀錄](milestones/2026-11-03-document-embedded-cloud-followup.json)。
 先保留七天新鮮度檢查，完成一次受控人工簽章病毒庫更新與報告介面修正，再以新工作重驗這兩案。
-前端長 URL／路徑換行修正的本機驗證與正式發布結果另待本批交付核對；既有成本、保留期與後續功能依原 ID 追蹤。
+前端長 URL／路徑換行與 partial 提示已完成本機驗證，正式 Pages 尚待發布；既有成本、保留期與後續功能依原 ID 追蹤。
+11/3 的使用者維護輸出已證明候選建置與離線正常／EICAR 控制成功；daily 28172、三份官方簽章通過。
+更新後 Job 已 Ready、image 等於候選，但因執行範本 `client-version` 註記差異而停在 `promotion_pending`。
+維護工具已補精確路徑比較修正與既有 state 接續流程，依[接續手冊第 3.1 節](deploy-report-followup.md#31-已套用候選映像卻停在-promotion_pending)
+更新本機工具後只執行 `status` 核對；尚未取得修正後 `promoted` 與新掃描報告，不提前將 F-11 或自動更新結案。
 
 本批 F-03 已完成程式／本機驗證，涵蓋 PDF 附件／Office 嵌入物件：從宣告的 PDF filespec／stream、
 OOXML member／relationship 與 OLE Package 取得實際 bytes，建立來源與子檔後進入共用靜態掃描。

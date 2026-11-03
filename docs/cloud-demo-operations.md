@@ -115,11 +115,15 @@ promote 再次驗證候選、daily 年齡及既有設定未變，只以 `--image
 
 若更新回應不確定，使用 status 核對既有狀態，不要重跑更新。已成功 promote 且現行設定仍一致時，可明確執行 `rollback` 回到保存的上一個 digest。舊映像的病毒庫也會變舊；回退不取代新鮮度檢查，七天 gate 仍可能讓其 ClamAV 階段失敗。
 
-設定比對只排除已確認會隨更新改變的兩個系統標籤：Job 的
-`metadata.labels["run.googleapis.com/lastUpdatedTime"]`，以及
-`spec.template.metadata.labels["client.knative.dev/nonce"]`。其他使用者標籤、
+既有 Job 頂層 client／operation／creator annotations 過濾保持不變；設定比較另排除已觀察到
+會隨更新改變的精確 metadata 路徑：Job 的
+`metadata.labels["run.googleapis.com/lastUpdatedTime"]`、
+`spec.template.metadata.labels["client.knative.dev/nonce"]`，以及
+`spec.template.metadata.annotations["run.googleapis.com/client-version"]`。
+第三項是 11/3 使用者唯讀診斷中唯一的設定差異，Job 已 Ready 且 image 已符合候選。
+task template 中的同名 annotation 仍須比對。其他使用者標籤、註記、
 環境變數、Secret 參照、資源限制及 service account 仍須一致。
-舊版若因這兩個標籤而停在 `promotion_pending`，更新維護工具後執行 `status`
+舊版若僅因上述已確認欄位而停在 `promotion_pending`，更新維護工具後執行 `status`
 即可重新核對並記錄 `promoted`；此步驟只讀取雲端設定，不重新提交更新。
 既有 `job-before.json` 與 v1 檢查點指紋的驗證方式保留，無須修改檢查點或重建映像。
 

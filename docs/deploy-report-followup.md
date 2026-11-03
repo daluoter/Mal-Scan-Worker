@@ -98,6 +98,31 @@ PY_STATE
 新鮮度從 daily 資料庫所載時間起算，不是從 promotion 起算。
 若切換後隔數天才測試，需重新核對 daily 年齡；舊 state 的 `promoted` 是發布紀錄，不是當前掃描健康證明。
 
+### 3.1 已套用候選映像，卻停在 promotion_pending
+
+11/3 使用者已取得 `build_verified`、`SUCCESS` 與完整離線控制；daily 28172 在控制時約 22 小時，三份資料庫簽章皆通過。
+隨後 `promote` 出現 `Post-update configuration differs`。唯讀診斷確認 Job 已 Ready、image 等於候選，
+唯一差異為 `/spec/template/metadata/annotations/run.googleapis.com~1client-version`。
+這是 gcloud 客戶端版本註記，維護工具現已只在該精確路徑排除它；其他設定仍嚴格比對。
+
+此情況仍在**第 3 節末尾的狀態核對**。依修正發布訊息，在同一份來源 checkout fetch 並切到修正 commit，
+保留既有 `malscan-v2-f11-followup-source-path.txt`、`malscan-v2-f11-followup-state-path.txt` 與私人 state。
+然後只執行：
+
+```bash
+(
+  set -e
+  cd "$(cat "$HOME/malscan-v2-f11-followup-source-path.txt")"
+  python3 deployment/cloud-run/maintain-demo.py status \
+    --state-dir "$(cat "$HOME/malscan-v2-f11-followup-state-path.txt")"
+)
+```
+
+這會讀取現行 Job；設定完全符合候選且 Ready 時，只把本機 state 記錄為 `promoted`，不再次送出 image 更新、
+不建置、不執行掃描。看到 `phase=promoted` 後接**第 4 節 Pages 更新**，再接第 5 節兩案驗收。
+若仍為 pending，保留 state 並重新核對差異，不清除檢查點或直接改 phase；相同錯誤文字不代表每次都是同一原因。
+原始 `job-before.json` 與 v1 指紋驗證保留，回退基準不因這項比對修正而重寫。
+
 ## 4. 更新既有 Cloudflare Pages 前端
 
 Cloud Shell 原有 Wrangler 登入通常可以沿用。先檢查身分；如已登出，使用既有 Cloudflare 帳戶的

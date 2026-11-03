@@ -208,5 +208,48 @@
     "fresh_official_database_download_or_native_clamav_scan_performed_by_this_test": false,
     "worker_runtime_or_risk_policy_changed": false,
     "black_ruff": "passed"
+  },
+  "signed_database_refresh_followup": {
+    "source": "User-provided Cloud Shell maintenance status and normalized read-only diagnosis; no independent agent cloud query",
+    "build_id": "12997202-efcd-43e7-a136-3503668232d6",
+    "release": "db-20261103T042259Z-68a4cbe12965",
+    "build_status": "SUCCESS",
+    "candidate_image": "us-central1-docker.pkg.dev/malscan-v2-poc/malscan-v2-poc/full-worker@sha256:4a018a2a947a9d110e506cd40caf76e6ecd1c25d8ad7564c5d12ed2ed310b263",
+    "candidate_controls": {
+      "success": true,
+      "checked_at_utc": "2026-11-03T04:25:41.152373Z",
+      "clamav_version": "ClamAV 1.4.3/28172/Mon Nov  2 06:24:10 2026",
+      "daily_version": 28172,
+      "daily_created_at_epoch": 1793600650,
+      "daily_age_seconds_at_control": 79256,
+      "main_daily_bytecode_signatures_verified": true,
+      "clamav_clean_and_eicar_controls_passed": true,
+      "yara_clean_and_eicar_controls_passed": true,
+      "controls_module_sha256": "b9dd37b91cb90c519a56dd9edfd68965e6c16437edf6a17caed902d2fa3ad025",
+      "yara_rules_sha256": "52cc7df2f9732941bce0f079bb70b36f01f04008b0a458398ef3ee58679a7dcc"
+    },
+    "reported_post_update_diagnosis": {
+      "phase": "promotion_pending",
+      "job_ready": true,
+      "image_matches_candidate": true,
+      "image_matches_previous": false,
+      "normalized_difference_count": 1,
+      "normalized_difference_paths": [
+        "/spec/template/metadata/annotations/run.googleapis.com~1client-version"
+      ]
+    },
+    "operator_fix": {
+      "comparison_exception": "Only add the observed execution-template client-version annotation exception; task-template and user annotations remain compared, existing top-level metadata filters are unchanged",
+      "legacy_v1_fingerprint_preserved": true,
+      "pending_status_recovery_requires_another_image_update_or_build": false,
+      "maintenance_tests_passed": 25,
+      "all_operator_tests_run": 90,
+      "all_operator_tests_skipped": 1,
+      "skip_reason": "Existing optional gcloud SDK projection tests unavailable without gcloud SDK library"
+    },
+    "reconciled_promoted_output_received": false,
+    "new_full_static_cloud_smoke_received": false,
+    "pages_publication_evidence_received": false,
+    "cloud_run_executed_by_this_maintenance": false
   }
 }
