@@ -258,7 +258,7 @@ PY_CHANNELS
 若使用 `c907187` 建立的舊 plan，僅更新本機安裝工具後，從原 plan 接續第四步即可。
 不要重新 prepare、刪除帳號、改 journal 或重新打包 `source.tar.gz`；bundle 仍固定原核准 commit，
 已取得的 GCS generation 也保持不變。卡在第一個帳號的這次安裝尚未走到 bundle 上傳。
-本次修補沒有更改 controller、建置範本、核准來源或 IAM 範圍，舊 plan 可沿用。
+帳號讀回修補沒有更改 controller、建置範本、核准來源或 IAM 範圍，舊 plan 可沿用。
 若等待後仍出現錯誤，提供新的安全摘要即可，保留原檔案供後續讀回核對。
 
 ### 5. 執行一次停用狀態的健康檢查
@@ -297,6 +297,39 @@ gcloud builds describe "$V2_AUTO_PROBE_BUILD_ID" \
 應看到最近的 `last_healthy_at`、`last_status: paused_healthy`，排程及更新仍停用。
 若 `probe` 提交回應遺失，重新使用同一 plan 執行 `probe` 會查唯一 request tag；找不到或不唯一就停止，
 不會再提交一次。若已核准病毒庫超過七天，必須先走人工更新並取得新 checkpoint，不能跳過 freshness gate。
+
+#### 舊版 probe 在 Python 啟動前失敗
+
+11/4 首次停用安裝已完成，但第一個 probe Build 在啟動容器時回報
+`exec: "python3": executable file not found in $PATH`。controller 尚未開始，因此健康紀錄為 null。
+精簡 Cloud SDK 映像刻意不把 bundled Python 加入 PATH；它的 Python 預設 SSL trust store 也沒有 CA。
+修補版固定已實測的 SDK image digest、Python 絕對路徑及 SDK certifi CA 路徑，保留 TLS 驗證。
+CI 也直接執行該容器，檢查 Python、可信 CA、gcloud 與 controller imports，避免只靠 API mocks。
+
+已安裝的舊 plan 不必重建。先更新本機來源至這次 runtime 修補版本，再執行：
+
+```bash
+(
+  set -e
+  cd "$(cat "$HOME/malscan-v2-auto-update-source-path.txt")"
+  python3 deployment/cloud-run/setup-auto-update.py repair-runtime \
+    --plan-dir "$(cat "$HOME/malscan-v2-auto-update-plan-path.txt")"
+)
+```
+
+此命令要求 Scheduler 為 PAUSED、state 為 disabled、沒有 active campaign／lease，
+且原 probe 的來源、身分、request 與 terminal FAILURE 都匹配該次 Python 啟動失敗。
+它先保存修補意圖，只 PATCH 既有 Scheduler 的 controller request body，讀回成功後才啟用私人 runtime override。
+原 plan、bundle、GCS generation、目前／回退映像與 IAM 範圍都保留；原失敗 probe 另存歷史紀錄。
+Scheduler API 的讀回與 PATCH 不是和 Console 編輯的原子交易，修補期間不要另行修改該排程。
+
+預期 `scope: controller_runtime_repair`、`status: confirmed`、`probe_submitted: false`。
+若回應不明，下次同一命令只讀回核對，不重送 PATCH；不要清除 pending 或手改計畫來重試。
+修補成功後，使用同一 plan 再執行本節的 `probe`，取得**一個新的 Build ID**。
+重複 `repair-runtime` 不會清除這個新 probe；重複 `probe` 只回傳既有 ID，不額外提交。
+
+再依上述方式查新 Build 與 `status`，確認 `paused_healthy` 才進入第六步。
+`source_commit` 仍可為原核准的 `c907187`：這次修補的是執行環境，沒有重新發布應用程式。
 
 ### 6. 明確啟用並核對新健康點
 

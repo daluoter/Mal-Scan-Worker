@@ -39,6 +39,44 @@ jobs:
       - name: Test maintenance, scheduled updates, provisioning, and retention
         run: python3 -m unittest discover -s deployment/cloud-run -p 'test_*.py' -v
 
+      - name: Verify the actual pinned controller runtime
+        run: |
+          python3 - <<'PY_RUNTIME'
+          import json
+          import subprocess
+          import textwrap
+          from pathlib import Path
+
+          root = Path.cwd().resolve()
+          config = json.loads((root / 'deployment/cloud-run/cloudbuild-auto-update.json').read_text())
+          step = config['steps'][0]
+          smoke = textwrap.dedent('''\
+          import importlib, json, shutil, ssl, subprocess, sys
+          sys.path.insert(0, 'deployment/cloud-run')
+          assert sys.version_info >= (3, 10)
+          assert ssl.create_default_context().cert_store_stats()['x509_ca'] > 0
+          assert shutil.which('gcloud')
+          for name in ('auto_state', 'auto_retention', 'auto_monitoring', 'auto_update', 'auto_runtime'):
+              importlib.import_module(name)
+          subprocess.run(['gcloud', 'version', '--format=json'], check=True, stdout=subprocess.DEVNULL)
+          subprocess.run([sys.executable, 'deployment/cloud-run/auto_update.py', '--help'], check=True, stdout=subprocess.DEVNULL)
+          subprocess.run([sys.executable, '-m', 'unittest', 'discover', '-s', 'deployment/cloud-run', '-p', 'test_gcloud_projections.py', '-v'], check=True)
+          print(json.dumps({'controller_runtime': 'verified', 'python': sys.version.split()[0], 'trusted_ca_count': ssl.create_default_context().cert_store_stats()['x509_ca'], 'network': 'none'}))
+          ''')
+          command = [
+              'docker', 'run', '--rm', '--network=none', '--read-only',
+              '--tmpfs=/tmp:rw,size=64m',
+              '--mount', f'type=bind,source={root},target=/workspace,readonly',
+              '--workdir=/workspace', '--env=PYTHONDONTWRITEBYTECODE=1',
+              '--env=CLOUDSDK_CONFIG=/tmp/malscan-controller-smoke',
+              '--env=CLOUDSDK_CORE_DISABLE_USAGE_REPORTING=true',
+          ]
+          for value in step.get('env', []):
+              command += ['--env', value]
+          command += ['--entrypoint', step['entrypoint'], step['name'], '-c', smoke]
+          subprocess.run(command, check=True)
+          PY_RUNTIME
+
       - name: Test private source-only Worker configuration helper
         run: python3 -m unittest discover -s deployment/cloudflare -p 'test_*.py' -v
 
@@ -75,6 +113,8 @@ jobs:
           Automatic database update tests cover durable intents, lease/CAS conflicts,
           bounded retention and paused provisioning; scheduled cloud refreshes,
           alert ingestion/delivery and billed savings require separate live evidence.
+          The pinned controller image is also exercised without network access,
+          checking bundled Python, CA trust, gcloud and controller module imports.
           The optional full-worker container fixture test is skipped when no
           MALSCAN_RUNNER_FIXTURE_DIR is supplied. Run that separate container check
           using deployment/cloudflare/README.md before releasing a new runner image.

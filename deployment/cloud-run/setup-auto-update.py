@@ -491,9 +491,7 @@ class Provisioner:
         expected_monitoring = module(
             "setup_validated_monitoring", "auto_monitoring.py"
         ).monitoring_plan(PROJECT, p.get("notification_channel", ""))
-        template = json.loads(
-            (ROOT / "deployment/cloud-run/cloudbuild-auto-update.json").read_text()
-        )
+        runtime = module("setup_validated_runtime", "auto_runtime.py")
         if (
             p.get("scope") != "reviewed_private_database_update_setup"
             or p.get("job") != JOB
@@ -507,7 +505,7 @@ class Provisioner:
             or p.get("service_accounts") != ACCOUNTS
             or p.get("custom_roles") != role_documents()
             or p.get("bucket_configuration") != bucket_document(p["bucket"])
-            or p.get("controller_build_template") != template
+            or not runtime.supported_template(p.get("controller_build_template"))
             or p.get("scheduler") != {"name": SCHEDULER, "schedule": SCHEDULE, "time_zone": "UTC"}
             or p.get("monitoring") != expected_monitoring
         ):
@@ -1016,18 +1014,34 @@ class Provisioner:
         self.journal["operations"]["initial-state"] = {"status": "confirmed"}
         self.save()
 
-    def build_request(self):
+    def effective_controller_template(self):
+        runtime = module("setup_effective_runtime", "auto_runtime.py")
+        try:
+            return runtime.effective_template(self.plan, self.journal)
+        except runtime.RuntimeRepairError as error:
+            raise SetupError(str(error)) from None
+
+    def require_current_runtime(self):
+        runtime = module("setup_current_runtime", "auto_runtime.py")
+        if self.effective_controller_template() != runtime.current_template():
+            raise SetupError("setup_controller_runtime_repair_required")
+
+    def build_request(self, *, template=None):
         source = self.journal.get("storage_source")
         if not source:
             raise SetupError("setup_bundle_generation_unavailable")
-        request = copy.deepcopy(self.plan["controller_build_template"])
+        runtime = module("setup_request_runtime", "auto_runtime.py")
+        selected = self.effective_controller_template() if template is None else template
+        if not runtime.supported_template(selected):
+            raise SetupError("setup_controller_runtime_unrecognized")
+        request = copy.deepcopy(selected)
         request["source"] = {"storageSource": source}
         request["serviceAccount"] = account_resource(ACCOUNTS["controller"])
         request.setdefault("substitutions", {})["_OPS_BUCKET"] = self.plan["bucket"]
         request["tags"] = [TAG]
         return request
 
-    def scheduler_document(self):
+    def scheduler_document(self, *, template=None):
         return {
             "name": f"projects/{PROJECT}/locations/{REGION}/jobs/{SCHEDULER}",
             "description": PURPOSE,
@@ -1039,7 +1053,7 @@ class Provisioner:
                 "uri": f"https://cloudbuild.googleapis.com/v1/projects/{PROJECT}/locations/{REGION}/builds",
                 "httpMethod": "POST",
                 "headers": {"Content-Type": "application/json"},
-                "body": base64.b64encode(canonical(self.build_request())).decode(),
+                "body": base64.b64encode(canonical(self.build_request(template=template))).decode(),
                 "oauthToken": {
                     "serviceAccountEmail": ACCOUNTS["scheduler"],
                     "scope": "https://www.googleapis.com/auth/cloud-platform",
@@ -1228,6 +1242,7 @@ class Provisioner:
     def probe(self):
         if self.journal.get("phase") != "installed_paused":
             raise SetupError("setup_probe_requires_paused_installation")
+        self.require_current_runtime()
         self._verify_installation()
         state, _ = self._approved_state()
         if state.get("enabled") is not False or state.get("active") is not None:
@@ -1256,7 +1271,8 @@ class Provisioner:
                 matches = [
                     b for b in listed.get("builds", []) if entry["intent_tag"] in b.get("tags", [])
                 ]
-                if len(matches) != 1 or not subset(desired, matches[0]):
+                runtime = module("setup_probe_runtime", "auto_runtime.py")
+                if len(matches) != 1 or not runtime.build_matches(desired, matches[0]):
                     raise SetupError("setup_probe_submission_requires_reconciliation")
                 entry["build_id"] = matches[0].get("id")
                 if not self._build_id(entry["build_id"]):
@@ -1301,6 +1317,7 @@ class Provisioner:
     def enable(self):
         if self.journal.get("phase") not in {"installed_paused", "activation_submitted"}:
             raise SetupError("setup_enable_requires_completed_installation")
+        self.require_current_runtime()
         self._verify_installation()
         state, generation = self._approved_state()
         lease, _ = self.store.load_json("lease.json")
@@ -1452,6 +1469,8 @@ class Provisioner:
 
     def status(self):
         state, _ = self.store.load_json("state.json")
+        effective_runtime = self.effective_controller_template()
+        legacy_runtime = effective_runtime["steps"][0]["entrypoint"] == "python3"
         safe_state = {}
         if state is not None:
             auto = module("setup_status_controller", "auto_update.py")
@@ -1476,6 +1495,12 @@ class Provisioner:
             "automatic_updates_enabled": safe_state.get("enabled", False),
             "last_healthy_at": safe_state.get("last_healthy_at"),
             "registered_source_matches": same_source,
+            "controller_runtime": (
+                "legacy_requires_repair" if legacy_runtime else "sdk_bundled_python"
+            ),
+            "runtime_repair_status": self.journal.get("runtime_repair", {}).get(
+                "status", "required" if legacy_runtime else "not_required"
+            ),
             "controller_in_flight": bool(
                 (state and state.get("active") is not None) or lease is not None
             ),
@@ -1487,11 +1512,19 @@ class Provisioner:
             "live_automatic_update_or_notification_delivery_verified": False,
         }
 
+    def repair_runtime(self):
+        runtime = module("setup_repair_runtime", "auto_runtime.py")
+        try:
+            return runtime.repair(self)
+        except runtime.RuntimeRepairError as error:
+            raise SetupError(str(error)) from None
+
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
-        "operation", choices=("prepare", "apply", "probe", "enable", "pause", "status")
+        "operation",
+        choices=("prepare", "apply", "probe", "enable", "pause", "status", "repair-runtime"),
     )
     parser.add_argument("--repository", type=Path, default=ROOT)
     parser.add_argument("--maintenance-state-dir", type=Path)
@@ -1516,7 +1549,7 @@ def main():
         else:
             if not args.plan_dir:
                 raise SetupError("setup_plan_directory_required")
-            result = getattr(Provisioner(args.plan_dir), args.operation)()
+            result = getattr(Provisioner(args.plan_dir), args.operation.replace("-", "_"))()
         print(json.dumps(result, indent=2))
     except Exception as error:
         print(json.dumps(failure_summary(error)))

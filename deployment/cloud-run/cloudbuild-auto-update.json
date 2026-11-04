@@ -2,8 +2,11 @@
   "steps": [
     {
       "id": "database-update-controller",
-      "name": "gcr.io/google.com/cloudsdktool/google-cloud-cli:stable",
-      "entrypoint": "python3",
+      "name": "gcr.io/google.com/cloudsdktool/google-cloud-cli@sha256:18d8c484aaef27d7ef7b54dfb018f73712503d254a16f0a76b2626b4f6003af2",
+      "entrypoint": "/usr/lib/google-cloud-sdk/platform/bundledpythonunix/bin/python3",
+      "env": [
+        "SSL_CERT_FILE=/usr/lib/google-cloud-sdk/lib/third_party/certifi/cacert.pem"
+      ],
       "args": [
         "deployment/cloud-run/auto_update.py",
         "run",

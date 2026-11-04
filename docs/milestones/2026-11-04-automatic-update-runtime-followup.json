@@ -1,0 +1,72 @@
+{
+  "schema_version": 1,
+  "date_taipei": "2026-11-04",
+  "checklist_id": "P0-12",
+  "checklist_status": "in_progress",
+  "scope": "paused installation observed; pre-Python probe failure and controlled runtime repair delivery",
+  "user_provided_observation": {
+    "installation_phase": "installed_paused",
+    "scheduler_state": "PAUSED",
+    "automatic_updates_enabled": false,
+    "registered_source_matches": true,
+    "active_campaign_or_lease_present": false,
+    "approved_source_commit": "c907187c5c87a32b7cd25828ed98041b2f779c13",
+    "probe_build_id": "cb364471-9670-4ec9-a77f-f0ee6eb9b6b4",
+    "probe_status": "FAILURE",
+    "failure_type": "USER_BUILD_STEP",
+    "failure_scope": "container could not start python3 from PATH; controller did not start",
+    "healthy_checkpoint_observed": false,
+    "independent_provider_query_by_agent": false
+  },
+  "runtime_fix": {
+    "image": "gcr.io/google.com/cloudsdktool/google-cloud-cli@sha256:18d8c484aaef27d7ef7b54dfb018f73712503d254a16f0a76b2626b4f6003af2",
+    "entrypoint": "/usr/lib/google-cloud-sdk/platform/bundledpythonunix/bin/python3",
+    "ssl_cert_file": "/usr/lib/google-cloud-sdk/lib/third_party/certifi/cacert.pem",
+    "tls_verification_disabled": false,
+    "source_reference": "https://github.com/GoogleCloudPlatform/cloud-sdk-docker/blob/master/stable/Dockerfile",
+    "actual_container": {
+      "python": "3.14.9",
+      "google_cloud_sdk": "592.0.0",
+      "python3_on_path": false,
+      "default_stdlib_trusted_ca_count": 0,
+      "sdk_certifi_trusted_ca_count": 120,
+      "controller_imports_and_help": "passed",
+      "gcloud_version": "passed",
+      "network_disabled_smoke": "passed",
+      "controller_runtime_tests_in_container_passed": 96,
+      "real_sdk_projection_tests_passed": 4,
+      "approved_archive_staging_selection": "passed offline without Git; 254 selected files, no stderr",
+      "operator_git_archive_fixture_scope": "validated on host; Git is intentionally absent from this production SDK image",
+      "public_https_smoke": "HTTP 200 with TLS verification; local session proxy only used a readonly combined CA overlay at the same certifi path",
+      "authenticated_cloud_api_calls": false
+    }
+  },
+  "recovery": {
+    "command": "setup-auto-update.py repair-runtime --plan-dir ORIGINAL_PLAN",
+    "requires": "paused Scheduler, disabled idle state, no lease, exact approved source/current metadata and recorded terminal pre-Python failure",
+    "remote_write": "only the Scheduler httpTarget.body after durable intent",
+    "source_plan_bundle_generation_images_and_iam_preserved": true,
+    "unknown_patch_response": "readback only; never repeat PATCH",
+    "confirmed_repair": "atomic private journal confirmation and failed probe archival",
+    "next_probe": "one new distinct intent; repeated repair or probe cannot clear/resubmit that new probe",
+    "console_edit_isolation": "readback guards are not an atomic transaction with arbitrary concurrent Console changes"
+  },
+  "local_validation": {
+    "new_runtime_tests_passed": 13,
+    "all_cloud_run_operations_tests_passed": 215,
+    "optional_sdk_test_classes_skipped_on_host": 1,
+    "actual_original_release_plan_integration": "c907187 plan and bundle preserved; one Scheduler body PATCH; one new probe only; global state unchanged",
+    "original_bundle_sha256": "61503e22e57be246e314fcf9c55ef2448c5375f6a0a983f40995de5cfc4f52f9",
+    "black_and_ruff": "passed for changed Python files",
+    "ci_change": "exercise actual pinned SDK container offline, checking Python, CA trust, gcloud and controller imports"
+  },
+  "remaining_cloud_acceptance": {
+    "runtime_repair_applied_by_user": false,
+    "new_paused_probe_healthy": false,
+    "schedule_activated": false,
+    "scheduled_database_refresh_verified": false,
+    "notification_delivery_and_billed_cost_verified": false
+  },
+  "agent_mutated_cloud_resources": false,
+  "private_plan_journal_notification_labels_or_credentials_published": false
+}
