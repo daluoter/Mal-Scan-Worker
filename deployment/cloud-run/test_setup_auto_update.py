@@ -65,6 +65,7 @@ class FakeREST:
         self.builds = []
         self.lose_after = set()
         self.omit_defaults = True
+        self.invisible_reads = {}
         self.channel = {"name": CHANNEL, "enabled": True, "verificationStatus": "VERIFIED"}
         self.policies[
             f"https://cloudresourcemanager.googleapis.com/v1/projects/{setup.PROJECT}"
@@ -117,6 +118,9 @@ class FakeREST:
             self.policies[resource] = value
             return self._response(method, url, value)
         if method == "GET":
+            if base in self.resources and self.invisible_reads.get(base, 0):
+                self.invisible_reads[base] -= 1
+                return None
             if base == f"https://cloudresourcemanager.googleapis.com/v1/projects/{setup.PROJECT}":
                 return {"projectId": setup.PROJECT, "projectNumber": "371636043543"}
             if "/services/" in base:
@@ -205,6 +209,7 @@ class FakeREST:
 
 class ProvisioningTests(unittest.TestCase):
     def setUp(self):
+        self.readback_delays = []
         self.temp = tempfile.TemporaryDirectory()
         self.directory = Path(self.temp.name) / "plan"
         self.directory.mkdir(mode=0o700)
@@ -284,6 +289,7 @@ class ProvisioningTests(unittest.TestCase):
             rest=self.rest,
             store=self.store,
             live_job=lambda: copy.deepcopy(self.job),
+            readback_sleep=self.readback_delays.append,
         )
 
     def test_initial_apply_is_paused_disabled_and_repeat_has_no_writes(self):
@@ -384,6 +390,77 @@ class ProvisioningTests(unittest.TestCase):
         self.provisioner().apply()
         creates = [c for c in self.rest.calls if c[0] == "POST" and c[1] == endpoint]
         self.assertEqual(len(creates), 3)  # Three distinct accounts, no repeated first account.
+
+    def test_new_account_visibility_delay_retries_only_reads(self):
+        url = "https://iam.googleapis.com/v1/" + setup.account_resource(setup.ACCOUNTS["scheduler"])
+        self.rest.invisible_reads[url] = 3
+        result = self.provisioner().apply()
+        self.assertEqual(result["phase"], "installed_paused")
+        self.assertEqual(self.readback_delays, [1, 2, 4])
+        creates = self.writes("/serviceAccounts")
+        self.assertEqual(len(creates), 3)
+        self.assertEqual(
+            sum(c[2]["accountId"] == setup.ACCOUNT_IDS["scheduler"] for c in creates), 1
+        )
+
+    def test_accepted_account_visibility_timeout_preserves_intent_then_resumes(self):
+        url = "https://iam.googleapis.com/v1/" + setup.account_resource(setup.ACCOUNTS["scheduler"])
+        self.rest.invisible_reads[url] = 100
+        with self.assertRaisesRegex(setup.SetupError, "^setup_write_not_verified$") as caught:
+            self.provisioner().apply()
+        self.assertEqual(self.readback_delays, list(setup.READBACK_DELAYS))
+        self.assertEqual(sum(self.readback_delays), 60)
+        self.assertEqual(caught.exception.operation, "account:scheduler")
+        self.assertFalse(caught.exception.readback_observed)
+        saved = setup.read_private(self.directory / "apply-state.json")
+        self.assertEqual(saved["operations"]["account:scheduler"]["status"], "pending")
+        self.assertTrue(saved["operations"]["account:scheduler"]["provider_accepted"])
+        self.assertEqual(len(self.writes("/serviceAccounts")), 1)
+        self.rest.invisible_reads[url] = 0
+        self.assertEqual(self.provisioner().apply()["phase"], "installed_paused")
+        self.assertEqual(len(self.writes("/serviceAccounts")), 3)
+
+    def test_unknown_create_response_and_delayed_readback_never_resubmit(self):
+        endpoint = f"https://iam.googleapis.com/v1/projects/{setup.PROJECT}/serviceAccounts"
+        url = "https://iam.googleapis.com/v1/" + setup.account_resource(setup.ACCOUNTS["scheduler"])
+        self.rest.lose_after.add(("POST", endpoint))
+        with self.assertRaisesRegex(setup.SetupError, "test_provider_response_unknown"):
+            self.provisioner().apply()
+        self.rest.invisible_reads[url] = 2
+        self.assertEqual(self.provisioner().apply()["phase"], "installed_paused")
+        self.assertEqual(self.readback_delays, [1, 2])
+        self.assertEqual(len(self.writes("/serviceAccounts")), 3)
+
+    def test_confirmed_account_drift_fails_without_wait_or_write(self):
+        tool = self.provisioner()
+        tool.apply()
+        url = "https://iam.googleapis.com/v1/" + setup.account_resource(setup.ACCOUNTS["scheduler"])
+        self.rest.resources[url]["displayName"] = "changed-by-another-operator"
+        with self.assertRaisesRegex(setup.SetupError, "setup_resource_differs_from_plan") as caught:
+            tool._accounts_and_roles()
+        self.assertEqual(caught.exception.operation, "account:scheduler")
+        self.assertTrue(caught.exception.readback_observed)
+        self.assertEqual(self.readback_delays, [])
+        self.assertEqual(len(self.writes("/serviceAccounts")), 3)
+
+    def test_pending_account_mismatch_stays_blocked_and_public_context_excludes_values(self):
+        endpoint = f"https://iam.googleapis.com/v1/projects/{setup.PROJECT}/serviceAccounts"
+        url = "https://iam.googleapis.com/v1/" + setup.account_resource(setup.ACCOUNTS["scheduler"])
+        self.rest.lose_after.add(("POST", endpoint))
+        with self.assertRaises(setup.SetupError):
+            self.provisioner().apply()
+        private_text = "unexpected-private-account-metadata"
+        self.rest.resources[url]["description"] = private_text
+        with self.assertRaisesRegex(setup.SetupError, "setup_resource_differs_from_plan") as caught:
+            self.provisioner().apply()
+        self.assertEqual(self.readback_delays, list(setup.READBACK_DELAYS))
+        self.assertEqual(len(self.writes("/serviceAccounts")), 1)
+        public = setup.failure_summary(caught.exception)
+        self.assertEqual(public["operation"], "account:scheduler")
+        self.assertTrue(public["readback_observed"])
+        self.assertNotIn(private_text, json.dumps(public))
+        saved = setup.read_private(self.directory / "apply-state.json")
+        self.assertEqual(saved["operations"]["account:scheduler"]["status"], "pending")
 
     def test_probe_unknown_response_reads_unique_build_without_resubmitting(self):
         self.provisioner().apply()

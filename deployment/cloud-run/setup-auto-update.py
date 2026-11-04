@@ -68,10 +68,33 @@ APIS = (
     "iam.googleapis.com",
     "storage.googleapis.com",
 )
+READBACK_DELAYS = (1, 2, 4, 8, 15, 15, 15)
 
 
 class SetupError(RuntimeError):
     """A fixed safe error code; provider bodies and credentials are excluded."""
+
+    def __init__(self, code: str, *, operation=None, readback_observed=None):
+        super().__init__(code)
+        self.operation = (
+            operation
+            if isinstance(operation, str) and re.fullmatch(r"[A-Za-z0-9:/._-]{1,240}", operation)
+            else None
+        )
+        self.readback_observed = readback_observed if isinstance(readback_observed, bool) else None
+
+
+def failure_summary(error: Exception) -> dict:
+    result = {
+        "success": False,
+        "error": str(error) if isinstance(error, SetupError) else "setup_operation_not_verified",
+        "automatic_updates_enabled_verified": False,
+    }
+    if isinstance(error, SetupError) and error.operation is not None:
+        result["operation"] = error.operation
+        if error.readback_observed is not None:
+            result["readback_observed"] = error.readback_observed
+    return result
 
 
 def module(name: str, filename: str):
@@ -449,7 +472,9 @@ def subset(expected: Any, actual: Any) -> bool:
 
 
 class Provisioner:
-    def __init__(self, directory: Path, *, rest=None, store=None, live_job=None):
+    def __init__(
+        self, directory: Path, *, rest=None, store=None, live_job=None, readback_sleep=None
+    ):
         if directory.is_symlink() or not directory.is_dir() or directory.stat().st_mode & 0o077:
             raise SetupError("setup_plan_directory_must_be_private")
         self.directory = directory.resolve()
@@ -523,6 +548,7 @@ class Provisioner:
         self.rest = rest or REST()
         self.store = store or module("setup_state", "auto_state.py").Store(self.plan["bucket"])
         self.live_job = live_job or module("setup_maintenance", "maintain-demo.py").Gcloud().job
+        self.readback_sleep = readback_sleep or time.sleep
         self._verify_only = False
         self.journal_path = self.directory / "apply-state.json"
         self.journal = (
@@ -551,13 +577,33 @@ class Provisioner:
     def save(self):
         write_private(self.journal_path, self.journal)
 
+    def wait_for_readback(self, read, matches, current):
+        """Only retry reads of a pending intent; never repeat its provider write.
+
+        IAM explicitly documents 60 seconds or more of read visibility delay.
+        The fixed backoff is bounded; a later same-plan call can keep reconciling.
+        An already confirmed resource never enters this waiting path.
+        """
+        for delay in READBACK_DELAYS:
+            if current is not None and matches(current):
+                return current
+            self.readback_sleep(delay)
+            current = read()
+        return current
+
     def ensure(self, name, read, matches, write, *, permit_existing=False):
         entry = self.journal["operations"].get(name)
         current = read()
         if self._verify_only:
             if entry is None or current is None or not matches(current):
-                raise SetupError("setup_installation_drift")
+                raise SetupError(
+                    "setup_installation_drift",
+                    operation=name,
+                    readback_observed=current is not None,
+                )
             return current
+        if entry is not None and entry.get("status") == "pending":
+            current = self.wait_for_readback(read, matches, current)
         if current is not None and matches(current):
             if entry is None and not permit_existing:
                 raise SetupError("setup_existing_resource_requires_review")
@@ -565,9 +611,15 @@ class Provisioner:
             self.save()
             return current
         if current is not None:
-            raise SetupError("setup_resource_differs_from_plan")
+            raise SetupError(
+                "setup_resource_differs_from_plan", operation=name, readback_observed=True
+            )
         if entry is not None:
-            raise SetupError("setup_pending_write_requires_reconciliation")
+            raise SetupError(
+                "setup_pending_write_requires_reconciliation",
+                operation=name,
+                readback_observed=False,
+            )
         self.journal["operations"][name] = {
             "status": "pending",
             "intent_at": datetime.now(timezone.utc).isoformat(),
@@ -576,9 +628,13 @@ class Provisioner:
         write()
         self.journal["operations"][name]["provider_accepted"] = True
         self.save()
-        current = read()
+        current = self.wait_for_readback(read, matches, read())
         if current is None or not matches(current):
-            raise SetupError("setup_write_not_verified")
+            raise SetupError(
+                "setup_write_not_verified",
+                operation=name,
+                readback_observed=current is not None,
+            )
         self.journal["operations"][name] = {"status": "confirmed"}
         self.save()
         return current
@@ -1463,12 +1519,7 @@ def main():
             result = getattr(Provisioner(args.plan_dir), args.operation)()
         print(json.dumps(result, indent=2))
     except Exception as error:
-        code = str(error) if isinstance(error, SetupError) else "setup_operation_not_verified"
-        print(
-            json.dumps(
-                {"success": False, "error": code, "automatic_updates_enabled_verified": False}
-            )
-        )
+        print(json.dumps(failure_summary(error)))
         raise SystemExit(1) from None
 
 

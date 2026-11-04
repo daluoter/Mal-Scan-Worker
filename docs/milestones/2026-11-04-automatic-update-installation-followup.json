@@ -1,0 +1,54 @@
+{
+  "schema_version": 1,
+  "date_taipei": "2026-11-04",
+  "checklist_id": "P0-12",
+  "checklist_status": "in_progress",
+  "scope": "first paused installation attempt and bounded readback recovery fix",
+  "user_provided_observation": {
+    "prepare_completed": true,
+    "approved_source_commit": "c907187c5c87a32b7cd25828ed98041b2f779c13",
+    "approved_bundle_sha256": "61503e22e57be246e314fcf9c55ef2448c5375f6a0a983f40995de5cfc4f52f9",
+    "apply_phase": "prepared",
+    "pending_operation": "account:scheduler",
+    "provider_accepted": true,
+    "error": "setup_write_not_verified",
+    "later_account_metadata": "email, displayName and description match requested values; disabled is absent",
+    "independent_provider_query_by_agent": false,
+    "completed_installation_or_schedule_activation_proven": false
+  },
+  "finding": {
+    "original_behavior": "one immediate read after accepted create",
+    "interpretation": "later matching metadata is consistent with documented IAM read visibility delay",
+    "official_reference": "https://cloud.google.com/iam/docs/service-accounts-create"
+  },
+  "fix": {
+    "retry": "read-only backoff for newly accepted or pending intents",
+    "delays_seconds": [1, 2, 4, 8, 15, 15, 15],
+    "total_backoff_seconds": 60,
+    "request_time_not_included_in_backoff_bound": true,
+    "confirmed_resource_drift": "still immediately rejected",
+    "writes_repeated_after_uncertain_response": false,
+    "timeout": "preserve pending intent and stop; same plan can reconcile later",
+    "safe_failure_context": ["operation", "readback_observed"],
+    "existing_approved_plan_and_bundle_preserved": true,
+    "controller_build_template_and_iam_scope_changed": false
+  },
+  "local_validation": {
+    "new_regression_tests": 5,
+    "provisioning_tests_passed": 29,
+    "all_cloud_run_operations_tests_passed": 202,
+    "optional_real_sdk_test_classes_skipped": 1,
+    "black_line_length_100": "passed for changed Python files",
+    "ruff_worker_configuration": "passed for changed Python files",
+    "cases": [
+      "new account visibility delay completes with one create",
+      "accepted create stays pending after timeout and later resumes without recreation",
+      "unknown create response plus delayed visibility reconciles without resubmission",
+      "confirmed account drift stops without waiting or writing",
+      "pending metadata mismatch remains blocked and values stay out of failure summary"
+    ],
+    "live_recovery_by_user_verified": false
+  },
+  "remaining": "resume apply using the same plan, then paused probe, explicit activation, real schedule, alerts and cost acceptance",
+  "private_plan_journal_notification_labels_or_credentials_published": false
+}

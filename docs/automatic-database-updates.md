@@ -244,6 +244,23 @@ PY_CHANNELS
 不明寫入結果先以同一 plan 重新讀回；已存在且符合計畫的操作不重送。
 若顯示 `pending_write_requires_reconciliation`，保留原 journal 處理，不能刪除 pending 後重試。
 
+#### 建立後讀回尚未就緒時
+
+11/4 首次安裝曾在 `account:scheduler` 留下 `pending`／`provider_accepted: true`，
+回報 `setup_write_not_verified`；之後使用者讀回的 email、displayName、description 全部符合預期。
+[Google IAM 官方文件](https://cloud.google.com/iam/docs/service-accounts-create)說明，
+新服務帳號的讀取採最終一致性，可能要 60 秒以上才可見。原版只立即讀回一次，因此會過早停止。
+
+修補版對新建立與既有 pending 操作只重查結果，退避等待合計最多 60 秒，不重送建立／修改請求；
+若仍無法驗證，就保留原意圖停止。已 confirmed 資源的設定差異仍立即阻擋，不套用等待或自動修復。
+讀回驗證失敗摘要會附 `operation` 與 `readback_observed`，不輸出 provider body 或計畫內的值。
+
+若使用 `c907187` 建立的舊 plan，僅更新本機安裝工具後，從原 plan 接續第四步即可。
+不要重新 prepare、刪除帳號、改 journal 或重新打包 `source.tar.gz`；bundle 仍固定原核准 commit，
+已取得的 GCS generation 也保持不變。卡在第一個帳號的這次安裝尚未走到 bundle 上傳。
+本次修補沒有更改 controller、建置範本、核准來源或 IAM 範圍，舊 plan 可沿用。
+若等待後仍出現錯誤，提供新的安全摘要即可，保留原檔案供後續讀回核對。
+
 ### 5. 執行一次停用狀態的健康檢查
 
 ```bash
