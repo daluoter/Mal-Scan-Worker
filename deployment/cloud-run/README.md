@@ -24,6 +24,10 @@ React Router 修補、精確正式 origin 與受限上傳入口已發布。這�
 不要重建 Secret、服務帳戶或 Job。repository 的 `wrangler.jsonc` 仍預設關閉上傳並使用 placeholder
 origin，作為安全的部署範本；重新 deploy 前必須檢閱，不能將範本直接覆蓋到正式環境。
 GitHub push 本身不代表 GCP／Cloudflare 已自動更新。
+
+P0-12 的[自動官方簽章病毒庫更新手冊](../../docs/automatic-database-updates.md)提供另一套明確啟用的維護流程：
+固定私有來源、每 12 小時檢查、daily 達三天才建置，保留目前與回退版並限制自動版本數。
+其初始安裝為 disabled／paused，不執行分析 Job；實際排程、告警送達、復原與費用仍待雲端驗收。
 以下在已登入該專案的 Cloud Shell、這份新版工作樹的 repository root 執行。先同步原始碼至 Shell。
 已提交的 Cloud Build／Cloud Run execution 不依賴 Shell 持續連線；重連先查既有 ID，不要重送。
 
@@ -103,7 +107,9 @@ gcloud artifacts docker images describe \
 後續使用 `full-worker@sha256:…`，不要用可變 tag。在 daily 資料庫年齡達五天前安排以新 RELEASE
 重建，預留下載／驗證失敗的修復時間，並強制 signatures layer 更新。七天是從 CVD 產生時間起算，
 不是映像建置時間；固定每七天重建可能留下過期空窗。freshclam 與 sigtool 驗證 CVD，建置與執行時拒絕超過七天的 daily CVD；過期會
-呈現 ClamAV coverage failed。更新排程須由部署者設定，這裡沒有聲稱已建立自動更新。
+呈現 ClamAV coverage failed。尚未安裝自動流程時，部署者仍須安排人工更新。
+P0-12 的[自動更新工具](../../docs/automatic-database-updates.md)改在 daily 達三天時受控建置；
+工具交付與真正安裝、啟用及排程驗收分開，不能由本頁推定正式環境已自動更新。
 
 ## 3. Runner 身分、固定 Secret versions
 

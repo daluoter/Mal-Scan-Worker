@@ -1,0 +1,100 @@
+{
+  "schema_version": 1,
+  "date_taipei": "2026-11-04",
+  "scope": "P0-12 local delivery of opt-in signed database update operations",
+  "checklist_id": "P0-12",
+  "checklist_status": "in_progress_cloud_installation_and_acceptance_pending",
+  "delivery": {
+    "controller": "deployment/cloud-run/auto_update.py",
+    "setup": "deployment/cloud-run/setup-auto-update.py",
+    "guide": "docs/automatic-database-updates.md",
+    "transport": "Cloud Scheduler OAuth to pinned-source Cloud Build controller",
+    "service_account_private_keys_created": false,
+    "github_actions_automatically_deploys_resources": false
+  },
+  "policy": {
+    "schedule_utc": "23 3,15 * * *",
+    "scheduled_times_taipei": ["11:23", "23:23"],
+    "refresh_after_daily_age_seconds": 259200,
+    "max_candidate_daily_age_seconds": 172800,
+    "existing_runtime_daily_gate_seconds": 604800,
+    "new_candidate_intents_per_utc_day": 1,
+    "new_candidate_intents_per_utc_month": 12,
+    "max_live_automatic_owned_versions": 4,
+    "max_cleanup_digests_per_campaign": 20,
+    "max_ownership_records_before_manual_maintenance": 1000,
+    "build_source_lifecycle": "new private regional operations bucket; build-sources/ only, seven days",
+    "existing_source_bucket_changed": false,
+    "analysis_execution_permission_granted": false,
+    "analysis_execution_quota_consumed_by_controller": false
+  },
+  "safety": {
+    "source": "approved git archive, application fingerprint and GCS generation pinned",
+    "installation_default": "private state disabled; Scheduler paused; alert policies disabled",
+    "activation": "separate explicit enable after verified initial health, with a post-policy-change tick",
+    "checks": "official database signatures, clean/EICAR offline controls, immutable registry readback, nonregressing daily timestamp/version and image-only Job configuration comparison",
+    "recovery": "private generation-conditional intents; no time-expiry lease takeover; previous controller must be proven terminal",
+    "uncertain_publication": "campaign preserved; no blind build resubmission",
+    "uncertain_deletion": "absence readback may confirm; still-present version is not deleted again",
+    "retention": "only ledger-owned exact digests with matching release tags; protect current, rollback, pending and all Cloud Run references",
+    "manual_deployment": "pause, wait for controller/candidate completion, then approve new source separately; cross-feature adoption is not implemented in this batch",
+    "public_output": "validated metadata and fixed reason codes; raw Job/checkpoint/notification labels remain private"
+  },
+  "monitoring": {
+    "failure_marker": "MALSCAN_DB_UPDATE_FAILURE",
+    "healthy_marker": "MALSCAN_DB_UPDATE_HEALTHY",
+    "failure_duration_seconds": 60,
+    "healthy_absence_seconds": 82800,
+    "aggregation": "sum across Cloud Build IDs before alert evaluation",
+    "first_healthy_metric_point_after_policy_change_required": true,
+    "metric_ingestion_verified": false,
+    "notification_delivery_verified": false
+  },
+  "local_validation": {
+    "python": "3.12.14",
+    "command": "python3 -m unittest discover -s deployment/cloud-run -p 'test_*.py' -v",
+    "tests_run_and_passed": 197,
+    "skipped_optional_test_classes": 1,
+    "skip_reason": "Real gcloud SDK projection class requires installed SDK libraries; unavailable in this environment",
+    "new_tests": {
+      "state_and_lease": 22,
+      "owned_retention": 20,
+      "monitoring_payloads": 9,
+      "controller": 32,
+      "provisioning": 24,
+      "total": 107
+    },
+    "coverage": [
+      "CAS and lease conflicts, response loss, terminal-owner recovery and redacted failures",
+      "publication uncertainty and prepared-campaign UTC day/month quota boundaries",
+      "same-digest no-op preserving the real rollback checkpoint",
+      "private source archive verification and unsafe archive rejection",
+      "scoped IAM, generated provider metadata, paused installation and explicit activation",
+      "pause remains available during unrelated monitoring/IAM drift and reports held leases",
+      "bounded owned-image selection, reference protection and uncertain deletion"
+    ],
+    "black_line_length_100": "passed for ten new Python files",
+    "ruff_worker_configuration": "passed for ten new Python files",
+    "provider_schema_review": "Cloud Build, Cloud Scheduler, GCS and Monitoring REST schemas and Cloud SDK staging calls checked; no live provider request verification",
+    "private_test_log_sha256": "b7f17ac0bae533c606fe9443eb6ff1972b77b1e172580cfe28794d7dd143d8f8"
+  },
+  "cloud_acceptance": {
+    "resources_installed_by_agent": false,
+    "schedule_enabled_by_agent": false,
+    "cloud_analysis_executed_by_agent": false,
+    "real_scheduled_database_refresh_verified": false,
+    "recovery_and_cleanup_verified_on_provider": false,
+    "actual_cost_or_savings_verified": false,
+    "zero_cost_guaranteed": false
+  },
+  "remaining_obligations": [
+    "P0-12 paused cloud installation, health metric ingestion, notification delivery, scheduled refresh and recovery",
+    "P0-07 real retention configuration and storage reclamation",
+    "P0-14 long-term billed costs including controller builds, images, sources and observability",
+    "P0-06 DO physical state cleanup",
+    "P0-11 actual cloud rollback exercise",
+    "P0-15 Cloudflare billed usage",
+    "P0-18 per-root retention evidence"
+  ],
+  "raw_job_state_credentials_billing_or_user_reports_published": false
+}
