@@ -3,7 +3,7 @@
   "date_taipei": "2026-11-04",
   "checklist_id": "P0-12",
   "checklist_status": "in_progress",
-  "scope": "paused installation observed; pre-Python probe failure and controlled runtime repair delivery",
+  "scope": "paused installation, runtime repair and successful paused health probe observed; activation pending",
   "user_provided_observation": {
     "installation_phase": "installed_paused",
     "scheduler_state": "PAUSED",
@@ -61,12 +61,29 @@
     "ci_change": "exercise actual pinned SDK container offline, checking Python, CA trust, gcloud and controller imports"
   },
   "remaining_cloud_acceptance": {
-    "runtime_repair_applied_by_user": false,
-    "new_paused_probe_healthy": false,
+    "runtime_repair_applied_by_user": true,
+    "new_paused_probe_healthy": true,
     "schedule_activated": false,
     "scheduled_database_refresh_verified": false,
     "notification_delivery_and_billed_cost_verified": false
   },
   "agent_mutated_cloud_resources": false,
-  "private_plan_journal_notification_labels_or_credentials_published": false
+  "private_plan_journal_notification_labels_or_credentials_published": false,
+  "user_followup_acceptance": {
+    "evidence_source": "User-provided repair summary, Cloud Build describe and controller status; no independent provider query by agent",
+    "runtime_repair_status": "confirmed",
+    "approved_source_preserved": true,
+    "new_probe_build_id": "26b9ecd8-55e0-4025-bd0e-d7a66b60bfaf",
+    "new_probe_build_status": "SUCCESS",
+    "controller_status": "paused_healthy",
+    "last_healthy_at_utc": "2026-11-04T07:22:21.933301+00:00",
+    "last_healthy_at_taipei": "2026-11-04T15:22:21.933301+08:00",
+    "enabled": false,
+    "phase": "idle",
+    "current_image": "us-central1-docker.pkg.dev/malscan-v2-poc/malscan-v2-poc/full-worker@sha256:4a018a2a947a9d110e506cd40caf76e6ecd1c25d8ad7564c5d12ed2ed310b263",
+    "rollback_image": "us-central1-docker.pkg.dev/malscan-v2-poc/malscan-v2-poc/full-worker@sha256:03099c77e41eb9db284862ce7ecc404b4a43d5cc174169c6386b2876dfd41dc0",
+    "current_and_rollback_pointers_match_pre_probe_state": true,
+    "cloud_run_executed": false,
+    "post_activation_healthy_metric_or_notification_delivery_verified": false
+  }
 }
