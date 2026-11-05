@@ -397,6 +397,81 @@ Email 的 verification status 缺少／null 可是該類管道不需驗證，仍
 Google 沒有通用的 Email `testNotification` API；受控通知測試會另留意圖、事件與收信證據，
 本只讀工具不觸發它。健康點可見、通知送達、真正病毒庫更新與費用是四份不同證據。
 
+#### 受控失敗告警與收信測試
+
+11/5 15:41 的使用者報告已確認 Monitoring 設定與健康資料點；下一項是現有失敗政策的實際通知。
+以下測試會新增**一個刻意失敗的 Cloud Build**，使用原核准 source bundle 及既有 controller 身分。
+它把 owner 參數設為明確無效的 UUID，使 controller 在任何 state／Job／Registry 操作之前停止，
+輸出 `lease_owner_invalid`／`MALSCAN_DB_UPDATE_FAILURE`。這個早停路徑已在原 `c907187` 來源與實際 SDK 容器中驗證。
+測試目的是讓現有 `MalScan database update failed` 政策觀察到一次受控失敗事件。
+
+這會使用一次 Cloud Build 工作與其建置額度，無論是否仍在免費額度內都應納入成本觀察；
+不消耗 demo 的 Cloud Run 掃描 execution 額度，也不建立新的分析映像。
+單一事件不保證立即寄達，可能有資料入帳與政策評估延遲；開啟／關閉事件也可能各有通知。
+測試的 queue TTL 與執行 timeout 各為五分鐘，開始前距下一次排程需超過 30 分鐘。
+請選擇沒有其他人工維護的時段，讓受控測試與真正的失敗事件容易區分。
+
+更新本機工具後，先產生與檢閱私人測試摘要：
+
+```bash
+(
+  set -e
+  cd "$(cat "$HOME/malscan-v2-auto-update-source-path.txt")"
+  python3 deployment/cloud-run/test-auto-update-notification.py prepare \
+    --plan-dir "$(cat "$HOME/malscan-v2-auto-update-plan-path.txt")"
+)
+```
+
+`prepare` 會檢查來源 archive 的六個 controller 相依檔案與已驗證版本逐 byte 相同，
+GCS bundle generation、現有 Monitoring 設定與健康點、enabled／idle／無 lease 都需通過。
+它只建立 plan 目錄中的私人 `notification-test.json`，原 plan、bundle 與主操作 journal 保留。
+摘要的 `expected_build_status: FAILURE` 是本測試的預期結果。
+
+檢閱後提交這一次受控事件：
+
+```bash
+(
+  set -e
+  cd "$(cat "$HOME/malscan-v2-auto-update-source-path.txt")"
+  python3 deployment/cloud-run/test-auto-update-notification.py submit \
+    --plan-dir "$(cat "$HOME/malscan-v2-auto-update-plan-path.txt")"
+)
+```
+
+提交前先保存意圖與唯一 request tag；回應遺失時以相同 sidecar 查回 Build，不再建立一筆。
+之後使用以下命令讀回，保留原紀錄：
+
+```bash
+(
+  set -e
+  cd "$(cat "$HOME/malscan-v2-auto-update-source-path.txt")"
+  python3 deployment/cloud-run/test-auto-update-notification.py status \
+    --plan-dir "$(cat "$HOME/malscan-v2-auto-update-plan-path.txt")"
+)
+```
+
+工具核對精確 request／來源／身分及 Build ID，只有 `FAILURE` 加上正確早停 marker 才標記
+`failure_marker_verified: true`，其他失敗不算通過。Cloud Logging 的 `entries:list` 是 POST 型式的讀取操作。
+報告不輸出原始日誌、provider body、通知 labels 或 email；`image_pointers_match_pre_submit`
+只比較私有 state 記錄的目前／回退指標，不代替一次獨立的 Cloud Run Job 交易讀回。
+
+收到通知時，核對政策名稱 **MalScan database update failed** 與本次測試時間。
+實際收到對應告警後，才執行以下明確的人工確認：
+
+```bash
+(
+  set -e
+  cd "$(cat "$HOME/malscan-v2-auto-update-source-path.txt")"
+  python3 deployment/cloud-run/test-auto-update-notification.py received \
+    --plan-dir "$(cat "$HOME/malscan-v2-auto-update-plan-path.txt")" \
+    --policy-title 'MalScan database update failed'
+)
+```
+
+marker 存在不會自動變成收信成功；`received` 保存的是使用者確認時間與證據類型，沒有讀取你的信箱。
+若尚未收到通知，繼續查同一個測試的狀態及 Monitoring 事件，不能以重送 Build 取代診斷。
+此測試驗證早停失敗的告警鏈；更新中斷的回復、真正 cron 更新及費用仍依各自證據驗收。
+
 ### 7. 人工部署前暫停
 
 ```bash

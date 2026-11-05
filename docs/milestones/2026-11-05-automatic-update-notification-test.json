@@ -1,0 +1,70 @@
+{
+  "schema_version": 1,
+  "date_taipei": "2026-11-05",
+  "checklist_id": "P0-12",
+  "checklist_status": "in_progress",
+  "scope": "Monitoring ingestion accepted; controlled failure notification test locally delivered",
+  "accepted_user_observation": {
+    "record": "2026-11-05-automatic-update-observability.json",
+    "observed_at_utc": "2026-11-05T07:41:21.624056+00:00",
+    "read_complete": true,
+    "enabled_monitoring_metadata_matches_plan": true,
+    "healthy_metric_ingestion_verified": true,
+    "notification_delivery_verified": false,
+    "next_scheduled_at_utc": "2026-11-05T15:23:02.583663+00:00",
+    "real_cron_execution_not_independently_classified": true
+  },
+  "controlled_test": {
+    "tool": "deployment/cloud-run/test-auto-update-notification.py",
+    "operations": ["prepare", "submit", "status", "received"],
+    "explicit_submit_creates": "one intentionally failing Cloud Build targeting the existing failure alert",
+    "request_timeout_seconds": 300,
+    "request_queue_ttl_seconds": 300,
+    "requires_next_scheduler_attempt_more_than_seconds_away": 1800,
+    "owner_argument": "notification-acceptance",
+    "expected_exit_code": 1,
+    "expected_marker": "MALSCAN_DB_UPDATE_FAILURE",
+    "expected_reason": "lease_owner_invalid",
+    "expected_policy_title": "MalScan database update failed",
+    "source_proof": "six controller dependencies byte-match the approved archive; immutable GCS generation checked",
+    "sidecar": "new private notification-test.json; original plan, bundle and main journal preserved",
+    "submission": "durable unique intent before create; unknown response is looked up, never resubmitted",
+    "marker_readback": "exact Build/request/resource binding; only expected failure and marker qualify",
+    "receipt": "explicit user confirmation of matching policy; no mailbox access",
+    "mail_count_or_delivery_latency_guaranteed": false,
+    "cloud_run_execution_or_image_build_requested": false,
+    "image_pointer_comparison_scope": "recorded GCS current/rollback pointers, not a separate live Job transaction"
+  },
+  "local_validation": {
+    "new_tests_passed": 16,
+    "all_cloud_run_operations_tests_passed": 245,
+    "optional_real_sdk_test_classes_skipped_on_host": 1,
+    "black_and_worker_ruff": "passed for new Python files",
+    "actual_sdk_early_exit_proof": {
+      "approved_source": "c907187",
+      "network": "none",
+      "repository": "readonly",
+      "expected_failure_observed": true,
+      "http_socket_and_subprocess_calls_attempted": 0,
+      "instrumented_fail_on_io_checks": true
+    },
+    "cases": [
+      "prepare is reviewable; submit creates only one test Build",
+      "unknown response resolves by exact tag without resubmission",
+      "wrong source, request, failure or marker cannot confirm receipt",
+      "six-source mismatch or GCS generation drift blocks submission",
+      "near schedule, lease and local lock conflicts block submission",
+      "manual matching-policy receipt and private field redaction",
+      "original plan, source bundle, main journal and global state preserved"
+    ],
+    "authenticated_cloud_api_actions_by_agent": false
+  },
+  "remaining": {
+    "test_build_submitted_by_user": false,
+    "expected_failure_marker_verified_on_provider": false,
+    "actual_notification_received_by_user": false,
+    "real_scheduled_signed_database_refresh_verified": false,
+    "failure_recovery_and_long_term_cost_verified": false
+  },
+  "credentials_raw_logs_private_notification_labels_or_financial_data_published": false
+}

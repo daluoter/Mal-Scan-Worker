@@ -20,9 +20,11 @@ P0-12 的[安裝與驗收手冊](automatic-database-updates.md)包含固定私�
 固定 SDK runtime／CA 路徑的修補已由使用者執行成功；新 probe `26b9ecd8-55e0-4025-bd0e-d7a66b60bfaf` 為 SUCCESS，
 私有狀態回報 `paused_healthy`，健康時間為台北 11/4 15:22:21；目前／回退 digest 與先前一致，維護仍 disabled／idle。
 停用安裝與首次健康檢查已通過；後續使用者已啟用排程，`ENABLED`／來源匹配／啟用後新心跳均有讀回，
-健康時間為台北 11/4 16:45:18，`activation_heartbeat_verified: true`。目前僅確認私有 checkpoint，Monitoring 資料點、通知、真正排程更新及費用仍待驗證。
-11/5 交付只讀觀測工具，核對 Monitoring 設定及對應健康 Build 的資料點；不寄信、寫日誌或提交新工作。
-本批 14 項新測試通過，維運工具共 229 項通過，另有一個選用 SDK 測試類別略過，見[觀測交付紀錄](milestones/2026-11-05-automatic-update-observability.json)。
+健康時間為台北 11/4 16:45:18，`activation_heartbeat_verified: true`。該次只確認私有 checkpoint；11/5 使用者已提供完整只讀報告，`read_complete`、Monitoring 設定匹配與健康資料點入帳三項皆為 true。
+兩個 log metrics、兩個 enabled alert policies 與通知管道 metadata 均匹配；健康 Build `565b3318-57d5-4b0d-b3fd-db06f003b041` 的正值資料點已讀回。
+下一項為受控失敗告警收信測試；真正 cron／簽章更新、更新中斷回復與費用仍待驗收。
+只讀觀測工具的 14 項測試與本批通知工具的 16 項測試均通過；維運工具共 245 項測試通過，另有一個選用 SDK 測試類別略過。
+見[觀測紀錄](milestones/2026-11-05-automatic-update-observability.json)與[通知測試交付紀錄](milestones/2026-11-05-automatic-update-notification-test.json)。
 runtime 修補的本機與真實容器證據見[後續紀錄](milestones/2026-11-04-automatic-update-runtime-followup.json)。
 
 2026-10-22 曾依使用者要求暫停功能開發與新增雲端掃描至 2026-11-01；10 月額度已有拒絕證據，
@@ -145,7 +147,7 @@ Durable Object（DO）像工作登記簿，另存工作、票證與派送狀態�
 | P0-09 | 完成 | **人工簽章病毒庫更新與映像切換**：官方簽章、正常／EICAR 離線控制、digest、Job 與執行映像已核對 | 按時持續維護；此項完成不代表已有自動排程 |
 | P0-10 | 完成 | **回退工具與本機測試**：保留舊映像／設定，受保護的 image-only 切換與檢查 | 工具交付完成；真實雲端回退是獨立的 P0-11 |
 | P0-11 | 待辦 | **真實雲端回退演練**尚未執行 | 在受控時段切回已驗證映像、核對設定與掃描，再恢復指定版並留證據 |
-| P0-12 | 進行中 | **自動官方簽章病毒庫更新**：本批交付固定來源控制器、私人 generation 檢查點、失敗／缺心跳告警、限定自動映像清理與分階段安裝工具；每 12 小時檢查、daily 達三天才建置，每 UTC 日／月最多 1／12 次新候選意圖、自動持有版本上限四個，不執行分析 Job；見[安裝手冊](automatic-database-updates.md) | 程式／本機範圍與雲端證據分開。停用安裝、runtime 修補、新 probe SUCCESS／paused_healthy 及啟用後新 checkpoint 均有使用者證據；Monitoring 資料點、實際 cron／簽章更新與掃描控制、失敗保留版本／通知送達、斷線復原及費用仍待驗證；排程已啟用 |
+| P0-12 | 進行中 | **自動官方簽章病毒庫更新**：本批交付固定來源控制器、私人 generation 檢查點、失敗／缺心跳告警、限定自動映像清理與分階段安裝工具；每 12 小時檢查、daily 達三天才建置，每 UTC 日／月最多 1／12 次新候選意圖、自動持有版本上限四個，不執行分析 Job；見[安裝手冊](automatic-database-updates.md) | 程式／本機範圍與雲端證據分開。停用安裝、runtime 修補、新 probe SUCCESS／paused_healthy 及啟用後新 checkpoint 均有使用者證據；Monitoring 設定與健康資料點已取得使用者報告；實際 cron／簽章更新與掃描控制、失敗保留版本／通知送達、斷線復原及費用仍待驗證；排程已啟用 |
 | P0-13 | 完成 | 一份月內 TWD 專案帳單已核對歸屬，費用極低但非精確零 | 僅該報表期間；不是最終月結或長期免費承諾，原始財務資料保持私有 |
 | P0-14 | 進行中 | **長期成本與儲存費控制**：10/22 SKU 報表已確認映像儲存為當期主要淨費用；首批 7 個舊 `full-worker` 清理結果已核對，但倉庫容量讀數仍幾乎不變，原始財務資料不公開 | 容量回收及後續儲存 SKU／帳單節省仍未驗證；補齊每次工作／每月維護、建置來源、映像、儲存、日誌、secrets、抵用額種類及最終月結，觀察多個期間；版本數或映像顯示大小加總不能代替成本證據，不宣稱零費用 |
 | P0-15 | 待辦 | Cloudflare 實際用量與費用仍待獨立核對 | 核對 Workers／DO／R2／Pages 用量及可用額度，連同 GCP 判斷成本 |

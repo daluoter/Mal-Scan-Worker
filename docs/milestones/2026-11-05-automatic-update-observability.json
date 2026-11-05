@@ -3,7 +3,7 @@
   "date_taipei": "2026-11-05",
   "checklist_id": "P0-12",
   "checklist_status": "in_progress",
-  "scope": "activation checkpoint acceptance and read-only Monitoring inspection delivery",
+  "scope": "user-accepted Monitoring configuration and healthy point; controlled notification acceptance preparation",
   "user_provided_evidence": {
     "event_date_taipei": "2026-11-04",
     "scheduler_state": "ENABLED",
@@ -22,7 +22,9 @@
   "inspector": {
     "command": "deployment/cloud-run/inspect-auto-update.py --plan-dir ORIGINAL_PLAN",
     "scope": "read_only_auto_update_observability",
-    "google_api_methods": ["GET"],
+    "google_api_methods": [
+      "GET"
+    ],
     "reads": [
       "generation-pinned private controller state and a second generation check",
       "Scheduler configuration and attempt/next schedule timestamps",
@@ -62,7 +64,7 @@
     "authenticated_cloud_api_queries_by_agent": false
   },
   "remaining_acceptance": {
-    "monitoring_metric_ingestion_verified_by_user_report": false,
+    "monitoring_metric_ingestion_verified_by_user_report": true,
     "actual_email_delivery_verified": false,
     "cron_execution_and_signed_database_refresh_verified": false,
     "controlled_failure_and_recovery_on_provider_verified": false,
@@ -72,5 +74,34 @@
     "https://cloud.google.com/monitoring/api/ref_v3/rest/v3/projects.timeSeries/list",
     "https://cloud.google.com/monitoring/support/notification-options"
   ],
-  "credentials_private_financial_data_or_raw_checkpoints_published": false
+  "credentials_private_financial_data_or_raw_checkpoints_published": false,
+  "user_monitoring_acceptance": {
+    "evidence_source": "User-provided complete sanitized read-only observation report; no independent provider query by agent",
+    "observed_at_utc": "2026-11-05T07:41:21.624056+00:00",
+    "observed_at_taipei": "2026-11-05T15:41:21.624056+08:00",
+    "read_complete": true,
+    "enabled_monitoring_metadata_matches_plan": true,
+    "healthy_metric_ingestion_verified": true,
+    "healthy_controller_build_id": "565b3318-57d5-4b0d-b3fd-db06f003b041",
+    "controller_last_healthy_at_utc": "2026-11-05T03:25:29.527677+00:00",
+    "controller_last_status": "healthy_no_update_due",
+    "controller_phase": "idle",
+    "current_image_digest": "sha256:4a018a2a947a9d110e506cd40caf76e6ecd1c25d8ad7564c5d12ed2ed310b263",
+    "rollback_image_digest": "sha256:03099c77e41eb9db284862ce7ecc404b4a43d5cc174169c6386b2876dfd41dc0",
+    "scheduler_state": "ENABLED",
+    "scheduler_configuration_matches": true,
+    "scheduler_last_attempt_at_utc": "2026-11-05T03:23:08.869379+00:00",
+    "scheduler_next_schedule_at_utc": "2026-11-05T15:23:02.583663+00:00",
+    "manual_or_cron_execution_not_classified": true,
+    "both_log_metric_configurations_match": true,
+    "both_alert_policies_enabled_and_match": true,
+    "notification_channel_metadata_ready": true,
+    "post_activation_positive_metric_samples": 1,
+    "latest_positive_point_at_utc": "2026-11-05T03:26:21.624056+00:00",
+    "notification_delivery_verified": false,
+    "real_scheduled_refresh_verified": false,
+    "billed_cost_verified": false,
+    "remote_mutations": false,
+    "cloud_run_executed": false
+  }
 }
