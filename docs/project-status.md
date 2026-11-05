@@ -23,7 +23,9 @@ P0-12 的[安裝與驗收手冊](automatic-database-updates.md)包含固定私�
 健康時間為台北 11/4 16:45:18，`activation_heartbeat_verified: true`。該次只確認私有 checkpoint；11/5 使用者已提供完整只讀報告，`read_complete`、Monitoring 設定匹配與健康資料點入帳三項皆為 true。
 兩個 log metrics、兩個 enabled alert policies 與通知管道 metadata 均匹配；健康 Build `565b3318-57d5-4b0d-b3fd-db06f003b041` 的正值資料點已讀回。
 下一項為受控失敗告警收信測試；真正 cron／簽章更新、更新中斷回復與費用仍待驗收。
-只讀觀測工具的 14 項測試與本批通知工具的 16 項測試均通過；維運工具共 245 項測試通過，另有一個選用 SDK 測試類別略過。
+使用者已提交受控 Build `99db3d04-426e-4453-8cbf-a198b696a157`；原工具遇到合法的日誌分頁便中止，
+已修正為有界追頁與提交時間範圍查詢，直接沿用原測試讀回。雲端 marker 核對與實際收信仍未通過驗收。
+只讀觀測工具的 14 項測試與通知工具的 25 項測試均通過，後者含本次新增的九項分頁回歸；維運工具共 254 項測試通過，另有一個選用 SDK 測試類別略過。
 見[觀測紀錄](milestones/2026-11-05-automatic-update-observability.json)與[通知測試交付紀錄](milestones/2026-11-05-automatic-update-notification-test.json)。
 runtime 修補的本機與真實容器證據見[後續紀錄](milestones/2026-11-04-automatic-update-runtime-followup.json)。
 

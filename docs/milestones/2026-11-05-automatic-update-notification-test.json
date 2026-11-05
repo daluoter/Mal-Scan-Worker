@@ -16,7 +16,12 @@
   },
   "controlled_test": {
     "tool": "deployment/cloud-run/test-auto-update-notification.py",
-    "operations": ["prepare", "submit", "status", "received"],
+    "operations": [
+      "prepare",
+      "submit",
+      "status",
+      "received"
+    ],
     "explicit_submit_creates": "one intentionally failing Cloud Build targeting the existing failure alert",
     "request_timeout_seconds": 300,
     "request_queue_ttl_seconds": 300,
@@ -60,11 +65,50 @@
     "authenticated_cloud_api_actions_by_agent": false
   },
   "remaining": {
-    "test_build_submitted_by_user": false,
+    "test_build_submitted_by_user": true,
     "expected_failure_marker_verified_on_provider": false,
     "actual_notification_received_by_user": false,
     "real_scheduled_signed_database_refresh_verified": false,
     "failure_recovery_and_long_term_cost_verified": false
   },
-  "credentials_raw_logs_private_notification_labels_or_financial_data_published": false
+  "credentials_raw_logs_private_notification_labels_or_financial_data_published": false,
+  "logging_pagination_followup": {
+    "evidence_source": "user-provided sanitized prepare, submit and status output; no independent provider query by agent",
+    "build_id": "99db3d04-426e-4453-8cbf-a198b696a157",
+    "observed_phase": "submitted",
+    "observed_status_error": "notification_marker_read_incomplete",
+    "cause": "previous reader rejected all nextPageToken responses, including valid empty continuation pages",
+    "provider_api_contract": "An empty entries page can include nextPageToken while Logging continues its search",
+    "repair": {
+      "existing_build_and_sidecar_reused": true,
+      "query_window": "submission_intent_at minus five minutes through observation time plus five minutes",
+      "fixed_query_parameters_across_pages": true,
+      "max_pages": 5,
+      "max_entries_per_page": 100,
+      "positive_proof": "exact build resource and expected early-exit payload on any page",
+      "absence": "only a fully exhausted query returns no marker observed",
+      "unknown": "cyclic or malformed pagination, invalid response or read limit",
+      "raw_logs_or_page_tokens_exported": false,
+      "new_build_required": false
+    },
+    "provider_marker_verified_after_repair": false,
+    "actual_notification_received_by_user": false,
+    "reference": "https://cloud.google.com/logging/docs/reference/v2/rest/v2/entries/list",
+    "local_validation": {
+      "new_pagination_regression_tests_passed": 9,
+      "notification_tests_passed": 25,
+      "all_cloud_run_operations_tests_passed": 254,
+      "optional_real_sdk_test_classes_skipped_on_host": 1,
+      "black_and_worker_ruff": "passed for both modified Python files",
+      "coverage": [
+        "empty and nonmatching page then exact marker",
+        "marker on final permitted page or positive page with continuation",
+        "fixed query scope, time boundaries and tokens across pages",
+        "complete empty result versus incomplete search",
+        "cyclic or malformed tokens, response shape and page limit",
+        "original submission intent, state and journal preserved; no second Build POST"
+      ],
+      "authenticated_cloud_api_actions_by_agent": false
+    }
+  }
 }

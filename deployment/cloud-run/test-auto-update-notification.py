@@ -40,6 +40,8 @@ POLICY_TITLE = "MalScan database update failed"
 INVALID_OWNER = "notification-acceptance"
 EXPECTED_CODE = "lease_owner_invalid"
 MARKER = "MALSCAN_DB_UPDATE_FAILURE"
+MAX_LOG_PAGES = 5
+LOG_PAGE_SIZE = 100
 DEPENDENCIES = (
     "auto_update.py",
     "auto_state.py",
@@ -321,47 +323,68 @@ class NotificationTest:
         return build
 
     def marker(self, state):
-        data = self.tool.rest.request(
-            "POST",
-            "https://logging.googleapis.com/v2/entries:list",
-            {
-                "resourceNames": ["projects/" + PROJECT],
-                "pageSize": 100,
-                "orderBy": "timestamp desc",
-                "filter": (
-                    f'resource.type="build" AND resource.labels.project_id="{PROJECT}" '
-                    f'AND resource.labels.build_id="{state["build_id"]}" '
-                    f'AND (textPayload:"{MARKER}" OR jsonPayload.marker="{MARKER}")'
-                ),
-            },
-        )
-        if not isinstance(data, dict) or data.get("nextPageToken"):
-            raise NotificationError("notification_marker_read_incomplete")
-        for entry in data.get("entries", []):
-            if (
-                not isinstance(entry, dict)
-                or entry.get("resource", {}).get("type") != "build"
-                or entry["resource"].get("labels", {}).get("project_id") != PROJECT
-                or entry["resource"].get("labels", {}).get("build_id") != state["build_id"]
-            ):
-                continue
-            payloads = [entry.get("jsonPayload")]
-            for line in entry.get("textPayload", "").splitlines():
-                try:
-                    payloads.append(json.loads(line[line.index("{") :]))
-                except (ValueError, json.JSONDecodeError):
-                    continue
-            for payload in payloads:
+        # Logging can return an empty page with a token while its search continues.
+        # Keep every parameter fixed across pages and allow five minutes of clock skew.
+        start = observation.timestamp(state["submission_intent_at"]) - timedelta(minutes=5)
+        end = self.now() + timedelta(minutes=5)
+        if start >= end:
+            raise NotificationError("notification_marker_query_time_invalid")
+        query = {
+            "resourceNames": ["projects/" + PROJECT],
+            "pageSize": LOG_PAGE_SIZE,
+            "orderBy": "timestamp desc",
+            "filter": (
+                f'resource.type="build" AND resource.labels.project_id="{PROJECT}" '
+                f'AND resource.labels.build_id="{state["build_id"]}" '
+                f'AND timestamp>="{start.isoformat()}" AND timestamp<="{end.isoformat()}" '
+                f'AND (textPayload:"{MARKER}" OR jsonPayload.marker="{MARKER}")'
+            ),
+        }
+        seen_tokens = set()
+        for _ in range(MAX_LOG_PAGES):
+            data = self.tool.rest.request(
+                "POST", "https://logging.googleapis.com/v2/entries:list", query
+            )
+            if not isinstance(data, dict):
+                raise NotificationError("notification_marker_read_incomplete")
+            entries = data.get("entries", [])
+            if not isinstance(entries, list) or len(entries) > LOG_PAGE_SIZE:
+                raise NotificationError("notification_marker_response_invalid")
+            for entry in entries:
+                resource = entry.get("resource") if isinstance(entry, dict) else None
+                labels = resource.get("labels") if isinstance(resource, dict) else None
                 if (
-                    isinstance(payload, dict)
-                    and payload.get("marker") == MARKER
-                    and payload.get("scope") == "scheduled_database_update"
-                    and payload.get("status") == "failed"
-                    and payload.get("code") == EXPECTED_CODE
-                    and payload.get("cloud_run_executed") is False
+                    not isinstance(labels, dict)
+                    or resource.get("type") != "build"
+                    or labels.get("project_id") != PROJECT
+                    or labels.get("build_id") != state["build_id"]
                 ):
-                    return True
-        return False
+                    continue
+                payloads = [entry.get("jsonPayload")]
+                text_payload = entry.get("textPayload")
+                for line in text_payload.splitlines() if isinstance(text_payload, str) else []:
+                    try:
+                        payloads.append(json.loads(line[line.index("{") :]))
+                    except (ValueError, json.JSONDecodeError):
+                        continue
+                for payload in payloads:
+                    if (
+                        isinstance(payload, dict)
+                        and payload.get("marker") == MARKER
+                        and payload.get("scope") == "scheduled_database_update"
+                        and payload.get("status") == "failed"
+                        and payload.get("code") == EXPECTED_CODE
+                        and payload.get("cloud_run_executed") is False
+                    ):
+                        return True  # An exact positive marker is sufficient evidence.
+            token = data.get("nextPageToken")
+            if token is None or token == "":
+                return False
+            if not isinstance(token, str) or len(token) > 8192 or token in seen_tokens:
+                raise NotificationError("notification_marker_pagination_invalid")
+            seen_tokens.add(token)
+            query["pageToken"] = token
+        raise NotificationError("notification_marker_read_incomplete")
 
     def _status(self, state):
         if state["phase"] == "prepared":

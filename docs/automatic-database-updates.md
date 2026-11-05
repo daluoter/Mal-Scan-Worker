@@ -472,6 +472,13 @@ marker 存在不會自動變成收信成功；`received` 保存的是使用者�
 若尚未收到通知，繼續查同一個測試的狀態及 Monitoring 事件，不能以重送 Build 取代診斷。
 此測試驗證早停失敗的告警鏈；更新中斷的回復、真正 cron 更新及費用仍依各自證據驗收。
 
+若舊版回報 `notification_marker_read_incomplete`，先更新本機工具，再使用原 plan 執行 `status`。
+Cloud Logging 的空白頁仍可能包含 `nextPageToken`，表示搜尋尚未結束；工具現會沿相同查詢條件讀取最多五頁、每頁最多 100 筆，
+並將時間範圍限制在已保存的提交時間前五分鐘至本次查詢時間後五分鐘，容許時鐘誤差。
+精確符合本次 Build 與早停原因的 marker 可直接作為正面證據；只有分頁完整結束才回報本次未觀察到 marker。
+分頁循環、格式異常或達到讀取上限仍視為未確認，不輸出原始日誌或分頁代碼。
+此修正沿用既有 `notification-test.json` 與 Build，不需重新 `prepare` 或 `submit`。
+
 ### 7. 人工部署前暫停
 
 ```bash

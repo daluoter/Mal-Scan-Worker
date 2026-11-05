@@ -45,7 +45,7 @@ class TestREST(fixture.PointsREST):
         self.lose_create_response = False
         self.create_without_id = False
         self.marker_mode = "expected"
-        self.paginated_logs = False
+        self.log_pages = None
         self.list_truncated = False
 
     def request(self, method, url, payload=None, **kwargs):
@@ -68,37 +68,37 @@ class TestREST(fixture.PointsREST):
             )
         if method == "POST" and url == "https://logging.googleapis.com/v2/entries:list":
             self.calls.append((method, url, copy.deepcopy(payload), None))
-            build_id = self.builds[0]["id"]
-            marker = {
-                "scope": "scheduled_database_update",
-                "status": "failed",
-                "code": notification.EXPECTED_CODE,
-                "marker": notification.MARKER,
-                "cloud_run_executed": False,
-            }
-            resource = {
-                "type": "build",
-                "labels": {"project_id": notification.PROJECT, "build_id": build_id},
-            }
-            if self.marker_mode == "wrong_code":
-                marker["code"] = PRIVATE
-            if self.marker_mode == "wrong_build":
-                resource["labels"]["build_id"] = "other-build"
-            result = {
-                "entries": []
-                if self.marker_mode == "none"
-                else [
-                    {
-                        "resource": resource,
-                        "textPayload": 'Step #0 - "database-update-controller": '
-                        + json.dumps(marker),
-                    }
-                ]
-            }
-            if self.paginated_logs:
-                result["nextPageToken"] = PRIVATE
-            return result
+            if self.log_pages is not None:
+                token = payload.get("pageToken")
+                if token is None:
+                    return copy.deepcopy(self.log_pages[0])
+                for index, page in enumerate(self.log_pages[:-1]):
+                    if isinstance(page, dict) and page.get("nextPageToken") == token:
+                        return copy.deepcopy(self.log_pages[index + 1])
+                raise AssertionError("Unexpected logging page token")
+            return {"entries": [] if self.marker_mode == "none" else [self.marker_entry()]}
         return super().request(method, url, payload, **kwargs)
+
+    def marker_entry(self):
+        marker = {
+            "scope": "scheduled_database_update",
+            "status": "failed",
+            "code": PRIVATE if self.marker_mode == "wrong_code" else notification.EXPECTED_CODE,
+            "marker": notification.MARKER,
+            "cloud_run_executed": False,
+        }
+        return {
+            "resource": {
+                "type": "build",
+                "labels": {
+                    "project_id": notification.PROJECT,
+                    "build_id": "other-build"
+                    if self.marker_mode == "wrong_build"
+                    else self.builds[0]["id"],
+                },
+            },
+            "textPayload": 'Step #0 - "database-update-controller": ' + json.dumps(marker),
+        }
 
 
 class NotificationTests(unittest.TestCase):
@@ -378,7 +378,7 @@ class NotificationTests(unittest.TestCase):
         self.assertEqual(self.test.load()["phase"], "prepared")
         self.assertEqual(self.build_posts(), [])
 
-    def test_partial_lookups_or_logs_never_claim_verification(self):
+    def test_partial_build_lookup_never_claims_verification_or_resubmits(self):
         self.test.prepare()
         self.rest.create_without_id = True
         with self.assertRaises(notification.NotificationError):
@@ -388,15 +388,166 @@ class NotificationTests(unittest.TestCase):
             notification.NotificationError, "notification_build_lookup_incomplete"
         ):
             self.test.status()
-        self.rest.list_truncated = False
-        self.test.status()
+        self.assertFalse(self.test.load().get("failure_marker_verified", False))
+        self.assertEqual(len(self.build_posts()), 1)
+
+    def logging_calls(self):
+        return [
+            c
+            for c in self.rest.calls
+            if c[0] == "POST" and c[1] == "https://logging.googleapis.com/v2/entries:list"
+        ]
+
+    def start_failed_test(self):
+        self.test.prepare()
+        self.test.submit()
         self.failed()
-        self.rest.paginated_logs = True
+        return self.test.path.read_bytes()
+
+    def test_empty_search_page_continues_to_exact_marker_with_fixed_query(self):
+        self.start_failed_test()
+        original = self.test.load()
+        self.rest.log_pages = [
+            {"nextPageToken": PRIVATE},
+            {"entries": [self.rest.marker_entry()]},
+        ]
+        result = self.test.status()
+        self.assertTrue(result["failure_marker_verified"])
+        self.assertFalse(result["notification_delivery_verified"])
+        calls = self.logging_calls()
+        self.assertEqual(len(calls), 2)
+        first, second = calls[0][2], calls[1][2]
+        self.assertNotIn("pageToken", first)
+        self.assertEqual(second["pageToken"], PRIVATE)
+        self.assertEqual(first, {k: v for k, v in second.items() if k != "pageToken"})
+        self.assertEqual(first["resourceNames"], ["projects/" + notification.PROJECT])
+        self.assertEqual(first["pageSize"], notification.LOG_PAGE_SIZE)
+        self.assertEqual(first["orderBy"], "timestamp desc")
+        query = first["filter"]
+        self.assertIn('resource.type="build"', query)
+        self.assertIn('resource.labels.project_id="' + notification.PROJECT + '"', query)
+        self.assertIn('resource.labels.build_id="' + original["build_id"] + '"', query)
+        self.assertIn(
+            'timestamp>="' + (self.base.now - timedelta(minutes=5)).isoformat() + '"', query
+        )
+        self.assertIn(
+            'timestamp<="' + (self.base.now + timedelta(minutes=5)).isoformat() + '"', query
+        )
+        self.assertNotIn(PRIVATE, json.dumps(result))
+        self.assertEqual(len(self.build_posts()), 1)
+        after = self.test.load()
+        for key in ("build_id", "request", "request_tag", "submission_intent_at"):
+            self.assertEqual(after[key], original[key])
+        self.assertEqual(self.tool.store.values, self.before_state)
+        self.assertEqual(self.tool.journal, self.before_journal)
+        for name, data in self.before_files.items():
+            self.assertEqual((self.tool.directory / name).read_bytes(), data)
+
+    def test_foreign_or_malformed_entries_do_not_hide_later_exact_marker(self):
+        self.start_failed_test()
+        self.rest.marker_mode = "wrong_build"
+        foreign = self.rest.marker_entry()
+        self.rest.marker_mode = "expected"
+        exact = self.rest.marker_entry()
+        payload = json.loads(exact.pop("textPayload").split(": ", 1)[1])
+        exact["jsonPayload"] = payload
+        self.rest.log_pages = [
+            {"entries": [None, PRIVATE, {"resource": []}, foreign], "nextPageToken": PRIVATE},
+            {"entries": [exact]},
+        ]
+        result = self.test.status()
+        self.assertTrue(result["failure_marker_verified"])
+        self.assertEqual(len(self.logging_calls()), 2)
+        self.assertEqual(len(self.build_posts()), 1)
+
+    def test_matching_marker_is_sufficient_even_if_positive_page_has_token(self):
+        self.start_failed_test()
+        self.rest.log_pages = [{"entries": [self.rest.marker_entry()], "nextPageToken": PRIVATE}]
+        report = self.test.status()
+        self.assertTrue(report["failure_marker_verified"])
+        self.assertEqual(len(self.logging_calls()), 1)
+        self.assertFalse(report["notification_delivery_verified"])
+
+    def test_complete_empty_paginated_search_remains_unverified(self):
+        self.start_failed_test()
+        self.rest.log_pages = [{"entries": [], "nextPageToken": PRIVATE}, {}]
+        report = self.test.status()
+        self.assertFalse(report["failure_marker_verified"])
+        self.assertFalse(report["notification_delivery_verified"])
+        self.assertEqual(len(self.logging_calls()), 2)
+        self.assertEqual(len(self.build_posts()), 1)
+
+    def test_repeated_or_malformed_token_stays_unknown_and_private(self):
+        original = self.start_failed_test()
+        for pages in (
+            [{"nextPageToken": PRIVATE}, {"nextPageToken": PRIVATE}],
+            [{"nextPageToken": 123}],
+            [{"nextPageToken": PRIVATE * 1000}],
+        ):
+            with self.subTest(pages=len(pages)):
+                self.rest.log_pages = pages
+                with self.assertRaisesRegex(
+                    notification.NotificationError, "notification_marker_pagination_invalid"
+                ) as raised:
+                    self.test.status()
+                self.assertNotIn(PRIVATE, str(raised.exception))
+                self.assertEqual(self.test.path.read_bytes(), original)
+        self.assertEqual(len(self.build_posts()), 1)
+
+    def test_search_page_budget_is_bounded_and_cannot_claim_absence(self):
+        original = self.start_failed_test()
+        self.rest.log_pages = [
+            {"entries": [], "nextPageToken": PRIVATE + str(i)}
+            for i in range(notification.MAX_LOG_PAGES + 1)
+        ]
         with self.assertRaisesRegex(
             notification.NotificationError, "notification_marker_read_incomplete"
         ):
             self.test.status()
+        self.assertEqual(len(self.logging_calls()), notification.MAX_LOG_PAGES)
+        self.assertEqual(self.test.path.read_bytes(), original)
         self.assertFalse(self.test.load().get("failure_marker_verified", False))
+        self.assertEqual(len(self.build_posts()), 1)
+
+    def test_exact_marker_on_last_allowed_page_is_verified(self):
+        self.start_failed_test()
+        self.rest.log_pages = [
+            {"entries": [], "nextPageToken": PRIVATE + str(i)}
+            for i in range(notification.MAX_LOG_PAGES - 1)
+        ] + [{"entries": [self.rest.marker_entry()]}]
+        report = self.test.status()
+        self.assertTrue(report["failure_marker_verified"])
+        self.assertFalse(report["notification_delivery_verified"])
+        self.assertEqual(len(self.logging_calls()), notification.MAX_LOG_PAGES)
+        self.assertEqual(len(self.build_posts()), 1)
+
+    def test_invalid_query_time_is_rejected_before_logging_read(self):
+        original = self.start_failed_test()
+        self.test.now = lambda: self.base.now - timedelta(minutes=11)
+        with self.assertRaisesRegex(
+            notification.NotificationError, "notification_marker_query_time_invalid"
+        ):
+            self.test.status()
+        self.assertEqual(self.logging_calls(), [])
+        self.assertEqual(self.test.path.read_bytes(), original)
+        self.assertEqual(len(self.build_posts()), 1)
+
+    def test_malformed_or_oversized_page_is_not_verification(self):
+        original = self.start_failed_test()
+        for response, error in (
+            ([], "notification_marker_read_incomplete"),
+            ({"entries": None}, "notification_marker_response_invalid"),
+            ({"entries": PRIVATE}, "notification_marker_response_invalid"),
+            (
+                {"entries": [None] * (notification.LOG_PAGE_SIZE + 1)},
+                "notification_marker_response_invalid",
+            ),
+        ):
+            with self.subTest(error=error):
+                self.rest.log_pages = [response]
+                with self.assertRaisesRegex(notification.NotificationError, error):
+                    self.test.status()
+                self.assertEqual(self.test.path.read_bytes(), original)
         self.assertEqual(len(self.build_posts()), 1)
 
     def test_private_checkpoint_fields_are_validated_before_public_summary(self):
