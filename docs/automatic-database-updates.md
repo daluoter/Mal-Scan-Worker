@@ -1,6 +1,6 @@
 # 自動簽章病毒庫更新（P0-12）
 
-更新日期：2026-11-04（Asia/Taipei）。這項維護讓雲端 demo 定期檢查 ClamAV daily 資料庫年齡，
+更新日期：2026-11-05（Asia/Taipei）。這項維護讓雲端 demo 定期檢查 ClamAV daily 資料庫年齡，
 在過期前建立帶有新簽章資料庫的候選映像，通過控制後才切換既有 Job。
 它沿用[人工更新與回退流程](cloud-demo-operations.md#2-更新病毒庫及保留回退版本)，不新增檔案分析功能。
 
@@ -353,6 +353,49 @@ Scheduler API 的讀回與 PATCH 不是和 Console 編輯的原子交易，修�
 
 Cloud Shell 中斷後，只需回到已保存來源，以原 `--plan-dir` 執行 `status`；
 不重建 bucket、服務帳號、通知政策或原始計畫。若有 pending，保留狀態及固定錯誤碼繼續查核。
+
+#### 讀回 Monitoring 設定與資料點
+
+11/4 已取得 `ENABLED`、`automatic_updates_enabled: true` 與啟用後新健康紀錄，
+最後確認的時間為台北 16:45:18。這證明 controller 已寫回私有檢查點，Monitoring 的實際資料點另行核對。
+更新本機工具來源至含 `inspect-auto-update.py` 的版本後，可重複執行以下只讀檢查：
+
+```bash
+(
+  set -e
+  umask 077
+  cd "$(cat "$HOME/malscan-v2-auto-update-source-path.txt")"
+  V2_AUTO_OBSERVATION="$HOME/malscan-v2-auto-observability-$(date -u +%Y%m%dT%H%M%SZ).json"
+  python3 deployment/cloud-run/inspect-auto-update.py \
+    --plan-dir "$(cat "$HOME/malscan-v2-auto-update-plan-path.txt")" \
+    --output "$V2_AUTO_OBSERVATION"
+)
+```
+
+工具只 GET 狀態、Scheduler、兩個 log metrics、兩個 alert policies、通知管道 metadata，
+以及最近健康 controller Build 的 time series。它不更動原 plan／state、寫入測試日誌、寄信或提交 Build。
+報告只包含審查後的 metadata；不含通知 labels／email、Token、provider body 或原始 Job。
+`--output` 只建立新私人檔案，不覆寫既有檔案，也拒絕寫入 source checkout。
+
+重點欄位如下：
+
+| 欄位 | 意義 |
+| --- | --- |
+| `read_complete: true` | 本次讀取與分頁完成；controller state 在讀取期間沒有換 generation |
+| `enabled_monitoring_metadata_matches_plan: true` | 來源與已啟用的 Scheduler／metrics／policies／通知管道 metadata 匹配核准設定 |
+| `healthy_metric_ingestion_verified: true` | 啟用後的新健康檢查點，已找到對應 Build ID 的 Monitoring 正整數資料點 |
+| `healthy_metric.post_activation_point_observed: false` | 查詢完成，但尚未讀到符合範圍的正值；可稍後重查同一工具 |
+| `healthy_metric.post_activation_point_observed: null` | 未能完成查詢或驗證；看 `errors` 的固定錯誤碼，不能當成「沒有資料點」 |
+| `notification_delivery_verified: false` | 工具不宣稱郵件已送達，需另留實際收信證據 |
+
+time series 鎖定同專案、`resource.type=build` 與私有 state 中最近健康的 Build ID；
+查詢區間為啟用時間之後、觀察時間以前，最多三頁／3,000 點。
+讀取失敗、分頁未完成、來源不符或同期 state 變動時回報未知／不完整，不以 checkpoint 代替 Monitoring 資料。
+`scheduler.last_attempt_at` 未區分手動觸發與 cron，不單憑它結案真正排程驗收。
+
+Email 的 verification status 缺少／null 可是該類管道不需驗證，仍需另確認實際告警收信。
+Google 沒有通用的 Email `testNotification` API；受控通知測試會另留意圖、事件與收信證據，
+本只讀工具不觸發它。健康點可見、通知送達、真正病毒庫更新與費用是四份不同證據。
 
 ### 7. 人工部署前暫停
 

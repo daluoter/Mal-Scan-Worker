@@ -3,7 +3,7 @@
   "date_taipei": "2026-11-04",
   "checklist_id": "P0-12",
   "checklist_status": "in_progress",
-  "scope": "paused installation, runtime repair and successful paused health probe observed; activation pending",
+  "scope": "paused installation, runtime repair, activation and post-activation healthy checkpoint observed; Monitoring and scheduled refresh acceptance pending",
   "user_provided_observation": {
     "installation_phase": "installed_paused",
     "scheduler_state": "PAUSED",
@@ -63,7 +63,7 @@
   "remaining_cloud_acceptance": {
     "runtime_repair_applied_by_user": true,
     "new_paused_probe_healthy": true,
-    "schedule_activated": false,
+    "schedule_activated": true,
     "scheduled_database_refresh_verified": false,
     "notification_delivery_and_billed_cost_verified": false
   },
@@ -85,5 +85,23 @@
     "current_and_rollback_pointers_match_pre_probe_state": true,
     "cloud_run_executed": false,
     "post_activation_healthy_metric_or_notification_delivery_verified": false
+  },
+  "user_post_activation_acceptance": {
+    "evidence_source": "User-provided enable and subsequent setup status; no independent provider query by agent",
+    "phase": "activation_submitted",
+    "scheduler_state": "ENABLED",
+    "automatic_updates_enabled": true,
+    "registered_source_matches": true,
+    "controller_runtime": "sdk_bundled_python",
+    "runtime_repair_status": "confirmed",
+    "last_healthy_at_utc": "2026-11-04T08:45:18.194906+00:00",
+    "last_healthy_at_taipei": "2026-11-04T16:45:18.194906+08:00",
+    "activation_heartbeat_verified": true,
+    "controller_in_flight": false,
+    "controller_lease_present": false,
+    "new_cloud_scan_executed": false,
+    "monitoring_metric_ingestion_verified": false,
+    "notification_delivery_verified": false,
+    "real_cron_or_database_refresh_verified": false
   }
 }

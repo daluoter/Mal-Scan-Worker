@@ -1,0 +1,76 @@
+{
+  "schema_version": 1,
+  "date_taipei": "2026-11-05",
+  "checklist_id": "P0-12",
+  "checklist_status": "in_progress",
+  "scope": "activation checkpoint acceptance and read-only Monitoring inspection delivery",
+  "user_provided_evidence": {
+    "event_date_taipei": "2026-11-04",
+    "scheduler_state": "ENABLED",
+    "automatic_updates_enabled": true,
+    "registered_source_matches": true,
+    "controller_runtime": "sdk_bundled_python",
+    "runtime_repair_status": "confirmed",
+    "last_healthy_at_utc": "2026-11-04T08:45:18.194906+00:00",
+    "last_healthy_at_taipei": "2026-11-04T16:45:18.194906+08:00",
+    "activation_heartbeat_verified": true,
+    "controller_in_flight": false,
+    "controller_lease_present": false,
+    "new_cloud_scan_executed": false,
+    "independent_provider_query_by_agent": false
+  },
+  "inspector": {
+    "command": "deployment/cloud-run/inspect-auto-update.py --plan-dir ORIGINAL_PLAN",
+    "scope": "read_only_auto_update_observability",
+    "google_api_methods": ["GET"],
+    "reads": [
+      "generation-pinned private controller state and a second generation check",
+      "Scheduler configuration and attempt/next schedule timestamps",
+      "two log metric configurations",
+      "two enabled alert policies",
+      "notification channel metadata without labels or recipient",
+      "Monitoring DELTA INT64 points for the exact latest healthy Build ID"
+    ],
+    "query_interval": "activation time exclusive, observation time inclusive",
+    "max_pages": 3,
+    "max_points": 3000,
+    "incomplete_or_unavailable_reads": "unknown, not verified absence",
+    "reports": "validated metadata, fixed error codes, point presence and ingestion status",
+    "remote_mutations": false,
+    "notifications_sent": false,
+    "builds_or_scans_submitted": false,
+    "private_plan_state_or_journal_changed": false,
+    "optional_output": "new private file outside source checkout; existing files are not overwritten",
+    "raw_provider_payloads_or_notification_labels_exported": false
+  },
+  "local_validation": {
+    "new_tests_passed": 14,
+    "all_cloud_run_operations_tests_passed": 229,
+    "optional_real_sdk_test_classes_skipped_on_host": 1,
+    "black_and_worker_ruff": "passed for new Python files",
+    "cases": [
+      "exact Build/project/metric binding and post-activation positive point",
+      "checkpoint present while Monitoring has no points",
+      "exclusive/inclusive time boundaries, invalid counters and DELTA intervals",
+      "pagination completion, limits, invalid tokens and partial provider errors",
+      "permission failure and provider/recipient privacy",
+      "source or generation mismatch cannot verify ingestion",
+      "disabled policy or unverified channel metadata",
+      "email verification status omitted still does not prove delivery",
+      "GET-only calls, unchanged state/journal and protected local output"
+    ],
+    "authenticated_cloud_api_queries_by_agent": false
+  },
+  "remaining_acceptance": {
+    "monitoring_metric_ingestion_verified_by_user_report": false,
+    "actual_email_delivery_verified": false,
+    "cron_execution_and_signed_database_refresh_verified": false,
+    "controlled_failure_and_recovery_on_provider_verified": false,
+    "long_term_cost_or_storage_savings_verified": false
+  },
+  "references": [
+    "https://cloud.google.com/monitoring/api/ref_v3/rest/v3/projects.timeSeries/list",
+    "https://cloud.google.com/monitoring/support/notification-options"
+  ],
+  "credentials_private_financial_data_or_raw_checkpoints_published": false
+}
