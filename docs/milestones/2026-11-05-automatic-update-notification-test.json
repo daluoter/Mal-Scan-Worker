@@ -66,8 +66,8 @@
   },
   "remaining": {
     "test_build_submitted_by_user": true,
-    "expected_failure_marker_verified_on_provider": false,
-    "actual_notification_received_by_user": false,
+    "expected_failure_marker_verified_on_provider": true,
+    "actual_notification_received_by_user": true,
     "real_scheduled_signed_database_refresh_verified": false,
     "failure_recovery_and_long_term_cost_verified": false
   },
@@ -91,8 +91,8 @@
       "raw_logs_or_page_tokens_exported": false,
       "new_build_required": false
     },
-    "provider_marker_verified_after_repair": false,
-    "actual_notification_received_by_user": false,
+    "provider_marker_verified_after_repair": true,
+    "actual_notification_received_by_user": true,
     "reference": "https://cloud.google.com/logging/docs/reference/v2/rest/v2/entries/list",
     "local_validation": {
       "new_pagination_regression_tests_passed": 9,
@@ -110,5 +110,12 @@
       ],
       "authenticated_cloud_api_actions_by_agent": false
     }
+  },
+  "followup_acceptance": {
+    "date_taipei": "2026-11-06",
+    "record": "2026-11-06-automatic-update-notification-acceptance.json",
+    "evidence_source": "user-provided sanitized status and explicit email receipt confirmation",
+    "private_received_command_persistence_verified": false,
+    "image_pointer_drift_cause_verified": false
   }
 }

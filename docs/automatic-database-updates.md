@@ -479,6 +479,29 @@ Cloud Logging 的空白頁仍可能包含 `nextPageToken`，表示搜尋尚未�
 分頁循環、格式異常或達到讀取上限仍視為未確認，不輸出原始日誌或分頁代碼。
 此修正沿用既有 `notification-test.json` 與 Build，不需重新 `prepare` 或 `submit`。
 
+11/6 使用者已讀回本次 Build 的 `failure_verified` 與正確早停 marker，並確認收到告警信，
+此限定通知測試已通過；執行上方 `received` 可把人工確認保存至私人紀錄。
+同次結果的 `image_pointers_match_pre_submit: false` 只表示目前或回退指標有變動，
+需核對真正排程更新或其他變更，不能據此推定測試改動了 Job、更新成功或需要回退。
+接續使用以下只讀查詢，最後一行只列出 live Job 的映像，不輸出環境變數：
+
+```bash
+(
+  set -e
+  cd "$(cat "$HOME/malscan-v2-auto-update-source-path.txt")"
+  python3 deployment/cloud-run/inspect-auto-update.py \
+    --plan-dir "$(cat "$HOME/malscan-v2-auto-update-plan-path.txt")"
+  gcloud run jobs describe malscan-v2-static-demo \
+    --project=malscan-v2-poc \
+    --region=us-central1 \
+    --format='value(spec.template.spec.template.spec.containers[0].image)'
+)
+```
+
+`inspect-auto-update.py` 的通知送達與真正更新旗標固定為 false，該工具只核對設定與健康點，
+不讀取收信 sidecar；這不會推翻本次使用者的收信驗收。此查詢也不單獨證明 daily 版本、完整 controls 或真正 cron 來源。
+新指標與 live Job 仍需比對，簽章更新與復原、費用各自保留驗收條件。
+
 ### 7. 人工部署前暫停
 
 ```bash

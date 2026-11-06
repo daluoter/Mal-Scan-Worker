@@ -1,0 +1,69 @@
+{
+  "schema_version": 1,
+  "date_taipei": "2026-11-06",
+  "checklist_id": "P0-12",
+  "checklist_status": "in_progress",
+  "scope": "User-provided acceptance of the controlled failure marker and notification receipt",
+  "evidence_source": {
+    "status": "Sanitized status output pasted by the user",
+    "receipt_statement": "有收到告警信",
+    "independent_provider_or_mailbox_access_by_agent": false,
+    "exact_observation_or_delivery_timestamp_provided": false
+  },
+  "user_provided_status": {
+    "scope": "controlled_updater_notification_test",
+    "phase": "failure_verified",
+    "build_id": "99db3d04-426e-4453-8cbf-a198b696a157",
+    "build_status": "FAILURE",
+    "expected_build_status": "FAILURE",
+    "expected_failure_code": "lease_owner_invalid",
+    "failure_marker_verified": true,
+    "failure_marker_currently_observed": true,
+    "targets_existing_failure_alert": true,
+    "expected_policy_title": "MalScan database update failed",
+    "notification_delivery_verified": false,
+    "delivery_evidence": "not_observed",
+    "user_confirmed_at": null,
+    "independent_mailbox_access": false,
+    "image_pointers_match_pre_submit": false,
+    "new_build_submission_required": false,
+    "resubmitted": false,
+    "cloud_run_executed": false,
+    "original_plan_state_and_journal_mutated_by_this_tool": false
+  },
+  "accepted": {
+    "expected_early_exit_failure_marker_verified_by_user_report": true,
+    "notification_receipt_explicitly_confirmed_by_user": true,
+    "receipt_evidence_kind": "Explicit user statement in the context of the controlled failure alert",
+    "private_received_operation_or_delivery_recorded_phase_evidenced": false,
+    "limitation": "The pasted summary predates the separate receipt-recording step; no receipt timestamp or private sidecar transition is inferred"
+  },
+  "image_pointer_followup": {
+    "recorded_current_or_rollback_pointers_changed_since_submission": true,
+    "comparison_scope": "Private coordinator current/rollback references, not an independent live Job transaction",
+    "cause": "unknown",
+    "scheduled_refresh_is_one_possible_explanation_not_verified": true,
+    "required_reads": [
+      "Current coordinator state and healthy controller identity",
+      "Live Job readiness, immutable image and configuration comparison",
+      "Current release Build and signed database control evidence"
+    ],
+    "rollback_requested": false,
+    "new_test_build_required": false
+  },
+  "remaining_p0_12_acceptance": [
+    "Record the already-confirmed receipt in the existing private test sidecar",
+    "Classify image pointer changes and verify a real cron-triggered signed database refresh",
+    "Verify failure recovery and incident closure/reopening independently",
+    "Observe actual billed usage and storage costs"
+  ],
+  "separate_checklist_items_unchanged": [
+    "P0-06 Durable Object physical cleanup",
+    "P0-07 retention and storage reclamation",
+    "P0-11 actual cloud rollback exercise",
+    "P0-14 long-term GCP costs",
+    "P0-15 Cloudflare billed usage",
+    "P0-18 retention verification for each later analysis root"
+  ],
+  "credentials_raw_logs_email_addresses_or_notification_labels_published": false
+}
