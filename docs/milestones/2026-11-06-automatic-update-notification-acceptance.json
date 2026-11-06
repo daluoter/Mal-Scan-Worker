@@ -44,11 +44,9 @@
   "image_pointer_followup": {
     "recorded_current_or_rollback_pointers_changed_since_submission": true,
     "comparison_scope": "Private coordinator pointers plus a separate user-provided live Job image readback; no atomic full-configuration transaction was established",
-    "cause": "unknown",
+    "cause": "A promoted signed-database release is now verified; the exact cron/manual trigger remains unclassified",
     "scheduled_refresh_is_one_possible_explanation_not_verified": true,
     "required_reads": [
-      "Live Job readiness and full configuration comparison",
-      "Current release Build identity, approved source and signed database control evidence",
       "Evidence classifying the actual triggering event as cron rather than a manual run"
     ],
     "rollback_requested": false,
@@ -56,7 +54,7 @@
     "live_job_image_matches_current_coordinator_image": true
   },
   "remaining_p0_12_acceptance": [
-    "Classify image pointer changes and verify the real refresh Build, approved source, signed controls and cron provenance",
+    "Classify the verified signed-database release trigger as cron using Scheduler/controller evidence",
     "Verify recovery from an interrupted update and real incident reopening independently; the controlled recovered notification does not establish these",
     "Observe actual billed usage and storage costs"
   ],
@@ -168,8 +166,9 @@
       "optional_real_sdk_test_classes_skipped_on_host": 1,
       "black_and_worker_ruff": "passed"
     },
-    "provider_readback_using_this_option_received": false,
+    "provider_readback_using_this_option_received": true,
     "real_scheduled_refresh_verified": false,
-    "authenticated_cloud_api_actions_by_agent": false
+    "authenticated_cloud_api_actions_by_agent": false,
+    "acceptance_record": "2026-11-06-signed-database-refresh-acceptance.json"
   }
 }

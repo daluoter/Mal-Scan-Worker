@@ -533,6 +533,47 @@ Cloud Logging 的空白頁仍可能包含 `nextPageToken`，表示搜尋尚未�
 它保留 `real_scheduled_refresh_verified: false`：真正 cron 的派送來源仍需當次 Scheduler／controller 的因果證據，
 不能只拿後續 `healthy_no_update_due` 的健康 Build 當作先前更新的證明。
 
+#### 目前發布已通過；接續核對 cron 來源
+
+11/6 台北 13:03 的使用者讀回已取得 `cloud_release_evidence_verified: true`。
+發布 `db-20261105T152451Z-88ed6053b825` 已 promoted，Build `2f77a00d-44bf-4911-871f-8a0406ed4181`
+於台北 11/5 23:25:03 至 23:27:33 成功完成；daily 已從 `28172` 更新至 `28174`，
+四項離線控制與三個資料庫簽章均通過，新映像及 Job 完整設定、回退指標已核對，見[本次紀錄](milestones/2026-11-06-signed-database-refresh-acceptance.json)。
+本段已驗證目前發布的更新證據；cron／手動觸發的來源仍需當次事件，不重建或重跑掃描。
+
+以下三個只讀查詢限制在台北 11/5 **23:20–23:35**（UTC 15:20–15:35）：
+先讀 Scheduler 執行紀錄，再找當次 controller Build，最後讀同時段人工 `RunJob` 的 Admin Activity。
+格式只輸出已選取的時間、狀態及工作識別，不包含呼叫者 email、原始 payload、URL 或 debugInfo。
+
+```bash
+(
+  set -e
+  gcloud logging read \
+    'resource.type="cloud_scheduler_job" AND resource.labels.project_id="malscan-v2-poc" AND resource.labels.location="us-central1" AND resource.labels.job_id="malscan-v2-database-updates" AND timestamp>="2026-11-05T15:20:00Z" AND timestamp<"2026-11-05T15:35:00Z"' \
+    --project=malscan-v2-poc \
+    --freshness=30d --order=asc --limit=100 \
+    --format='json(timestamp,jsonPayload.jobName,jsonPayload.scheduledTime,jsonPayload.status,httpRequest.status)'
+
+  gcloud builds list \
+    --project=malscan-v2-poc --region=us-central1 \
+    --filter='tags=malscan-db-controller AND createTime>="2026-11-05T15:20:00Z" AND createTime<"2026-11-05T15:35:00Z"' \
+    --sort-by=createTime --limit=20 \
+    --format='json(id,status,createTime,startTime,finishTime)'
+
+  gcloud logging read \
+    'log_id("cloudaudit.googleapis.com/activity") AND protoPayload.serviceName="cloudscheduler.googleapis.com" AND protoPayload.methodName=~"CloudScheduler[.]RunJob$" AND (protoPayload.resourceName="projects/malscan-v2-poc/locations/us-central1/jobs/malscan-v2-database-updates" OR protoPayload.request.name="projects/malscan-v2-poc/locations/us-central1/jobs/malscan-v2-database-updates") AND timestamp>="2026-11-05T15:20:00Z" AND timestamp<"2026-11-05T15:35:00Z"' \
+    --project=malscan-v2-poc \
+    --freshness=30d --order=asc --limit=100 \
+    --format='json(timestamp,protoPayload.methodName,protoPayload.resourceName,protoPayload.status.code)'
+)
+```
+
+`scheduledTime` 可能缺少，不填造推定值。沒有人工 `RunJob` 紀錄只表示該查詢未觀察到，
+不能單獨當作 cron 證明；需一起核對排程事件、controller 身分／固定來源與更新輸出。
+結果若達 `--limit` 或查詢失敗，仍不是完整清單。後續 `78b18eed…` 的健康 Build 不是當次更新 parent。
+[Scheduler 執行日誌](https://cloud.google.com/scheduler/docs/viewing-logs)與
+[RunJob 稽核分類](https://cloud.google.com/scheduler/docs/audit-logging)分開讀回；本步不觸發 `RunJob`。
+
 ### 7. 人工部署前暫停
 
 ```bash

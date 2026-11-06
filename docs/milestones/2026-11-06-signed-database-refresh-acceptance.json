@@ -1,0 +1,120 @@
+{
+  "schema_version": 1,
+  "date_taipei": "2026-11-06",
+  "checklist_id": "P0-12",
+  "checklist_status": "in_progress",
+  "scope": "User-provided verification of the current signed database release; cron origin remains unclassified",
+  "evidence_source": {
+    "kind": "Sanitized inspect-auto-update.py --current-release output pasted by the user",
+    "observed_at_utc": "2026-11-06T05:03:26.437864+00:00",
+    "observed_at_taipei": "2026-11-06T13:03:26.437864+08:00",
+    "independent_provider_query_by_agent": false,
+    "raw_provider_payloads_exported": false
+  },
+  "observation": {
+    "read_complete": true,
+    "errors": [],
+    "registered_source_matches": true,
+    "enabled_monitoring_metadata_matches_plan": true,
+    "healthy_metric_ingestion_verified": true,
+    "cloud_release_evidence_verified": true,
+    "read_only": true,
+    "remote_mutations": false,
+    "cloud_run_executed": false
+  },
+  "current_release": {
+    "release": "db-20261105T152451Z-88ed6053b825",
+    "phase": "promoted",
+    "current_image": "us-central1-docker.pkg.dev/malscan-v2-poc/malscan-v2-poc/full-worker@sha256:493fd6bd011d136fb6cd85a3e5cb13c363bb9ded0b2617d07fc5a710b9bfc21c",
+    "rollback_image": "us-central1-docker.pkg.dev/malscan-v2-poc/malscan-v2-poc/full-worker@sha256:4a018a2a947a9d110e506cd40caf76e6ecd1c25d8ad7564c5d12ed2ed310b263",
+    "build_id": "2f77a00d-44bf-4911-871f-8a0406ed4181",
+    "build_status": "SUCCESS",
+    "build_created_at_utc": "2026-11-05T15:25:03.804572+00:00",
+    "build_created_at_taipei": "2026-11-05T23:25:03.804572+08:00",
+    "build_finished_at_utc": "2026-11-05T15:27:33.086992+00:00",
+    "build_finished_at_taipei": "2026-11-05T23:27:33.086992+08:00",
+    "registered_source_and_live_job_configuration_verified": true,
+    "provider_build_result_and_builder_identity_verified": true,
+    "provider_build_steps_match_expected_offline_controls": true,
+    "provider_build_source_in_operations_staging_prefix": true,
+    "provider_controls_match_saved_controls": true,
+    "source_archive_downloaded_and_content_fingerprint_recomputed": false,
+    "source_verification_scope": "Registered source, exact Build identity/result/steps, builder identity and operations staging prefix; not a new hash of the uploaded source archive",
+    "new_build_submitted_by_inspector": false,
+    "analysis_job_execution_requested_by_inspector": false
+  },
+  "daily_database": {
+    "version": 28174,
+    "created_at_utc": "2026-11-05T06:26:24+00:00",
+    "created_at_taipei": "2026-11-05T14:26:24+08:00",
+    "age_seconds_at_observation": 81422,
+    "age_seconds_at_build_finish": 32469,
+    "candidate_age_limit_seconds": 172800,
+    "candidate_freshness_at_build_finish_verified": true,
+    "previous_approved_database": {
+      "version": 28172,
+      "created_at_utc": "2026-11-02T06:24:10+00:00",
+      "evidence_scope": "Previously accepted manual release used as the prior current image"
+    },
+    "version_and_creation_time_advanced_from_previous_approved_release": true,
+    "previous_database_age_at_release_name_time_seconds": 291641,
+    "refresh_after_seconds": 259200,
+    "previous_database_was_due_at_release_name_time": true
+  },
+  "offline_controls": {
+    "clamav_clean": true,
+    "clamav_eicar_detected": true,
+    "yara_clean": true,
+    "yara_eicar_detected": true,
+    "all_three_database_signatures_verified": true,
+    "scope": "Network-disabled read-only image controls whose provider log report matches the saved checkpoint",
+    "new_cloud_demo_file_scan_verified_by_this_report": false
+  },
+  "later_health_observation": {
+    "enabled": true,
+    "phase": "idle",
+    "last_healthy_at_utc": "2026-11-06T03:25:46.238218+00:00",
+    "last_status": "healthy_no_update_due",
+    "healthy_controller_build_id": "78b18eed-a6bc-4d96-90be-da600b310d37",
+    "scope": "A later healthy check; this Build is not causal proof of the preceding release update"
+  },
+  "acceptance_limits": {
+    "cron_execution_not_classified": true,
+    "real_scheduled_refresh_verified": false,
+    "report_scoped_notification_delivery_verified": false,
+    "report_scoped_billed_cost_verified": false,
+    "notification_receipt_acceptance_is_preserved": true,
+    "notification_receipt_record": "2026-11-06-automatic-update-notification-acceptance.json",
+    "registered_rollback_image_is_not_an_actual_rollback_exercise": true,
+    "interrupted_update_recovery_verified": false
+  },
+  "remaining_p0_12_acceptance": [
+    "Classify the triggering event using the corresponding Scheduler and controller evidence",
+    "Verify recovery from an interrupted update",
+    "Observe actual billed usage, retention and storage costs"
+  ],
+  "separate_checklist_items_unchanged": [
+    "P0-06 Durable Object physical cleanup",
+    "P0-07 retention and storage reclamation",
+    "P0-11 actual cloud rollback exercise",
+    "P0-14 long-term GCP costs",
+    "P0-15 Cloudflare billed usage",
+    "P0-18 retention verification for each later analysis root"
+  ],
+  "credentials_raw_logs_private_configuration_or_financial_data_published": false,
+  "cron_provenance_followup": {
+    "query_window_utc": [
+      "2026-11-05T15:20:00Z",
+      "2026-11-05T15:35:00Z"
+    ],
+    "query_window_taipei": "2026-11-05 23:20–23:35 Asia/Taipei",
+    "reads": [
+      "Scheduler execution metadata for the fixed job",
+      "Controller Build IDs and status in the same creation window",
+      "RunJob Admin Activity metadata for the same job and time window"
+    ],
+    "commands_remote_mutations": false,
+    "query_results_received": false,
+    "absence_of_manual_run_audit_alone_is_cron_proof": false
+  }
+}
