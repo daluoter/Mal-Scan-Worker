@@ -44,17 +44,15 @@
   "image_pointer_followup": {
     "recorded_current_or_rollback_pointers_changed_since_submission": true,
     "comparison_scope": "Private coordinator pointers plus a separate user-provided live Job image readback; no atomic full-configuration transaction was established",
-    "cause": "A promoted signed-database release is now verified; the exact cron/manual trigger remains unclassified",
-    "scheduled_refresh_is_one_possible_explanation_not_verified": true,
-    "required_reads": [
-      "Evidence classifying the actual triggering event as cron rather than a manual run"
-    ],
+    "cause": "A promoted signed-database release is verified and one matching scheduled dispatch/controller window has passed limited operational acceptance",
+    "scheduled_refresh_is_one_possible_explanation_not_verified": false,
+    "required_reads": [],
     "rollback_requested": false,
     "new_test_build_required": false,
-    "live_job_image_matches_current_coordinator_image": true
+    "live_job_image_matches_current_coordinator_image": true,
+    "scheduled_refresh_acceptance": "accepted_limited_operational_correlation"
   },
   "remaining_p0_12_acceptance": [
-    "Classify the verified signed-database release trigger as cron using Scheduler/controller evidence",
     "Verify recovery from an interrupted update and real incident reopening independently; the controlled recovered notification does not establish these",
     "Observe actual billed usage and storage costs"
   ],

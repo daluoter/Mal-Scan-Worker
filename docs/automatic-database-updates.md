@@ -574,6 +574,17 @@ Cloud Logging 的空白頁仍可能包含 `nextPageToken`，表示搜尋尚未�
 [Scheduler 執行日誌](https://cloud.google.com/scheduler/docs/viewing-logs)與
 [RunJob 稽核分類](https://cloud.google.com/scheduler/docs/audit-logging)分開讀回；本步不觸發 `RunJob`。
 
+上述查詢已取得使用者結果：Scheduler `scheduledTime` 為台北 11/5 23:23:03.416282，HTTP 200，
+同時段只有一筆 controller `32fc839a-aa93-4146-b6de-cb3dee8803c5`，建立時間距排程時間約 0.099 秒。
+controller 成功執行至 23:29:44，涵蓋前述發布準備與候選建置，該發布已另讀回 promoted；人工 `RunJob` 查詢為空。
+結合先前已匹配的 Scheduler 設定、發布與 controls，接受為**一次排程更新的限定案例驗收**，不需重複這一輪查詢或建置。
+這是紀錄交叉核對，沒有取得直接 request ID 連結，也未額外重讀此 parent 的完整身分／來源與 `updated` marker。
+空白稽核只是輔助證據；既有觀測報告的 cron 旗標保留其原始範圍，未因本人工驗收而改寫工具或舊報告。
+
+接續優先準備更新中斷復原演練：私人準備紀錄需綁定當次 controller、candidate Build、campaign 與目前／回退 digest，
+在工具可核對這些身分與階段後，以保留原 campaign、接續同一候選、沒有多餘建置或重複切換為驗收條件。
+本次成功更新與告警恢復尚未演練這個情境；映像清理／保留期與實際用量費用持續另列，P0-12 維持進行中。
+
 ### 7. 人工部署前暫停
 
 ```bash

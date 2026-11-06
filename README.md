@@ -8,7 +8,7 @@
 
 ## 目前里程碑
 
-**2026-11-06：P0-12 目前發布的簽章病毒庫更新證據與告警收信已通過驗收。** daily 從 `28172` 更新至 `28174`；台北 11/5 23:27 完成的建置、新 Job 映像、四項正常／EICAR 離線控制與三個資料庫簽章均匹配，見[發布驗收](docs/milestones/2026-11-06-signed-database-refresh-acceptance.json)。上一版保留為回退版；受控告警已保存 `delivery_recorded`，見[通知驗收](docs/milestones/2026-11-06-automatic-update-notification-acceptance.json)。cron 觸發來源、更新中斷復原與費用仍待驗證，P0-12 維持進行中。
+**2026-11-06：P0-12 完成一次排程更新的限定案例驗收與告警收信驗收。** 台北 11/5 23:23 的 Scheduler 派送、同時段唯一成功 controller 與已驗證發布相符；daily 已由 `28172` 更新至 `28174`，Job 映像、四項正常／EICAR 控制與三個資料庫簽章均匹配，見[排程與發布紀錄](docs/milestones/2026-11-06-signed-database-refresh-acceptance.json)。這是單次維運紀錄交叉核對，直接 request ID 追蹤未另取得。上一版保留為回退版，受控告警已保存 `delivery_recorded`，見[通知驗收](docs/milestones/2026-11-06-automatic-update-notification-acceptance.json)。更新中斷復原、自動清理的實際觀察與費用仍待驗證，P0-12 維持進行中。
 
 **2026-11-05：P0-12 的 Monitoring 設定與健康資料點已取得使用者驗收。** [只讀核對工具](docs/automatic-database-updates.md#讀回-monitoring-設定與資料點)確認來源、兩個 metrics、兩個告警政策與健康點均匹配；下一項為[受控失敗告警收信測試](docs/automatic-database-updates.md#受控失敗告警與收信測試)。P0-12 維持進行中，真正排程更新、回復與費用仍需驗證。
 

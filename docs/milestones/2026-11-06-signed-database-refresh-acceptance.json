@@ -3,7 +3,7 @@
   "date_taipei": "2026-11-06",
   "checklist_id": "P0-12",
   "checklist_status": "in_progress",
-  "scope": "User-provided verification of the current signed database release; cron origin remains unclassified",
+  "scope": "User-provided signed release evidence and one scheduled-refresh case accepted from correlated operational records",
   "evidence_source": {
     "kind": "Sanitized inspect-auto-update.py --current-release output pasted by the user",
     "observed_at_utc": "2026-11-06T05:03:26.437864+00:00",
@@ -79,18 +79,21 @@
     "scope": "A later healthy check; this Build is not causal proof of the preceding release update"
   },
   "acceptance_limits": {
-    "cron_execution_not_classified": true,
-    "real_scheduled_refresh_verified": false,
     "report_scoped_notification_delivery_verified": false,
     "report_scoped_billed_cost_verified": false,
     "notification_receipt_acceptance_is_preserved": true,
     "notification_receipt_record": "2026-11-06-automatic-update-notification-acceptance.json",
     "registered_rollback_image_is_not_an_actual_rollback_exercise": true,
-    "interrupted_update_recovery_verified": false
+    "interrupted_update_recovery_verified": false,
+    "report_scoped_cron_execution_not_classified": true,
+    "report_scoped_real_scheduled_refresh_verified": false,
+    "scheduled_refresh_acceptance": "accepted_limited_operational_correlation",
+    "direct_request_id_linkage_verified": false,
+    "parent_identity_source_and_updated_marker_independently_rechecked": false
   },
   "remaining_p0_12_acceptance": [
-    "Classify the triggering event using the corresponding Scheduler and controller evidence",
-    "Verify recovery from an interrupted update",
+    "Verify recovery from an interrupted update and preservation/reconciliation of uncertain operations",
+    "Continue bounded automatic-image cleanup and retention acceptance",
     "Observe actual billed usage, retention and storage costs"
   ],
   "separate_checklist_items_unchanged": [
@@ -114,7 +117,52 @@
       "RunJob Admin Activity metadata for the same job and time window"
     ],
     "commands_remote_mutations": false,
-    "query_results_received": false,
-    "absence_of_manual_run_audit_alone_is_cron_proof": false
+    "query_results_received": true,
+    "absence_of_manual_run_audit_alone_is_cron_proof": false,
+    "evidence_source": "Three sanitized read-only query outputs pasted by the user; no independent provider query by agent",
+    "exact_followup_observation_time_provided": false,
+    "no_query_errors_reported": true,
+    "scheduler_records": [
+      {
+        "timestamp": "2026-11-05T15:23:07.553638134Z",
+        "http_status": 200,
+        "job_name": "projects/malscan-v2-poc/locations/us-central1/jobs/malscan-v2-database-updates"
+      },
+      {
+        "timestamp": "2026-11-05T15:23:07.582347954Z",
+        "job_name": "projects/malscan-v2-poc/locations/us-central1/jobs/malscan-v2-database-updates",
+        "scheduled_time": "2026-11-05T15:23:03.416282Z"
+      }
+    ],
+    "matching_controller_builds": [
+      {
+        "id": "32fc839a-aa93-4146-b6de-cb3dee8803c5",
+        "status": "SUCCESS",
+        "create_time": "2026-11-05T15:23:03.515318282Z",
+        "start_time": "2026-11-05T15:23:04.241884656Z",
+        "finish_time": "2026-11-05T15:29:44.441613Z"
+      }
+    ],
+    "controller_build_tag_query_filter": "malscan-db-controller",
+    "manual_runjob_admin_activity_results": [],
+    "manual_runjob_audit_observed": false,
+    "manual_audit_absence_scope": "No matching event observed in the selected job/time/query scope; not proof that no manual action was possible",
+    "query_result_counts": {
+      "scheduler_records": 2,
+      "controller_builds": 1,
+      "manual_runjob_admin_activity": 0
+    },
+    "acceptance": {
+      "scheduled_refresh_acceptance": "accepted_limited_operational_correlation",
+      "scheduled_dispatch_observed": true,
+      "scheduler_http_success_observed": true,
+      "single_matching_controller_build_succeeded": true,
+      "controller_create_after_scheduled_time_approximately_seconds": 0.099,
+      "release_preparation_and_candidate_build_within_controller_execution_window": true,
+      "previously_verified_release_controls_and_live_job_evidence_combined": true,
+      "direct_request_id_linkage_verified": false,
+      "parent_identity_source_and_updated_marker_independently_rechecked": false,
+      "limitation": "Acceptance combines the fixed job scheduled event, one matching tagged successful controller in the same narrow window, the enclosing execution times and previously verified release evidence. It does not claim a directly observed API request-ID link or independent re-read of this parent Build identity/source/updated marker."
+    }
   }
 }
