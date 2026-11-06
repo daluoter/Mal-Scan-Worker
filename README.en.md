@@ -8,7 +8,7 @@ A file analysis platform built around static analysis: upload files, trace archi
 
 ## Current milestone
 
-**2026-11-06: P0-12 controlled failure notification receipt has user-provided acceptance evidence.** The same test Build's expected early-exit reason and log marker were verified, and the user confirmed receiving the alert. See the [limited acceptance record](docs/milestones/2026-11-06-automatic-update-notification-acceptance.json). The private current/rollback pointers now differ from the pre-test snapshot; the cause still needs inspection. Scheduled database refreshes, recovery and costs remain open, and P0-12 stays in progress.
+**2026-11-06: P0-12 controlled failure notification receipt is accepted and recorded.** The user supplied `delivery_recorded` and a recovered-alert screenshot for the same policy; see the [limited acceptance record](docs/milestones/2026-11-06-automatic-update-notification-acceptance.json). The new image matches the live Job and its predecessor is the rollback image. Release Build and signed control evidence are next. Alert metric recovery does not establish recovery from an interrupted update; real cron refreshes, recovery and costs remain open, and P0-12 stays in progress.
 
 **2026-11-05: P0-12 Monitoring configuration and healthy-point ingestion have user-provided acceptance evidence.** The [read-only inspector](docs/automatic-database-updates.md#讀回-monitoring-設定與資料點) confirmed the approved source, metrics, enabled policies and matching healthy point. Next is the [controlled failure notification test](docs/automatic-database-updates.md#受控失敗告警與收信測試). Actual notification receipt, scheduled database refreshes, recovery and costs remain open; P0-12 stays in progress.
 

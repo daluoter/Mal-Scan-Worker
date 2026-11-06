@@ -498,9 +498,40 @@ Cloud Logging 的空白頁仍可能包含 `nextPageToken`，表示搜尋尚未�
 )
 ```
 
-`inspect-auto-update.py` 的通知送達與真正更新旗標固定為 false，該工具只核對設定與健康點，
+上述預設查詢的通知送達與真正更新旗標固定為 false，該模式只核對設定與健康點，
 不讀取收信 sidecar；這不會推翻本次使用者的收信驗收。此查詢也不單獨證明 daily 版本、完整 controls 或真正 cron 來源。
 新指標與 live Job 仍需比對，簽章更新與復原、費用各自保留驗收條件。
+
+11/6 後續使用者已取得 `delivery_recorded`；人工確認保存於台北 12:27:38，與實際到信時間分開。
+新目前映像 `493fd6bd…bfc21c` 與 live Job 相符，前一個目前版 `4a018a2a…10b263` 已成為回退版。
+提供的恢復通知畫面顯示失敗指標為 0、事件 recovered；這不等於更新中斷復原或實際映像回退。
+
+#### 核對目前發布的建置與簽章證據
+
+更新至含 `--current-release` 的本機工具後，可沿用原 plan，一次讀回目前發布的建置與離線控制證據：
+
+```bash
+(
+  set -e
+  cd "$(cat "$HOME/malscan-v2-auto-update-source-path.txt")"
+  python3 deployment/cloud-run/inspect-auto-update.py \
+    --plan-dir "$(cat "$HOME/malscan-v2-auto-update-plan-path.txt")" \
+    --current-release
+)
+```
+
+此選項核對私人 promoted 檢查點、live Job Ready 與完整設定、精確候選 Build 的身分／結果／步驟，
+再讀該 Build 實際輸出的 engine controls，與保存的報告比對。只輸出已驗證的版本、digest、時間及布林結果，
+不輸出 Job 環境變數、原始日誌、通知 labels 或私有設定。查詢前後的 state generation 必須一致。
+
+`cloud_release_evidence_verified: true` 表示目前發布、Build 與 controls 的證據鏈核對通過；
+`current_release.daily_database` 顯示 daily 版本／建立時間，四項控制與三個資料庫簽章分開列出。
+候選映像的來源是 operations bucket 的 `build-sources/`，controller 則使用原固定 bundle，兩者不能混為同一個物件。
+來源檢查核對登記指紋、builder 身分與 staging 範圍，並未重新下載來源 archive 計算內容指紋。
+
+此選項只讀取既有資源，不提交 Build、執行掃描、切換映像或更新 state／journal。
+它保留 `real_scheduled_refresh_verified: false`：真正 cron 的派送來源仍需當次 Scheduler／controller 的因果證據，
+不能只拿後續 `healthy_no_update_due` 的健康 Build 當作先前更新的證明。
 
 ### 7. 人工部署前暫停
 

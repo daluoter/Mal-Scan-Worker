@@ -299,5 +299,282 @@ class ObservabilityTests(unittest.TestCase):
         self.assertEqual(path.read_text(), "keep existing private file")
 
 
+class CurrentReleaseTests(unittest.TestCase):
+    def setUp(self):
+        self.base = ObservabilityTests()
+        self.base.setUp()
+        self.tool, self.rest, self.now = self.base.tool, self.base.rest, self.base.now
+        state, generation = self.tool.store.load_json("state.json")
+        files = state["current"]["files"]
+        self.controls = files["engine-controls.json"]
+        next(d for d in self.controls["signed_databases"] if d["name"] == "daily.cvd")[
+            "version"
+        ] = 28175
+        files["state.json"]["candidate_controls"] = copy.deepcopy(self.controls)
+        self.tool.store.put_json("state.json", state, generation)
+        self.saved = copy.deepcopy(files["state.json"])
+        self.build = copy.deepcopy(files["build.json"])
+        self.build["steps"][0].update(
+            name="gcr.io/cloud-builders/docker", env=["DOCKER_BUILDKIT=1"]
+        )
+        self.build.update(
+            serviceAccount=(
+                f"projects/{observe.PROJECT}/serviceAccounts/"
+                f"malscan-v2-db-builder@{observe.PROJECT}.iam.gserviceaccount.com"
+            ),
+            source={
+                "storageSource": {
+                    "bucket": self.tool.plan["bucket"],
+                    "object": "build-sources/1793890000.source.tgz",
+                    "generation": "1",
+                }
+            },
+            createTime=(self.now - timedelta(minutes=15)).isoformat(),
+            finishTime=(self.now - timedelta(minutes=10)).isoformat(),
+            privateProviderPayload=PRIVATE,
+        )
+        self.build_url = (
+            f"https://cloudbuild.googleapis.com/v1/projects/{observe.PROJECT}/locations/"
+            f"{observe.setup.REGION}/builds/{self.saved['build_id']}"
+        )
+        self.rest.resources[self.build_url] = self.build
+        self.tool.store.writes.clear()
+        self.before_state = copy.deepcopy(self.tool.store.values)
+        self.before_journal = copy.deepcopy(self.tool.journal)
+        self.before_files = {
+            name: (self.tool.directory / name).read_bytes()
+            for name in ("plan.json", "source.tar.gz", "apply-state.json")
+        }
+
+    def tearDown(self):
+        self.base.tearDown()
+
+    def report(self, *, controls=None):
+        with patch.object(
+            observe,
+            "current_release_controls",
+            return_value=copy.deepcopy(self.controls if controls is None else controls),
+        ) as read_controls:
+            report = observe.inspect(self.tool, now=self.now, include_current_release=True)
+        return report, read_controls
+
+    def assert_private_unchanged(self):
+        self.assertEqual(self.tool.store.values, self.before_state)
+        self.assertEqual(self.tool.store.writes, [])
+        self.assertEqual(self.tool.journal, self.before_journal)
+        for name, data in self.before_files.items():
+            self.assertEqual((self.tool.directory / name).read_bytes(), data)
+
+    def test_default_does_not_read_release_or_change_report_contract(self):
+        with patch.object(observe, "current_release_controls") as reader:
+            report = observe.inspect(self.tool, now=self.now)
+        reader.assert_not_called()
+        self.assertNotIn("current_release", report)
+        self.assertNotIn("cloud_release_evidence_verified", report)
+        self.assertFalse(any(c[1] == self.build_url for c in self.rest.calls))
+        self.assert_private_unchanged()
+
+    def test_opt_in_verifies_build_live_job_and_provider_controls_without_writes(self):
+        report, reader = self.report()
+        self.assertTrue(report["cloud_release_evidence_verified"])
+        self.assertFalse(report["real_scheduled_refresh_verified"])
+        release = report["current_release"]
+        self.assertEqual(release["build_id"], self.saved["build_id"])
+        self.assertEqual(release["build_status"], "SUCCESS")
+        self.assertEqual(release["daily_database"]["version"], 28175)
+        self.assertGreaterEqual(release["daily_database"]["age_seconds"], 0)
+        self.assertLessEqual(
+            release["daily_database"]["age_at_build_finish_seconds"],
+            release["daily_database"]["candidate_age_limit_seconds"],
+        )
+        self.assertTrue(release["registered_source_and_live_job_configuration_verified"])
+        self.assertTrue(release["provider_controls_match_saved_controls"])
+        self.assertTrue(release["all_three_database_signatures_verified"])
+        self.assertTrue(release["cron_execution_not_classified"])
+        self.assertFalse(release["new_build_submitted"])
+        reader.assert_called_once_with(self.tool, self.saved)
+        self.assertTrue(all(c[0] == "GET" for c in self.rest.calls))
+        self.assertNotIn(PRIVATE, json.dumps(report))
+        self.assert_private_unchanged()
+
+    def test_live_build_identity_release_result_and_builder_must_match(self):
+        original = copy.deepcopy(self.build)
+        for key, value in (
+            ("id", OWNER),
+            ("status", "FAILURE"),
+            ("serviceAccount", PRIVATE),
+            ("substitutions", {"_RELEASE": PRIVATE}),
+            ("results", {"images": []}),
+        ):
+            with self.subTest(key=key):
+                self.rest.resources[self.build_url] = {**copy.deepcopy(original), key: value}
+                report, reader = self.report()
+                self.assertFalse(report["cloud_release_evidence_verified"])
+                self.assertIsNone(report["current_release"])
+                self.assertNotIn(PRIVATE, json.dumps(report))
+                reader.assert_not_called()
+        self.assert_private_unchanged()
+
+    def test_image_build_source_uses_operations_staging_not_controller_bundle(self):
+        original = copy.deepcopy(self.build)
+        for source in (
+            {},
+            {"bucket": PRIVATE, "object": "build-sources/source.tgz"},
+            {"bucket": self.tool.plan["bucket"], "object": self.tool.plan["bundle_object"]},
+            {"bucket": self.tool.plan["bucket"], "object": "build-sources/../source.tgz"},
+            {"bucket": self.tool.plan["bucket"], "object": "build-sources//source.tgz"},
+        ):
+            with self.subTest(source=source):
+                self.rest.resources[self.build_url] = {
+                    **copy.deepcopy(original),
+                    "source": {"storageSource": source},
+                }
+                report, reader = self.report()
+                self.assertFalse(report["cloud_release_evidence_verified"])
+                self.assertIn(
+                    {"check": "current_release", "error": "current_release_build_source_invalid"},
+                    report["errors"],
+                )
+                self.assertNotIn(PRIVATE, json.dumps(report))
+                reader.assert_not_called()
+        self.assert_private_unchanged()
+
+    def test_changed_build_steps_cannot_qualify_as_offline_engine_controls(self):
+        original = copy.deepcopy(self.build)
+        mutations = (
+            lambda b: b["steps"][0].update(name=PRIVATE),
+            lambda b: b["steps"][0].update(args=[PRIVATE]),
+            lambda b: b["steps"][1].update(status="FAILURE"),
+            lambda b: b["steps"][1].update(args=[PRIVATE]),
+            lambda b: b["steps"][1].update(entrypoint=PRIVATE),
+            lambda b: b["steps"][1].update(env=[PRIVATE]),
+            lambda b: b["steps"][1].update(secretEnv=[PRIVATE]),
+            lambda b: b["steps"][1].update(allowExitCodes=[1]),
+            lambda b: b.update(options={"env": [PRIVATE]}),
+        )
+        for mutate in mutations:
+            with self.subTest(mutate=mutate):
+                build = copy.deepcopy(original)
+                mutate(build)
+                self.rest.resources[self.build_url] = build
+                report, reader = self.report()
+                self.assertFalse(report["cloud_release_evidence_verified"])
+                self.assertIn(
+                    {"check": "current_release", "error": "current_release_build_steps_invalid"},
+                    report["errors"],
+                )
+                self.assertNotIn(PRIVATE, json.dumps(report))
+                reader.assert_not_called()
+        self.assert_private_unchanged()
+
+    def test_provider_controls_must_match_saved_report_and_never_export_private_values(self):
+        controls = {**copy.deepcopy(self.controls), "privateProviderPayload": PRIVATE}
+        report, _ = self.report(controls=controls)
+        self.assertFalse(report["cloud_release_evidence_verified"])
+        self.assertIn(
+            {"check": "current_release", "error": "current_release_controls_differ"},
+            report["errors"],
+        )
+        self.assertNotIn(PRIVATE, json.dumps(report))
+        self.assert_private_unchanged()
+
+    def test_unavailable_provider_controls_is_unknown_not_verified(self):
+        with patch.object(observe, "current_release_controls", side_effect=RuntimeError(PRIVATE)):
+            report = observe.inspect(self.tool, now=self.now, include_current_release=True)
+        self.assertFalse(report["cloud_release_evidence_verified"])
+        self.assertIn({"check": "current_release", "error": "read_unavailable"}, report["errors"])
+        self.assertNotIn(PRIVATE, json.dumps(report))
+        self.assert_private_unchanged()
+
+    def test_live_job_configuration_drift_cannot_verify_release(self):
+        self.base.fixture.job["spec"]["template"]["spec"]["parallelism"] = 2
+        report, reader = self.report()
+        self.assertFalse(report["cloud_release_evidence_verified"])
+        reader.assert_not_called()
+        self.assert_private_unchanged()
+
+    def test_generation_change_between_snapshots_blocks_release_read(self):
+        original = self.tool._approved_state
+
+        def changed():
+            state, generation = original()
+            return state, generation + 1
+
+        with patch.object(self.tool, "_approved_state", side_effect=changed):
+            report, reader = self.report()
+        self.assertFalse(report["cloud_release_evidence_verified"])
+        self.assertIn(
+            {"check": "current_release", "error": "current_release_snapshot_changed"},
+            report["errors"],
+        )
+        reader.assert_not_called()
+        self.assert_private_unchanged()
+
+    def test_generation_change_after_controls_invalidates_success(self):
+        def controls_changed(tool, saved):
+            state, generation = tool.store.load_json("state.json")
+            tool.store.put_json("state.json", state, generation)
+            return copy.deepcopy(self.controls)
+
+        with patch.object(observe, "current_release_controls", side_effect=controls_changed):
+            report = observe.inspect(self.tool, now=self.now, include_current_release=True)
+        self.assertFalse(report["cloud_release_evidence_verified"])
+        self.assertIn(
+            {"check": "snapshot_consistency", "error": "controller_changed_during_observation"},
+            report["errors"],
+        )
+
+    def test_invalid_or_missing_build_times_are_not_exported(self):
+        for value in (None, PRIVATE, (self.now + timedelta(hours=1)).isoformat()):
+            self.build["finishTime"] = value
+            report, _ = self.report()
+            self.assertFalse(report["cloud_release_evidence_verified"])
+            self.assertNotIn(PRIVATE, json.dumps(report))
+        self.assert_private_unchanged()
+
+    def test_missing_daily_version_cannot_verify_current_release(self):
+        state, generation = self.tool.store.load_json("state.json")
+        files = state["current"]["files"]
+        daily = next(
+            d for d in files["engine-controls.json"]["signed_databases"] if d["name"] == "daily.cvd"
+        )
+        daily.pop("version")
+        files["state.json"]["candidate_controls"] = copy.deepcopy(files["engine-controls.json"])
+        self.tool.store.put_json("state.json", state, generation)
+        report, _ = self.report(controls=files["engine-controls.json"])
+        self.assertFalse(report["cloud_release_evidence_verified"])
+        self.assertIn(
+            {"check": "current_release", "error": "current_release_daily_invalid"},
+            report["errors"],
+        )
+
+    def test_database_must_have_been_fresh_when_candidate_build_finished(self):
+        for created in (
+            int((self.now - timedelta(days=3)).timestamp()),
+            int((self.now - timedelta(minutes=5)).timestamp()),
+        ):
+            with self.subTest(created=created):
+                state, generation = self.tool.store.load_json("state.json")
+                current = state["current"]
+                files = current["files"]
+                daily = next(
+                    d
+                    for d in files["engine-controls.json"]["signed_databases"]
+                    if d["name"] == "daily.cvd"
+                )
+                daily["created_at_epoch"] = created
+                current["daily_created_at_epoch"] = created
+                files["state.json"]["candidate_controls"] = copy.deepcopy(
+                    files["engine-controls.json"]
+                )
+                self.tool.store.put_json("state.json", state, generation)
+                report, _ = self.report(controls=files["engine-controls.json"])
+                self.assertFalse(report["cloud_release_evidence_verified"])
+                self.assertIn(
+                    {"check": "current_release", "error": "current_release_daily_invalid"},
+                    report["errors"],
+                )
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -3,12 +3,15 @@
   "date_taipei": "2026-11-06",
   "checklist_id": "P0-12",
   "checklist_status": "in_progress",
-  "scope": "User-provided acceptance of the controlled failure marker and notification receipt",
+  "scope": "User-provided controlled failure notification acceptance, persisted receipt and image pointer follow-up",
   "evidence_source": {
     "status": "Sanitized status output pasted by the user",
     "receipt_statement": "有收到告警信",
     "independent_provider_or_mailbox_access_by_agent": false,
-    "exact_observation_or_delivery_timestamp_provided": false
+    "timestamp_scope": "The initial status had no exact observation time; later follow-up timestamps are recorded separately and do not establish actual email delivery time",
+    "exact_initial_observation_timestamp_provided": false,
+    "exact_followup_observation_timestamp_provided": true,
+    "exact_email_arrival_timestamp_provided": false
   },
   "user_provided_status": {
     "scope": "controlled_updater_notification_test",
@@ -34,27 +37,27 @@
   "accepted": {
     "expected_early_exit_failure_marker_verified_by_user_report": true,
     "notification_receipt_explicitly_confirmed_by_user": true,
-    "receipt_evidence_kind": "Explicit user statement in the context of the controlled failure alert",
-    "private_received_operation_or_delivery_recorded_phase_evidenced": false,
-    "limitation": "The pasted summary predates the separate receipt-recording step; no receipt timestamp or private sidecar transition is inferred"
+    "receipt_evidence_kind": "Explicit user statement, later delivery_recorded summary and matching-policy alert screenshot",
+    "private_received_operation_or_delivery_recorded_phase_evidenced": true,
+    "limitation": "Receipt confirmation was persisted at the reported user_confirmed_at time; actual email arrival time is not inferred from that timestamp, and no provider or mailbox access was performed by the agent"
   },
   "image_pointer_followup": {
     "recorded_current_or_rollback_pointers_changed_since_submission": true,
-    "comparison_scope": "Private coordinator current/rollback references, not an independent live Job transaction",
+    "comparison_scope": "Private coordinator pointers plus a separate user-provided live Job image readback; no atomic full-configuration transaction was established",
     "cause": "unknown",
     "scheduled_refresh_is_one_possible_explanation_not_verified": true,
     "required_reads": [
-      "Current coordinator state and healthy controller identity",
-      "Live Job readiness, immutable image and configuration comparison",
-      "Current release Build and signed database control evidence"
+      "Live Job readiness and full configuration comparison",
+      "Current release Build identity, approved source and signed database control evidence",
+      "Evidence classifying the actual triggering event as cron rather than a manual run"
     ],
     "rollback_requested": false,
-    "new_test_build_required": false
+    "new_test_build_required": false,
+    "live_job_image_matches_current_coordinator_image": true
   },
   "remaining_p0_12_acceptance": [
-    "Record the already-confirmed receipt in the existing private test sidecar",
-    "Classify image pointer changes and verify a real cron-triggered signed database refresh",
-    "Verify failure recovery and incident closure/reopening independently",
+    "Classify image pointer changes and verify the real refresh Build, approved source, signed controls and cron provenance",
+    "Verify recovery from an interrupted update and real incident reopening independently; the controlled recovered notification does not establish these",
     "Observe actual billed usage and storage costs"
   ],
   "separate_checklist_items_unchanged": [
@@ -65,5 +68,108 @@
     "P0-15 Cloudflare billed usage",
     "P0-18 retention verification for each later analysis root"
   ],
-  "credentials_raw_logs_email_addresses_or_notification_labels_published": false
+  "credentials_raw_logs_email_addresses_or_notification_labels_published": false,
+  "followup_user_evidence": {
+    "evidence_source": "User-pasted sanitized received/inspection outputs, live Job image CLI output and alert screenshot",
+    "received_status": {
+      "phase": "delivery_recorded",
+      "build_id": "99db3d04-426e-4453-8cbf-a198b696a157",
+      "build_status": "FAILURE",
+      "expected_failure_code": "lease_owner_invalid",
+      "failure_marker_verified": true,
+      "failure_marker_currently_observed": true,
+      "notification_delivery_verified": true,
+      "delivery_evidence": "explicit_user_confirmation",
+      "user_confirmed_at_utc": "2026-11-06T04:27:38.119939+00:00",
+      "user_confirmed_at_taipei": "2026-11-06T12:27:38.119939+08:00",
+      "confirmation_time_is_actual_email_delivery_time": false,
+      "independent_mailbox_access": false,
+      "image_pointers_match_pre_submit": false,
+      "new_build_submission_required": false,
+      "resubmitted": false,
+      "cloud_run_executed": false,
+      "original_plan_state_and_journal_mutated_by_this_tool": false
+    },
+    "observability": {
+      "observed_at_utc": "2026-11-06T04:27:38.368556+00:00",
+      "observed_at_taipei": "2026-11-06T12:27:38.368556+08:00",
+      "errors": [],
+      "read_complete": true,
+      "enabled_monitoring_metadata_matches_plan": true,
+      "healthy_metric_ingestion_verified": true,
+      "enabled": true,
+      "phase": "idle",
+      "registered_source_matches": true,
+      "current_image": "us-central1-docker.pkg.dev/malscan-v2-poc/malscan-v2-poc/full-worker@sha256:493fd6bd011d136fb6cd85a3e5cb13c363bb9ded0b2617d07fc5a710b9bfc21c",
+      "rollback_image": "us-central1-docker.pkg.dev/malscan-v2-poc/malscan-v2-poc/full-worker@sha256:4a018a2a947a9d110e506cd40caf76e6ecd1c25d8ad7564c5d12ed2ed310b263",
+      "last_healthy_at_utc": "2026-11-06T03:25:46.238218+00:00",
+      "last_status": "healthy_no_update_due",
+      "healthy_controller_build_id": "78b18eed-a6bc-4d96-90be-da600b310d37",
+      "scheduler_state": "ENABLED",
+      "scheduler_configuration_matches": true,
+      "scheduler_next_schedule_at_utc": "2026-11-06T15:23:02.583663+00:00",
+      "manual_or_cron_execution_not_classified": true,
+      "report_scoped_notification_delivery_verified": false,
+      "report_scoped_real_scheduled_refresh_verified": false,
+      "report_scoped_billed_cost_verified": false,
+      "remote_mutations": false,
+      "cloud_run_executed": false
+    },
+    "live_job_image_readback": {
+      "source": "User-provided whitelisted gcloud run jobs describe image output",
+      "image": "us-central1-docker.pkg.dev/malscan-v2-poc/malscan-v2-poc/full-worker@sha256:493fd6bd011d136fb6cd85a3e5cb13c363bb9ded0b2617d07fc5a710b9bfc21c",
+      "matches_current_coordinator_image": true,
+      "readiness_and_full_configuration_not_included_in_this_cli_output": true,
+      "atomic_snapshot_across_reads_established": false
+    },
+    "alert_screenshot": {
+      "source": "User-provided screenshot; raw image, mailbox identifiers and incident URL are not published here",
+      "policy_title": "MalScan database update failed",
+      "recovered_status_visible": true,
+      "metric": "logging/user/malscan_db_update_failure",
+      "visible_metric_value": 0,
+      "visible_incident_start_utc": "2026-11-05 08:49 UTC (minute precision)",
+      "visible_mail_header_times_taipei": [
+        "2026-11-05 16:49 Asia/Taipei (minute precision)",
+        "2026-11-05 16:58 Asia/Taipei (minute precision)"
+      ],
+      "interpretation": "The visible failure metric returned to zero, within threshold; this is consistent with the controlled event leaving the evaluation window and is not proof of database repair",
+      "does_not_establish": [
+        "Database repair or a completed signed database refresh",
+        "Controller or application rollback",
+        "Recovery from an interrupted update",
+        "Future real incident reopening"
+      ]
+    },
+    "independent_provider_or_mailbox_access_by_agent": false
+  },
+  "current_release_inspector_delivery": {
+    "command": "deployment/cloud-run/inspect-auto-update.py --plan-dir ORIGINAL_PLAN --current-release",
+    "scope": "Optional read-only verification of the current release, not cron classification",
+    "checks": [
+      "registered source and live Job Ready/full configuration",
+      "exact candidate Build UUID/SUCCESS/release/image digest/builder",
+      "operations staging prefix; source archive content is not downloaded and rehashed",
+      "exact two Docker steps including network-disabled read-only controls",
+      "provider emitted controls equal the saved report",
+      "all three signatures and daily freshness when Build completed",
+      "unchanged coordinator generation across observation"
+    ],
+    "read_side_effects": {
+      "new_build": false,
+      "cloud_run_execution": false,
+      "state_or_journal_mutation": false,
+      "raw_logs_or_private_configuration_export": false
+    },
+    "local_validation": {
+      "new_tests_passed": 13,
+      "inspector_tests_passed": 27,
+      "all_cloud_run_operations_tests_passed": 267,
+      "optional_real_sdk_test_classes_skipped_on_host": 1,
+      "black_and_worker_ruff": "passed"
+    },
+    "provider_readback_using_this_option_received": false,
+    "real_scheduled_refresh_verified": false,
+    "authenticated_cloud_api_actions_by_agent": false
+  }
 }

@@ -115,7 +115,7 @@
     "date_taipei": "2026-11-06",
     "record": "2026-11-06-automatic-update-notification-acceptance.json",
     "evidence_source": "user-provided sanitized status and explicit email receipt confirmation",
-    "private_received_command_persistence_verified": false,
+    "private_received_command_persistence_verified": true,
     "image_pointer_drift_cause_verified": false
   }
 }

@@ -8,7 +8,7 @@
 
 ## 目前里程碑
 
-**2026-11-06：P0-12 受控失敗告警已通過收信驗收。** 使用者讀回同一筆測試 Build 的預期早停原因與日誌標記，並確認收到告警信，見[限定驗收紀錄](docs/milestones/2026-11-06-automatic-update-notification-acceptance.json)。目前／回退映像的私人紀錄已與測試前不同，原因仍需核對；真正排程病毒庫更新、復原與費用尚未結案，P0-12 維持進行中。
+**2026-11-06：P0-12 受控失敗告警已通過收信驗收並保存確認。** 使用者取得 `delivery_recorded`，並提供同政策的告警恢復畫面，見[限定驗收紀錄](docs/milestones/2026-11-06-automatic-update-notification-acceptance.json)。新映像已與 live Job 相符，原本映像成為回退版；接著核對該次建置與簽章 controls。告警指標恢復不等於更新中斷的復原演練；真正 cron 更新、復原與費用仍未結案，P0-12 維持進行中。
 
 **2026-11-05：P0-12 的 Monitoring 設定與健康資料點已取得使用者驗收。** [只讀核對工具](docs/automatic-database-updates.md#讀回-monitoring-設定與資料點)確認來源、兩個 metrics、兩個告警政策與健康點均匹配；下一項為[受控失敗告警收信測試](docs/automatic-database-updates.md#受控失敗告警與收信測試)。P0-12 維持進行中，真正排程更新、回復與費用仍需驗證。
 

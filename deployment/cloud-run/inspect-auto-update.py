@@ -132,7 +132,163 @@ def healthy_points(rest, build_id, start, end):
     raise ObservationError("metric_pagination_incomplete")
 
 
-def inspect(tool, *, now=None):
+def current_release_controls(tool, saved):
+    """Read only the exact candidate Build's emitted controls, without exporting logs."""
+    maintenance = setup.module("observability_release_controls", "maintain-demo.py")
+    return maintenance.Maintenance(tool.directory, setup.ROOT).controls_report(saved)
+
+
+def current_release_steps(build, saved, image):
+    tag = image + ":" + saved["release"]
+    expected = [
+        {
+            "name": "gcr.io/cloud-builders/docker",
+            "env": ["DOCKER_BUILDKIT=1"],
+            "args": [
+                "build",
+                "--target=cloud-job",
+                "--build-arg=SIGNATURE_REFRESH=" + saved["release"],
+                "-f",
+                "worker/Dockerfile",
+                "-t",
+                tag,
+                ".",
+            ],
+        },
+        {
+            "id": "engine-controls",
+            "name": "gcr.io/cloud-builders/docker",
+            "args": [
+                "run",
+                "--rm",
+                "--network=none",
+                "--read-only",
+                "--tmpfs=/tmp:rw,size=128m",
+                "--entrypoint=python",
+                tag,
+                "-m",
+                "malscan_worker.runtime.engine_controls",
+            ],
+        },
+    ]
+    steps = build.get("steps")
+    options = build.get("options", {})
+    if (
+        not isinstance(steps, list)
+        or len(steps) != 2
+        or not isinstance(options, dict)
+        or any(options.get(key) for key in ("env", "secretEnv", "volumes"))
+    ):
+        raise ObservationError("current_release_build_steps_invalid")
+    for desired, actual in zip(expected, steps):
+        if (
+            not isinstance(actual, dict)
+            or actual.get("status") != "SUCCESS"
+            or not setup.subset(desired, actual)
+            or actual.get("env", []) != desired.get("env", [])
+            or actual.get("dir", "") not in {"", "."}
+            or any(
+                actual.get(key)
+                for key in (
+                    "entrypoint",
+                    "script",
+                    "secretEnv",
+                    "volumes",
+                    "allowFailure",
+                    "allowExitCodes",
+                )
+            )
+        ):
+            raise ObservationError("current_release_build_steps_invalid")
+
+
+def current_release(tool, state, generation, now):
+    """Verify the current release; this does not classify its Scheduler trigger."""
+    approved, observed_generation = tool._approved_state()
+    if observed_generation != generation or approved != state:
+        raise ObservationError("current_release_snapshot_changed")
+    auto = setup.module("observability_release_controller", "auto_update.py")
+    files = approved["current"]["files"]
+    saved, _, daily = auto._approved_files(files)
+    build_id = saved.get("build_id")
+    if not canonical_uuid(build_id):
+        raise ObservationError("current_release_build_id_invalid")
+    build = tool.get(
+        f"https://cloudbuild.googleapis.com/v1/projects/{PROJECT}/locations/{setup.REGION}"
+        f"/builds/{build_id}"
+    )
+    if (
+        not isinstance(build, dict)
+        or build.get("id") != build_id
+        or build.get("status") != "SUCCESS"
+        or build.get("serviceAccount") != auto.BUILDER_ACCOUNT
+    ):
+        raise ObservationError("current_release_build_identity_invalid")
+    actual_files = {**files, "build.json": build}
+    try:
+        auto._approved_files(actual_files)
+    except Exception:
+        raise ObservationError("current_release_build_result_differs") from None
+    current_release_steps(build, saved, auto.maintenance.IMAGE)
+    source = build.get("source", {}).get("storageSource", {})
+    object_name = source.get("object") if isinstance(source, dict) else None
+    if (
+        not isinstance(source, dict)
+        or source.get("bucket") != tool.plan["bucket"]
+        or not isinstance(object_name, str)
+        or not re.fullmatch(r"build-sources/[A-Za-z0-9._/-]{1,1024}", object_name)
+        or any(part in {"", ".", ".."} for part in object_name.split("/"))
+    ):
+        raise ObservationError("current_release_build_source_invalid")
+    created, finished = timestamp(build.get("createTime")), timestamp(build.get("finishTime"))
+    if created > finished or finished > now:
+        raise ObservationError("current_release_build_time_invalid")
+    if current_release_controls(tool, saved) != files["engine-controls.json"]:
+        raise ObservationError("current_release_controls_differ")
+    version = daily.get("version")
+    age = int(now.timestamp()) - daily["created_at_epoch"]
+    candidate_age = int(finished.timestamp()) - daily["created_at_epoch"]
+    if (
+        not setup.integer(version)
+        or version < 1
+        or not 0 <= age <= 604800
+        or not 0 <= candidate_age <= auto.POLICY["max_candidate_age_seconds"]
+    ):
+        raise ObservationError("current_release_daily_invalid")
+    controls = files["engine-controls.json"]
+    return {
+        "read_only": True,
+        "current_image": approved["current"]["image"],
+        "rollback_image": approved["current"]["rollback_image"],
+        "release": saved["release"],
+        "phase": saved["phase"],
+        "build_id": build_id,
+        "build_status": "SUCCESS",
+        "build_created_at": created.isoformat(),
+        "build_finished_at": finished.isoformat(),
+        "registered_source_and_live_job_configuration_verified": True,
+        "provider_build_result_and_builder_identity_verified": True,
+        "provider_build_steps_match_expected_offline_controls": True,
+        "provider_build_source_in_operations_staging_prefix": True,
+        "provider_controls_match_saved_controls": True,
+        "daily_database": {
+            "version": version,
+            "created_at": datetime.fromtimestamp(
+                daily["created_at_epoch"], timezone.utc
+            ).isoformat(),
+            "age_seconds": age,
+            "age_at_build_finish_seconds": candidate_age,
+            "candidate_age_limit_seconds": auto.POLICY["max_candidate_age_seconds"],
+        },
+        "controls": {name: True for name in sorted(controls["controls"])},
+        "all_three_database_signatures_verified": True,
+        "cron_execution_not_classified": True,
+        "new_build_submitted": False,
+        "cloud_run_executed": False,
+    }
+
+
+def inspect(tool, *, now=None, include_current_release=False):
     now = now or datetime.now(timezone.utc)
     report = {
         "schema_version": 1,
@@ -284,6 +440,13 @@ def inspect(tool, *, now=None):
         if value is not None:
             report["healthy_metric"] = value
 
+    if include_current_release:
+        report["current_release"] = (
+            attempt("current_release", lambda: current_release(tool, state, generation, now))
+            if snapshot and source_matches
+            else None
+        )
+
     if snapshot:
 
         def unchanged():
@@ -316,6 +479,10 @@ def inspect(tool, *, now=None):
         and healthy_config.get("configuration_matches") is True
         and report["healthy_metric"]["post_activation_point_observed"] is True
     )
+    if include_current_release:
+        report["cloud_release_evidence_verified"] = bool(
+            report["read_complete"] and report["current_release"] is not None
+        )
     return report
 
 
@@ -323,13 +490,20 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--plan-dir", required=True, type=Path)
     parser.add_argument("--output", type=Path)
+    parser.add_argument(
+        "--current-release",
+        action="store_true",
+        help="Also read the current candidate Build, live Job and emitted offline controls",
+    )
     args = parser.parse_args()
     try:
         if args.output and (
             setup.ROOT == args.output.resolve() or setup.ROOT in args.output.resolve().parents
         ):
             raise ObservationError("report_must_be_outside_checkout")
-        report = inspect(setup.Provisioner(args.plan_dir))
+        report = inspect(
+            setup.Provisioner(args.plan_dir), include_current_release=args.current_release
+        )
         if args.output:
             maintenance = setup.module("observability_private_output", "maintain-demo.py")
             maintenance.write_private(args.output, report, exclusive=True)
