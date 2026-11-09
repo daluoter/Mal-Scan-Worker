@@ -1,0 +1,75 @@
+{
+  "schema_version": 1,
+  "date_taipei": "2026-11-09",
+  "checklist_id": "P0-12",
+  "checklist_status": "in_progress",
+  "scope": "Local delivery of a guarded interruption/reconnection rehearsal; cloud recovery not yet exercised",
+  "last_user_baseline": {
+    "observed_at_utc": "2026-11-06T07:19:34.192557+00:00",
+    "observed_at_taipei": "2026-11-06T15:19:34.192557+08:00",
+    "read_complete": true,
+    "errors": [],
+    "enabled_monitoring_metadata_matches_plan": true,
+    "healthy_metric_ingestion_verified": true,
+    "cloud_release_evidence_verified": true,
+    "current_image_digest": "sha256:493fd6bd011d136fb6cd85a3e5cb13c363bb9ded0b2617d07fc5a710b9bfc21c",
+    "rollback_image_digest": "sha256:4a018a2a947a9d110e506cd40caf76e6ecd1c25d8ad7564c5d12ed2ed310b263",
+    "release": "db-20261105T152451Z-88ed6053b825",
+    "candidate_build_id": "2f77a00d-44bf-4911-871f-8a0406ed4181",
+    "daily_version": 28174,
+    "daily_created_at_utc": "2026-11-05T06:26:24+00:00",
+    "daily_age_seconds": 89590,
+    "latest_cloud_state_on_november_9_read_by_agent": false,
+    "evidence_source": "User-provided sanitized read-only baseline; not an independent provider query"
+  },
+  "delivery": {
+    "tool": "deployment/cloud-run/rehearse-auto-update-recovery.py",
+    "guide": "docs/auto-update-recovery-rehearsal.md",
+    "operations": [
+      "prepare",
+      "status",
+      "watch-and-interrupt",
+      "resume --confirm-reconnected"
+    ],
+    "prepare": "Remote reads only; an exclusive private recovery-rehearsal.json under the existing plan",
+    "next_target": "Recomputed from the latest coordinator daily epoch and fixed Scheduler ticks; November 8 is historical",
+    "watch": "Finite natural-update observation; exact approved parent/lease/campaign/candidate/source/live Job, recent WORKING candidate and repeated window checks before one parent cancel",
+    "cancel_endpoint": "Regional Cloud Build cancel with bound name/projectId/id; candidate and analysis Job are never cancellation targets",
+    "resume": "At most one uniquely tagged controller using the original approved bundle; 300-second queue TTL; original 1800-second runtime timeout",
+    "unknown_write": "Intent durable before request; read back the same cancellation or unique Build tag; no automatic resubmission",
+    "checkpoint_validation": "Phase-specific evidence and ordered timestamps prevent rollback of a submitted record into a new write phase",
+    "direct_coordinator_lease_scheduler_or_alert_mutation": false,
+    "resumed_controller": "Runs its existing guarded update and bounded retention policy",
+    "analysis_execution_or_candidate_build_requested_directly_by_helper": false,
+    "reconnect_evidence": "Explicit operator confirmation, separate from cloud recovery evidence",
+    "recovery_acceptance": "Same unique candidate, promoted checkpoint and baseline-only image change, provider controls/signatures/freshness, exact reconciled marker and stable state generation",
+    "cancellation_race": "Normally completed update is missed_window, not a passed interruption exercise"
+  },
+  "local_validation": {
+    "new_recovery_tests_passed": 35,
+    "all_cloud_run_operations_tests_passed": 302,
+    "optional_real_sdk_test_classes_skipped_on_host": 1,
+    "black_and_worker_ruff": "passed for the two new Python files",
+    "external_io_guarded_in_recovery_tests": true,
+    "cases": [
+      "Readonly/idempotent preparation and future-window computation",
+      "queued versus WORKING candidate and raw known substitutions",
+      "wrong source, role, lease, parent, candidate or clock blocks cancellation",
+      "lost cancellation/create replies and phase rewind cannot duplicate writes",
+      "completed-update race does not pass interruption",
+      "pending-promotion allowed Job image and preserved full configuration",
+      "provider controls, official signatures, candidate freshness, exact historical marker and pagination",
+      "unique candidate and final snapshot consistency",
+      "no direct coordinator/lease writes and original plan/bundle/journal preserved"
+    ],
+    "authenticated_gcp_actions_by_agent": false
+  },
+  "remaining": {
+    "fresh_prepare_report_received": false,
+    "actual_parent_interruption_verified": false,
+    "operator_reconnection_confirmation_recorded": false,
+    "same_candidate_cloud_recovery_verified": false,
+    "automatic_retention_and_billed_cost_verified": false
+  },
+  "credentials_raw_logs_private_job_configuration_or_financial_data_published": false
+}
