@@ -8,7 +8,7 @@
 
 ## 目前里程碑
 
-**2026-11-09：P0-12 中斷／重連演練工具進入交付。** [分階段手冊](docs/auto-update-recovery-rehearsal.md)區分今天的只讀 `prepare`、未來更新進行中的受控中斷，以及重連後接續同一候選。原先預估的 11/8 時段已過，下一次時間由最新雲端狀態重新計算；本機驗證不代表已完成真實中斷演練，P0-12 維持進行中。
+**2026-11-09：P0-12 中斷／重連演練工具與只讀準備已完成。** 使用者取得 `prepared`，本輪預定台北 **11/11 23:20 開始監看、23:23 等待自然更新**。後續受控中斷、重連與同候選接續依[分階段手冊](docs/auto-update-recovery-rehearsal.md)執行；準備完成不代表已通過真實復原驗收，P0-12 維持進行中。
 
 **2026-11-06：P0-12 完成一次排程更新的限定案例驗收與告警收信驗收。** 台北 11/5 23:23 的 Scheduler 派送、同時段唯一成功 controller 與已驗證發布相符；daily 已由 `28172` 更新至 `28174`，Job 映像、四項正常／EICAR 控制與三個資料庫簽章均匹配，見[排程與發布紀錄](docs/milestones/2026-11-06-signed-database-refresh-acceptance.json)。這是單次維運紀錄交叉核對，直接 request ID 追蹤未另取得。上一版保留為回退版，受控告警已保存 `delivery_recorded`，見[通知驗收](docs/milestones/2026-11-06-automatic-update-notification-acceptance.json)。更新中斷復原、自動清理的實際觀察與費用仍待驗證，P0-12 維持進行中。
 

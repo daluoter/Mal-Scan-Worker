@@ -65,11 +65,40 @@
     "authenticated_gcp_actions_by_agent": false
   },
   "remaining": {
-    "fresh_prepare_report_received": false,
+    "fresh_prepare_report_received": true,
     "actual_parent_interruption_verified": false,
     "operator_reconnection_confirmation_recorded": false,
     "same_candidate_cloud_recovery_verified": false,
     "automatic_retention_and_billed_cost_verified": false
   },
-  "credentials_raw_logs_private_job_configuration_or_financial_data_published": false
+  "credentials_raw_logs_private_job_configuration_or_financial_data_published": false,
+  "user_preparation": {
+    "evidence_source": "User-provided sanitized prepare output; no independent provider query by agent",
+    "phase": "prepared",
+    "exact_preparation_timestamp_provided": false,
+    "target_tick_at_utc": "2026-11-11T15:23:00+00:00",
+    "target_tick_at_taipei": "2026-11-11T23:23:00+08:00",
+    "recommended_watch_at_taipei": "2026-11-11T23:20:00+08:00",
+    "window_start_at_utc": "2026-11-11T15:18:00+00:00",
+    "window_end_at_utc": "2026-11-11T15:43:00+00:00",
+    "window_has_passed": false,
+    "baseline_image_digest": "sha256:4b81ba056abef2372f7cab901582c7b8960a3e4d38c30562e5c039c760edc975",
+    "baseline_rollback_image_digest": "sha256:493fd6bd011d136fb6cd85a3e5cb13c363bb9ded0b2617d07fc5a710b9bfc21c",
+    "parent_build_id": null,
+    "candidate_build_id": null,
+    "resume_build_id": null,
+    "release": null,
+    "recovery_verified": false,
+    "user_reconnected_at": null,
+    "candidate_build_reused": false,
+    "automatic_write_resubmission": false,
+    "cloud_run_executed": false,
+    "coordinator_state_or_lease_mutated_directly_by_tool": false,
+    "scheduler_or_alerts_changed_by_tool": false,
+    "original_plan_source_or_journal_changed_by_tool": false,
+    "maximum_extra_controller_builds": 1,
+    "interpretation": "Preparation accepted; the newer image/rollback pair is the rehearsal baseline, not proof of a separately audited intervening release or actual recovery",
+    "operator_next_action": "Start watch-and-interrupt once at the recommended Taipei time; review its final phase before reconnecting or resuming",
+    "automatic_future_execution_scheduled_by_tool": false
+  }
 }
