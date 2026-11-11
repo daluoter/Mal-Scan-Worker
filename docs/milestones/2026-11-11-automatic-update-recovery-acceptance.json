@@ -1,0 +1,82 @@
+{
+  "schema_version": 1,
+  "date_taipei": "2026-11-11",
+  "checklist_id": "P0-12",
+  "checklist_status": "in_progress",
+  "scope": "Acceptance of one natural-update parent interruption and operator-confirmed reconnection with same-candidate recovery",
+  "evidence_source": "User-provided sanitized outputs from rehearse-auto-update-recovery.py; no independent authenticated provider query by agent",
+  "previous_record": "docs/milestones/2026-11-09-automatic-update-recovery-rehearsal.json",
+  "acceptance": {
+    "bounded_recovery_case_passed": true,
+    "actual_parent_interruption_verified_by_helper": true,
+    "operator_reconnection_confirmation_recorded": true,
+    "same_candidate_cloud_recovery_verified_by_helper": true,
+    "overall_p0_12_complete": false,
+    "interpretation": "The helper accepted recovery of this interrupted campaign using its original candidate Build; this does not establish every interruption mode, an actual rollback exercise, automatic retention deletion, or billed savings"
+  },
+  "reported_phase_sequence": [
+    "armed",
+    "interrupted",
+    "resume_submitted",
+    "recovered"
+  ],
+  "rehearsal": {
+    "scope": "guarded_update_recovery_rehearsal",
+    "phase": "recovered",
+    "target_tick_at_utc": "2026-11-11T15:23:00+00:00",
+    "target_tick_at_taipei": "2026-11-11T23:23:00+08:00",
+    "recommended_watch_at_taipei": "2026-11-11T23:20:00+08:00",
+    "window_start_at_utc": "2026-11-11T15:18:00+00:00",
+    "window_end_at_utc": "2026-11-11T15:43:00+00:00",
+    "window_has_passed_at_report": false,
+    "parent_build_id": "d26087e7-fd27-480c-b419-52eb3c80e1a3",
+    "candidate_build_id": "196af19d-17ac-49f3-a62f-0023d869356c",
+    "resume_build_id": "1f3aef61-b0df-4228-b97c-fe2b10d303f8",
+    "release": "db-20261111T152527Z-2fd604dfa556",
+    "baseline_image_digest": "sha256:4b81ba056abef2372f7cab901582c7b8960a3e4d38c30562e5c039c760edc975",
+    "baseline_rollback_image_digest": "sha256:493fd6bd011d136fb6cd85a3e5cb13c363bb9ded0b2617d07fc5a710b9bfc21c",
+    "candidate_image_digest": "sha256:f4e433ab8dba941fa820ece4940dcec725fcb06155acf390622300e20cf8cd68",
+    "user_reconnected_at_utc": "2026-11-11T15:30:36.257979+00:00",
+    "user_reconnected_at_taipei": "2026-11-11T23:30:36.257979+08:00",
+    "reconnect_evidence": "explicit_user_confirmation",
+    "independent_browser_login_observation": false,
+    "recovered_at_utc": "2026-11-11T15:37:35.616954+00:00",
+    "recovered_at_taipei": "2026-11-11T23:37:35.616954+08:00",
+    "timestamp_interpretation": "The reconnect timestamp records explicit operator confirmation; recovered_at records helper verification, not the exact Job promotion time",
+    "exact_parent_cancellation_time_provided": false,
+    "exact_job_promotion_time_provided": false,
+    "recovery_verified": true,
+    "candidate_build_reused": true,
+    "automatic_write_resubmission": false,
+    "cloud_run_executed": false,
+    "coordinator_state_or_lease_mutated_directly_by_tool": false,
+    "scheduler_or_alerts_changed_by_tool": false,
+    "original_plan_source_or_journal_changed_by_tool": false,
+    "maximum_extra_controller_builds": 1,
+    "resumed_controller_runs_normal_maintenance_and_bounded_cleanup": true
+  },
+  "helper_acceptance_checks": [
+    "The interrupted parent, campaign and candidate remain bound to the saved rehearsal",
+    "The same unique candidate Build and promoted checkpoint satisfy provider controls and signature verification",
+    "The approved source and complete live Job configuration match the expected image-only update",
+    "The baseline image becomes the rollback pointer and the resumed controller reports the matching reconciled marker",
+    "The final coordinator snapshot remains stable during recovery verification"
+  ],
+  "evidence_limits": [
+    "Cloud checks are reported by the user's helper output; the agent did not independently query GCP",
+    "Explicit reconnection confirmation does not establish a browser session or network-disconnection timeline",
+    "The controller's normal bounded cleanup path does not by itself prove any image was selected or deleted",
+    "Retained rollback metadata does not constitute an actual rollback exercise",
+    "No billed cost or savings were measured by this rehearsal"
+  ],
+  "next_priority": [
+    "Read back automatic image-cleanup selection, deletion and retention evidence without triggering another update",
+    "Observe actual project-filtered billed costs and credits in TWD"
+  ],
+  "remaining": {
+    "automatic_image_cleanup_and_retention_provider_evidence_accepted": false,
+    "actual_billed_cost_and_savings_verified": false,
+    "actual_rollback_rehearsal_verified": false
+  },
+  "credentials_raw_logs_private_job_configuration_or_financial_data_published": false
+}

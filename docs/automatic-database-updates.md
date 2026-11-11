@@ -581,10 +581,10 @@ controller 成功執行至 23:29:44，涵蓋前述發布準備與候選建置，
 這是紀錄交叉核對，沒有取得直接 request ID 連結，也未額外重讀此 parent 的完整身分／來源與 `updated` marker。
 空白稽核只是輔助證據；既有觀測報告的 cron 旗標保留其原始範圍，未因本人工驗收而改寫工具或舊報告。
 
-更新中斷復原工具與[分階段手冊](auto-update-recovery-rehearsal.md)現已交付：先執行只讀 `prepare`，再依最新摘要指定時間監看自然更新。
-私人紀錄綁定當次 controller、candidate Build、campaign 與目前／回退 digest；以保留原 campaign、接續同一候選、沒有多餘建置或重複切換為驗收條件。
-舊的 11/8 時段已過，不能直接照舊日期取消工作；實際雲端復原證據仍待執行。
-本次成功更新與告警恢復尚未演練這個情境；映像清理／保留期與實際用量費用持續另列，P0-12 維持進行中。
+更新中斷復原的[分階段演練](auto-update-recovery-rehearsal.md)已於台北 11/11 完成一次限定案例驗收。
+使用者提供原 controller 已中斷、重連確認、同一候選接續至 `recovered` 的工具結果，`recovery_verified` 與 `candidate_build_reused` 皆為 true，見[本次紀錄](milestones/2026-11-11-automatic-update-recovery-acceptance.json)。
+本輪不需重新準備、取消或提交接續 Build；私人紀錄與原 plan 繼續保留。
+下一步讀回[自動清理交易摘要](auto-update-recovery-rehearsal.md#6-本輪通過後讀回自動清理摘要)，再核對保留期與實際用量費用；P0-12 維持進行中，P0-11 真實映像回退另列。
 
 ### 7. 人工部署前暫停
 

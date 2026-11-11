@@ -1,17 +1,18 @@
 # 自動更新中斷與重連演練（P0-12）
 
-更新日期：2026-11-09（Asia/Taipei）。本頁使用 `rehearse-auto-update-recovery.py`，沿用已安裝的私人自動更新計畫。
-程式與本機測試交付、真正雲端中斷／接續驗收分開記錄；目前尚未取得本演練的雲端通過證據。
+更新日期：2026-11-11（Asia/Taipei）。本頁使用 `rehearse-auto-update-recovery.py`，沿用已安裝的私人自動更新計畫。
 
-**本輪第 1 步 `prepare` 已完成。現在保存紀錄，11/11 23:20（台北）再執行第 2 步監看。**
-先前依 daily `28174` 推算的 **11/8 23:23 已過**。目前雲端可能已完成後續自然更新，需由新的 `prepare` 讀回，不能沿用舊基準或日期。
-以摘要的 `target_tick_at_taipei` 作為目標時間、`recommended_watch_at_taipei` 作為開始監看的時間；若映像或設定再變動，工具會停止核對。
-工具沒有替你預約未來執行，當天仍需在 Cloud Shell 手動開始監看。
+**本輪已取得 `recovered`，同候選中斷／重連復原通過限定案例驗收。接下來執行[第 6 節的只讀清理摘要](#6-本輪通過後讀回自動清理摘要)。**
+第 1–5 節保留演練程序供查考，本輪無須重跑 `prepare`、取消或 `resume`。
 
-本輪 `prepare` 已由使用者完成：**11/11 23:20（台北）開始監看，目標排程為 23:23**，
-允許時段為 23:18–23:43。目前基準為 `4b81ba05…edc975`，回退版為 `493fd6bd…bfc21c`。
-這份準備摘要尚無 parent／candidate／resume Build ID；尚未中斷、重連或接續工作。
-現在保留原 plan 即可，當天依第 2 步執行一次；若期間發生其他部署，仍以工具的即時核對為準。
+使用者提供的原 controller 為 `d26087e7-fd27-480c-b419-52eb3c80e1a3`，候選 Build 為 `196af19d-17ac-49f3-a62f-0023d869356c`，
+接續 controller 為 `1f3aef61-b0df-4228-b97c-fe2b10d303f8`。結果 `recovery_verified`、`candidate_build_reused` 皆為 true，沒有自動重送寫入或執行分析 Job。
+發布 `db-20261111T152527Z-2fd604dfa556` 使用 `f4e433ab…f8cd68`；工具核對原目前版 `4b81ba05…edc975` 成為回退版。
+重連聲明於台北 **23:30:36** 保存，復原通過核對於 **23:37:35** 保存；這不是獨立登入歷史或精確映像切換時間。
+見[11/11 驗收紀錄](milestones/2026-11-11-automatic-update-recovery-acceptance.json)；尚不據此結案自動清理、儲存空間回收、帳單或 P0-11 真實回退。
+
+歷史準備時段為 **11/11 23:20 開始監看、23:23 自然更新**，允許時段 23:18–23:43；
+當時目前／回退基準為 `4b81ba05…edc975`／`493fd6bd…bfc21c`。更早的 11/8 推算與 11/9 準備紀錄繼續保留，不用於重新取消工作。
 
 | 時機 | 你要執行的命令 | 會做什麼 |
 | --- | --- | --- |
@@ -38,7 +39,7 @@ Cloud Shell 視窗關閉時，雲端更新程序仍可能繼續執行。因此�
 
 ## 1. 現在：準備私人演練紀錄
 
-本輪已完成，本節命令保留供對照；不需要重新建立準備紀錄。
+本輪已完成，本節與後續第 2–5 節命令保留供對照；不需要重新建立準備紀錄或重做演練。
 
 先依本批交付訊息更新本機來源至包含演練工具的 commit，再執行：
 
@@ -146,3 +147,79 @@ Build 的細部步驟狀態未必即時更新，本演練不宣稱精確停在�
 
 演練預期最多多用一個接續 controller Build，候選映像沿用自然更新的一次建置。
 這些維護工作不呼叫分析 Job 的 execute API，不消耗 demo 掃描 execution 額度；Cloud Build 及相關儲存／日誌仍有各自計費方式，不承諾零費用。
+
+## 6. 本輪通過後：讀回自動清理摘要
+
+現在可執行以下只讀命令，將輸出提供給維護者核對。它只讀私人 GCS checkpoint，輸出已驗證的清理 metadata；不輸出完整 state、plan、環境變數或憑證。
+接續 controller 會執行原有清理政策，但 `recovered` 本身不表示刪了幾個映像。
+下一個 Scheduler tick 可能替換上一輪 completed 清理紀錄，宜先保存這次摘要；若已被替換，也不為補證據再送建置或強制刪除。
+
+```bash
+(
+  set -e
+  cd "$(cat "$HOME/malscan-v2-auto-update-source-path.txt")"
+  python3 - <<'PY_CLEANUP'
+import json
+import sys
+from datetime import datetime, timezone
+from pathlib import Path
+
+sys.path.insert(0, str(Path("deployment/cloud-run").resolve()))
+import auto_update as auto
+import auto_retention as retention
+
+store = auto.Store("malscan-v2-poc-db-operations")
+raw, generation = store.load_json("state.json")
+state = auto.validate_state(raw)
+if state["active"] is not None:
+    raise RuntimeError("controller_update_in_flight")
+
+result = {
+    "scope": "read_only_saved_automatic_cleanup_evidence",
+    "observed_at": datetime.now(timezone.utc).isoformat(),
+    "read_only": True,
+    "current_image": state["current"]["image"],
+    "rollback_image": state["current"]["rollback_image"],
+    "cleanup_checkpoint_observed": state.get("cleanup") is not None,
+    "fresh_registry_absence_verified": False,
+    "billed_savings_verified": False,
+    "remote_mutations": False,
+    "cloud_run_executed": False,
+}
+if state.get("cleanup") is not None:
+    cleanup = retention._validate_state(
+        state["cleanup"],
+        retention._ownership(state["owned"]),
+        {
+            "current": state["current"]["image"],
+            "rollback": state["current"]["rollback_image"],
+            "pending": None,
+        },
+    )
+    result["saved_cleanup"] = {
+        key: cleanup[key]
+        for key in (
+            "scope", "phase", "created_at", "observed_at",
+            "selected", "removed", "pending",
+        )
+    }
+    result["saved_cleanup"]["candidate_count"] = len(cleanup["selected"])
+    result["saved_cleanup"]["removed_count"] = len(cleanup["removed"])
+
+_, final_generation = store.load_json("state.json")
+if final_generation != generation:
+    raise RuntimeError("coordinator_changed_during_read")
+print(json.dumps(result, indent=2))
+PY_CLEANUP
+)
+```
+
+判讀方式：
+
+- `saved_cleanup.phase: completed`、`removed_count > 0`：控制器保存了刪除及當時完整盤點讀回的證據，下一步可對這些精確 digest 補最新缺席查詢。
+- `completed` 但 `removed_count: 0`：這份紀錄沒有刪除候選；依其時間確認是哪一輪，不能據此推定其他輪次從未清理。
+- checkpoint 未觀察到、非 completed 或出現錯誤：先提供摘要／固定錯誤碼；不重送 `resume`，不改寫 state。
+
+政策只處理自動流程 ledger 擁有、比目前與回退版都舊、且完整盤點未發現引用的合格映像；目前版與回退版保留。
+程式中的 24 小時是盤點／刪除計畫有效期，並非映像固定保留一天。GCS 建置來源的保留期需另外讀回設定與實際到期物件。
+版本刪除、最新 registry 缺席、底層容量回收與帳單節省是不同證據；本節不驗證費用。之後再核對 TWD 專案／SKU 的使用費、抵用與淨額，以及 Cloudflare 獨立用量。
