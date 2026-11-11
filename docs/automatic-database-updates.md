@@ -584,7 +584,8 @@ controller 成功執行至 23:29:44，涵蓋前述發布準備與候選建置，
 更新中斷復原的[分階段演練](auto-update-recovery-rehearsal.md)已於台北 11/11 完成一次限定案例驗收。
 使用者提供原 controller 已中斷、重連確認、同一候選接續至 `recovered` 的工具結果，`recovery_verified` 與 `candidate_build_reused` 皆為 true，見[本次紀錄](milestones/2026-11-11-automatic-update-recovery-acceptance.json)。
 本輪不需重新準備、取消或提交接續 Build；私人紀錄與原 plan 繼續保留。
-下一步讀回[自動清理交易摘要](auto-update-recovery-rehearsal.md#6-本輪通過後讀回自動清理摘要)，再核對保留期與實際用量費用；P0-12 維持進行中，P0-11 真實映像回退另列。
+11/12 台北 00:23 使用者已讀回[自動清理交易](milestones/2026-11-12-automatic-image-cleanup-acceptance.json)：`completed`、選中與刪除各 1 個、無 pending；舊版 `493fd6bd…bfc21c` 與保留的目前／回退映像不同。本次保存的刪除及當時完整盤點確認通過限定驗收。
+下一步查詢[三個精確版本的最新存在狀態](auto-update-recovery-rehearsal.md#7-確認本輪三個映像版本的最新存在狀態)，再核對 GCS 建置來源保留期、容量與實際用量費用；P0-12 維持進行中，P0-11 真實映像回退另列。
 
 ### 7. 人工部署前暫停
 

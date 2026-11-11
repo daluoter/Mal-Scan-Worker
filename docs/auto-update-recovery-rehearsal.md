@@ -1,9 +1,13 @@
 # 自動更新中斷與重連演練（P0-12）
 
-更新日期：2026-11-11（Asia/Taipei）。本頁使用 `rehearse-auto-update-recovery.py`，沿用已安裝的私人自動更新計畫。
+更新日期：2026-11-12（Asia/Taipei）。本頁使用 `rehearse-auto-update-recovery.py`，沿用已安裝的私人自動更新計畫。
 
-**本輪已取得 `recovered`，同候選中斷／重連復原通過限定案例驗收。接下來執行[第 6 節的只讀清理摘要](#6-本輪通過後讀回自動清理摘要)。**
+**本輪復原及一次自動清理交易均已通過限定案例驗收。接下來執行[第 7 節的精確版本只讀查詢](#7-確認本輪三個映像版本的最新存在狀態)。**
 第 1–5 節保留演練程序供查考，本輪無須重跑 `prepare`、取消或 `resume`。
+
+使用者於台北 **11/12 00:23:06** 讀回第 6 節清理 checkpoint：`completed`、選中與刪除各 1 個、`pending: null`。
+控制器已刪除舊自動版 `493fd6bd…bfc21c` 並完成當時完整盤點讀回確認，目前 `f4e433ab…f8cd68` 與回退 `4b81ba05…edc975` 保留。
+見[清理紀錄](milestones/2026-11-12-automatic-image-cleanup-acceptance.json)。第 6 節已完成，不需要重讀以補做同一驗收；最新缺席、GCS 來源到期、容量與費用仍待觀察。
 
 使用者提供的原 controller 為 `d26087e7-fd27-480c-b419-52eb3c80e1a3`，候選 Build 為 `196af19d-17ac-49f3-a62f-0023d869356c`，
 接續 controller 為 `1f3aef61-b0df-4228-b97c-fe2b10d303f8`。結果 `recovery_verified`、`candidate_build_reused` 皆為 true，沒有自動重送寫入或執行分析 Job。
@@ -150,7 +154,7 @@ Build 的細部步驟狀態未必即時更新，本演練不宣稱精確停在�
 
 ## 6. 本輪通過後：讀回自動清理摘要
 
-現在可執行以下只讀命令，將輸出提供給維護者核對。它只讀私人 GCS checkpoint，輸出已驗證的清理 metadata；不輸出完整 state、plan、環境變數或憑證。
+本輪已取得上述讀回與限定驗收；以下命令保留供對照。它只讀私人 GCS checkpoint，輸出已驗證的清理 metadata；不輸出完整 state、plan、環境變數或憑證。
 接續 controller 會執行原有清理政策，但 `recovered` 本身不表示刪了幾個映像。
 下一個 Scheduler tick 可能替換上一輪 completed 清理紀錄，宜先保存這次摘要；若已被替換，也不為補證據再送建置或強制刪除。
 
@@ -223,3 +227,95 @@ PY_CLEANUP
 政策只處理自動流程 ledger 擁有、比目前與回退版都舊、且完整盤點未發現引用的合格映像；目前版與回退版保留。
 程式中的 24 小時是盤點／刪除計畫有效期，並非映像固定保留一天。GCS 建置來源的保留期需另外讀回設定與實際到期物件。
 版本刪除、最新 registry 缺席、底層容量回收與帳單節省是不同證據；本節不驗證費用。之後再核對 TWD 專案／SKU 的使用費、抵用與淨額，以及 Cloudflare 獨立用量。
+
+## 7. 確認本輪三個映像版本的最新存在狀態
+
+以下沿用現有 checkout 的 REST client，只對 Artifact Registry 的三個精確 Version 發出 GET；不建立 Build、不執行分析、不刪除映像。
+三個角色取自台北 11/12 00:23 的清理摘要；本指令查詢版本存在狀態，不重新查 live Job 設定，也不改變目前／回退指標。
+預期舊版為 HTTP 404，目前版與回退版為 HTTP 200；只有三者符合預期，整體核對才通過。
+
+```bash
+(
+  set -e
+  cd "$(cat "$HOME/malscan-v2-auto-update-source-path.txt")"
+  python3 - <<'PY_REGISTRY'
+import importlib.util
+import json
+from datetime import datetime, timezone
+from pathlib import Path
+from urllib.parse import quote
+
+spec = importlib.util.spec_from_file_location(
+    "registry_presence_setup", Path("deployment/cloud-run/setup-auto-update.py")
+)
+setup = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(setup)
+rest = setup.REST()
+prefix = (
+    "projects/malscan-v2-poc/locations/us-central1/"
+    "repositories/malscan-v2-poc/packages/full-worker/versions/"
+)
+digests = {
+    "removed": "493fd6bd011d136fb6cd85a3e5cb13c363bb9ded0b2617d07fc5a710b9bfc21c",
+    "reported_current": "f4e433ab8dba941fa820ece4940dcec725fcb06155acf390622300e20cf8cd68",
+    "reported_rollback": "4b81ba056abef2372f7cab901582c7b8960a3e4d38c30562e5c039c760edc975",
+}
+rows = []
+query_started_at = datetime.now(timezone.utc).isoformat()
+for role, digest in digests.items():
+    version = "sha256:" + digest
+    try:
+        value = rest.request(
+            "GET",
+            "https://artifactregistry.googleapis.com/v1/"
+            + prefix + quote(version, safe="") + "?fields=name",
+            missing_ok=True,
+        )
+        if value is not None and (
+            not isinstance(value, dict) or value.get("name") != prefix + version
+        ):
+            raise RuntimeError("registry_version_identity_invalid")
+    except Exception:
+        print(json.dumps({
+            "success": False,
+            "scope": "read_only_exact_registry_version_presence",
+            "error": "registry_version_read_failed",
+            "role": role,
+            "fresh_registry_absence_verified": False,
+            "remote_mutations": False,
+            "cloud_run_executed": False,
+        }))
+        raise SystemExit(1)
+    rows.append({
+        "role_in_saved_report": role,
+        "digest": version,
+        "http_status": 404 if value is None else 200,
+        "present": value is not None,
+    })
+
+retained_present = all(row["present"] for row in rows[1:])
+verified = not rows[0]["present"] and retained_present
+print(json.dumps({
+    "scope": "read_only_exact_registry_version_presence",
+    "query_started_at": query_started_at,
+    "observed_at": datetime.now(timezone.utc).isoformat(),
+    "read_only": True,
+    "versions": rows,
+    "reported_retained_versions_present": retained_present,
+    "fresh_registry_absence_verified": verified,
+    "live_job_configuration_queried": False,
+    "billed_savings_verified": False,
+    "remote_mutations": False,
+    "cloud_run_executed": False,
+}, indent=2))
+raise SystemExit(0 if verified else 1)
+PY_REGISTRY
+)
+```
+
+將輸出提供給維護者核對。403、逾時、網路或身份不符均會中止，不能當成 404；不因查詢失敗而重新刪除。
+若後續自然更新已改變版本保留情況，先依查詢時間與原清理紀錄核對，不將舊角色當成最新 Job 指標。
+這是三次個別版本查詢的結果，不是整個倉庫的原子盤點；即使核對成功，也不證明 layer 空間或帳單已下降。
+
+接續的保留期觀察應涵蓋 operations bucket 的 `build-sources/` 七天 lifecycle 設定與到期物件；`bundles/` 與 state 繼續保存。
+保留期到點不等於已實體刪除，不從這份映像摘要推定 GCS 結果。費用則以專案 `malscan-v2-poc`、TWD、相同日期與 SKU 的使用費／抵用／淨額比較，Cloudflare 另行核對。

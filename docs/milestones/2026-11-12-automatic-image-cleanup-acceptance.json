@@ -1,0 +1,81 @@
+{
+  "schema_version": 1,
+  "date_taipei": "2026-11-12",
+  "checklist_id": "P0-12",
+  "checklist_status": "in_progress",
+  "related_checklist_ids": [
+    "P0-07",
+    "P0-14"
+  ],
+  "scope": "Bounded acceptance of one automatic full-worker image deletion from the validated saved cleanup checkpoint",
+  "evidence_source": "User-provided read_only_saved_automatic_cleanup_evidence output from authenticated Cloud Shell; no independent authenticated provider query by agent",
+  "previous_record": "docs/milestones/2026-11-11-automatic-update-recovery-acceptance.json",
+  "acceptance": {
+    "bounded_saved_checkpoint_automatic_deletion_case_passed": true,
+    "validated_saved_selected_and_removed_sets_match": true,
+    "saved_cleanup_completed_without_pending_digest": true,
+    "current_and_rollback_images_excluded_from_removed_set": true,
+    "overall_p0_12_complete": false,
+    "interpretation": "The saved transaction confirms one ledger-owned old image was removed and absent in the controller's subsequent complete inventory read at that time; it does not establish fresh registry absence, reclaimed storage bytes, or billed savings"
+  },
+  "readback": {
+    "scope": "read_only_saved_automatic_cleanup_evidence",
+    "observed_at_utc": "2026-11-11T16:23:06.674716+00:00",
+    "observed_at_taipei": "2026-11-12T00:23:06.674716+08:00",
+    "read_only": true,
+    "current_image_digest": "sha256:f4e433ab8dba941fa820ece4940dcec725fcb06155acf390622300e20cf8cd68",
+    "rollback_image_digest": "sha256:4b81ba056abef2372f7cab901582c7b8960a3e4d38c30562e5c039c760edc975",
+    "cleanup_checkpoint_observed": true,
+    "fresh_registry_absence_verified": false,
+    "billed_savings_verified": false,
+    "remote_mutations": false,
+    "cloud_run_executed": false
+  },
+  "saved_cleanup": {
+    "scope": "scheduled_owned_full_worker_retention",
+    "phase": "completed",
+    "created_at_utc": "2026-11-11T15:32:06.345768+00:00",
+    "created_at_taipei": "2026-11-11T23:32:06.345768+08:00",
+    "baseline_inventory_observed_at_utc": "2026-11-11T15:32:06.344942+00:00",
+    "baseline_inventory_observed_at_taipei": "2026-11-11T23:32:06.344942+08:00",
+    "timestamp_interpretation": "created_at and observed_at identify cleanup-plan creation and its baseline inventory observation, not deletion completion; the later readback time records retrieval of the saved transaction",
+    "exact_deletion_completion_time_provided": false,
+    "selected_full_worker_digests": [
+      "sha256:493fd6bd011d136fb6cd85a3e5cb13c363bb9ded0b2617d07fc5a710b9bfc21c"
+    ],
+    "removed_full_worker_digests": [
+      "sha256:493fd6bd011d136fb6cd85a3e5cb13c363bb9ded0b2617d07fc5a710b9bfc21c"
+    ],
+    "pending": null,
+    "candidate_count": 1,
+    "removed_count": 1
+  },
+  "helper_validation_scope": [
+    "Validate the coordinator checkpoint and its current/rollback image pointers",
+    "Validate the cleanup ownership binding, plan hash, baseline, protected images, selection and saved progress",
+    "Require no active update campaign and a stable coordinator generation across the read",
+    "Publish allowlisted cleanup metadata without dumping the private state, plan, environment or credentials"
+  ],
+  "evidence_limits": [
+    "The report reads the saved transaction; fresh_registry_absence_verified is explicitly false",
+    "The controller records removed only after a full provider inventory read confirms absence and matches the baseline minus removed images; that is historical controller evidence rather than a new registry query by this readback helper",
+    "The two retained image pointers are not a complete current repository inventory",
+    "No exact deletion completion timestamp, reclaimed layer capacity or billed savings are supplied",
+    "Cleanup plan validity of 24 hours is not a fixed one-day image retention policy",
+    "This image-deletion case does not verify GCS build-source object expiry, Durable Object row cleanup, or an actual image rollback exercise"
+  ],
+  "remaining": {
+    "fresh_provider_absence_of_exact_removed_digest_verified": false,
+    "repository_storage_reclamation_verified": false,
+    "gcs_build_source_retention_and_actual_expiry_verified": false,
+    "actual_billed_cost_and_savings_verified": false,
+    "actual_rollback_rehearsal_verified": false,
+    "durable_object_row_cleanup_verified": false
+  },
+  "next_priority": [
+    "Read the exact removed Artifact Registry version and retained versions without triggering another update or deletion",
+    "Read GCS build-source lifecycle settings and actual object-expiry evidence separately",
+    "Observe repository storage and actual project-filtered billed costs and credits in TWD"
+  ],
+  "credentials_raw_logs_private_job_configuration_or_financial_data_published": false
+}

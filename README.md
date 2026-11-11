@@ -8,6 +8,8 @@
 
 ## 目前里程碑
 
+**2026-11-12：P0-12 自動映像清理取得一次限定案例驗收。** 使用者於台北 00:23 讀回已驗證的私人 checkpoint：清理 `completed`、選中與刪除各 1 個、無 pending，舊自動版 `493fd6bd…bfc21c` 已由控制器刪除並完成當時盤點確認；目前 `f4e433ab…f8cd68` 與回退 `4b81ba05…edc975` 保留。見[清理紀錄](docs/milestones/2026-11-12-automatic-image-cleanup-acceptance.json)。接著依[只讀查詢](docs/auto-update-recovery-rehearsal.md#7-確認本輪三個映像版本的最新存在狀態)核對最新存在狀態；GCS 建置來源到期、實際容量回收與費用仍待驗證，P0-12 維持進行中。
+
 **2026-11-11：P0-12 中斷／重連復原通過一次限定案例驗收。** 使用者提供 `interrupted`、重連確認、`resume_submitted` 至 `recovered` 的結果；工具確認沿用同一候選 Build，`recovery_verified` 與 `candidate_build_reused` 皆為 true，於台北 23:37:35 保存通過紀錄。新映像為 `f4e433ab…f8cd68`，原目前版保留為回退版，沒有執行分析 Job。見[本次驗收](docs/milestones/2026-11-11-automatic-update-recovery-acceptance.json)及[接續手冊](docs/auto-update-recovery-rehearsal.md)。接著讀回自動清理／保留期與費用證據；P0-12 維持進行中，實際映像回退仍另列 P0-11。
 
 **2026-11-09：P0-12 中斷／重連演練工具與只讀準備完成。** 本機交付與當時的 `prepared` 基準保留於[歷史紀錄](docs/milestones/2026-11-09-automatic-update-recovery-rehearsal.json)；後續真實演練結果見上方 11/11 驗收。
