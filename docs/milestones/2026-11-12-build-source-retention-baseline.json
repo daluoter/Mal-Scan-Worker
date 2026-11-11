@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "date_taipei": "2026-11-12",
+  "checklist_id": "P0-12",
+  "checklist_status": "in_progress",
+  "related_checklist_ids": ["P0-07", "P0-14"],
+  "scope": "Acceptance of the initial private build-source retention configuration and metadata baseline; expiry not yet verified",
+  "evidence_source": "User-provided read_only_build_source_retention_baseline summary from Cloud Shell; no independent authenticated provider query by agent",
+  "readback_summary": {
+    "read_only": true,
+    "baseline_reused": false,
+    "fresh_provider_reads_performed": true,
+    "baseline_configuration_verified": true,
+    "prefix_listing_read_complete_at_baseline": true,
+    "saved_object_count": 3,
+    "saved_objects_age_eligible_at_readback": 0,
+    "actual_object_expiry_verified": false,
+    "billed_savings_verified": false,
+    "remote_mutations": false,
+    "cloud_run_executed": false
+  },
+  "accepted_scope": [
+    "Expected private bucket settings and the seven-day build-source prefix rule match the helper's checks",
+    "A complete bounded metadata list was captured and saved exclusively in the original private plan directory",
+    "No saved objects had reached the age threshold at this observation"
+  ],
+  "publication_minimization": {
+    "exact_object_names_generations_and_private_baseline_fingerprint_published": false,
+    "exact_observation_and_eligibility_timestamps_published": false,
+    "exact_size_bytes_published": false,
+    "full_private_baseline_published": false
+  },
+  "evidence_limits": [
+    "The age threshold is not a guaranteed deletion time; lifecycle actions are asynchronous",
+    "Configuration and initial presence do not establish deletion or reclaimed storage",
+    "Later exact-generation absence must be checked against the preserved private baseline",
+    "This baseline does not verify registry-layer reclamation, billed savings, Durable Object cleanup or a live rollback"
+  ],
+  "remaining": {
+    "saved_age_eligible_object_absence_verified": false,
+    "repository_storage_reclamation_verified": false,
+    "actual_billed_cost_and_savings_verified": false
+  },
+  "credentials_raw_logs_private_job_configuration_or_financial_data_published": false
+}

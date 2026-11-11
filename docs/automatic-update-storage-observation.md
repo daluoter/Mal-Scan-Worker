@@ -9,6 +9,10 @@
 
 ## 1. 現在：核對設定並保存私有基準
 
+本輪已由使用者完成：設定與清單讀回通過，保存 3 個來源物件，當時皆未達 age 條件。
+公開[紀錄](milestones/2026-11-12-build-source-retention-baseline.json)僅保留彙總；精確 metadata、私人 fingerprint 與時間留在原基準。
+下列命令保留供對照，重跑仍只沿用舊基準，不能當成到期後的最新缺席查詢。
+
 沿用現有來源 checkout 執行，不需重新 clone 或部署：
 
 ```bash

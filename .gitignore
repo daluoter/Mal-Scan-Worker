@@ -107,3 +107,12 @@ registry-prune*.json
 wrangler-feedback*.json
 deployments-before.txt
 deployments-after.txt
+
+# Private automatic-update operator state (also when copied into a checkout)
+malscan-v2-auto-plan.*/
+build-source-retention-baseline.json
+recovery-rehearsal.json
+notification-test.json
+apply-state.json
+malscan-v2-*-path.txt
+billing-exports/
