@@ -2,12 +2,13 @@
 
 更新日期：2026-11-12（Asia/Taipei）。本頁使用 `rehearse-auto-update-recovery.py`，沿用已安裝的私人自動更新計畫。
 
-**本輪復原及一次自動清理交易均已通過限定案例驗收。接下來執行[第 7 節的精確版本只讀查詢](#7-確認本輪三個映像版本的最新存在狀態)。**
+**本輪復原、自動清理交易及最新 404／200／200 版本查詢均已通過限定案例驗收。下一步為[GCS 建置來源保留期觀察](automatic-update-storage-observation.md)。**
 第 1–5 節保留演練程序供查考，本輪無須重跑 `prepare`、取消或 `resume`。
 
 使用者於台北 **11/12 00:23:06** 讀回第 6 節清理 checkpoint：`completed`、選中與刪除各 1 個、`pending: null`。
 控制器已刪除舊自動版 `493fd6bd…bfc21c` 並完成當時完整盤點讀回確認，目前 `f4e433ab…f8cd68` 與回退 `4b81ba05…edc975` 保留。
-見[清理紀錄](milestones/2026-11-12-automatic-image-cleanup-acceptance.json)。第 6 節已完成，不需要重讀以補做同一驗收；最新缺席、GCS 來源到期、容量與費用仍待觀察。
+後續台北 **11/12 00:29:55–00:30:01** 的三個精確 Version GET 依序為 **404／200／200**，`fresh_registry_absence_verified: true`。
+見[清理紀錄](milestones/2026-11-12-automatic-image-cleanup-acceptance.json)。第 6–7 節均已完成，本輪無須重複執行；GCS 來源到期、容量與費用仍待觀察。
 
 使用者提供的原 controller 為 `d26087e7-fd27-480c-b419-52eb3c80e1a3`，候選 Build 為 `196af19d-17ac-49f3-a62f-0023d869356c`，
 接續 controller 為 `1f3aef61-b0df-4228-b97c-fe2b10d303f8`。結果 `recovery_verified`、`candidate_build_reused` 皆為 true，沒有自動重送寫入或執行分析 Job。
@@ -229,6 +230,8 @@ PY_CLEANUP
 版本刪除、最新 registry 缺席、底層容量回收與帳單節省是不同證據；本節不驗證費用。之後再核對 TWD 專案／SKU 的使用費、抵用與淨額，以及 Cloudflare 獨立用量。
 
 ## 7. 確認本輪三個映像版本的最新存在狀態
+
+本輪已取得上述三個精確版本讀回，以下命令保留供對照，不需要重跑以補做相同驗收。
 
 以下沿用現有 checkout 的 REST client，只對 Artifact Registry 的三個精確 Version 發出 GET；不建立 Build、不執行分析、不刪除映像。
 三個角色取自台北 11/12 00:23 的清理摘要；本指令查詢版本存在狀態，不重新查 live Job 設定，也不改變目前／回退指標。
