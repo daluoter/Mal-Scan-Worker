@@ -7,7 +7,7 @@
     "P0-16",
     "P0-17"
   ],
-  "scope": "Layered publication checks delivered locally and configured for GitHub CI; owner-side enforcement not verified",
+  "scope": "Layered publication checks delivered locally and verified by one live GitHub CI run; owner-side enforcement not verified",
   "layers": {
     "private_operator_output_gitignore": true,
     "staged_private_artifact_guard": true,
@@ -39,7 +39,15 @@
   },
   "ci_validation": {
     "configuration_delivered": true,
-    "live_run_acceptance": "Recorded separately after the delivery commit is pushed; not inferred from local tests"
+    "delivery_commit": "0b8e87f1870abca1527d78545cb0d22f90ebea33",
+    "run_id": 43134927494,
+    "url": "https://github.com/daluoter/Mal-Scan-Worker/actions/runs/43134927494",
+    "conclusion": "success",
+    "head_matches_delivery_commit": true,
+    "private_artifact_check_passed": true,
+    "snapshot_and_incoming_commit_secret_scan_step_passed": true,
+    "publication_guard_test_step_passed": true,
+    "evidence_source": "GitHub Actions run and step metadata read back through gh; no raw finding or log payload published"
   },
   "evidence_limits": [
     "GitHub Actions checks run after a push and cannot undo disclosure from that push",

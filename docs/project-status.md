@@ -192,7 +192,7 @@ Durable Object（DO）像工作登記簿，另存工作、票證與派送狀態�
 | P0-17 | 待辦 | 仍有 advisory 的開發／部署相依工具需持續審查 | 依影響做相容升級，保存 audit 差異與回歸結果，不直接強制升級所有套件 |
 | P0-18 | 待辦 | 第二批三筆正式 demo 工作、前後兩批 PDF 密碼工作與前次兩個 PDF root 與本次三個 Base64 smoke root 及本輪 Office smoke 工作的到期清理尚未核對 | 每批／每個 root 到期後分別檢查指定 R2 前綴與存取撤回；Office root 的 status／retention_expires_at 尚未提供，包含本輪新增 ZIP root `94d643f0-0f74-45a6-9d3c-2f8dc16d8653`，不從完成報告推算；F-11 的文字附件 root `57dd5d67-9941-49d4-9692-7586e9ab3c39`、拒絕 root `0f2e9ed9-9504-4628-af8d-deb91e8cdc3c`，及 11 月新 root `d7979017-8a36-4668-9418-e910e697daa3`／`15bdb16d-a8a6-422d-bdc2-a05d597841c1`，以及 11/4 新驗收 root `04f8568f-a775-453b-b205-b055e78a8f4a`／`6434b517-4659-459e-b2cd-aa8b369cb174` 也未提供私有 status／retention_expires_at；不從報告時間推算，完成、失敗或 partial 都不等於物件已刪除。不能沿用四筆早期驗收的結果，DO 清理仍另列 P0-06 |
 | P0-19 | 進行中 | **GitGuardian 通知核對**：已將 `95396c1`／PDF acceptance 第 172 行精確定位為合成 fixture profile，屬非憑證資料誤報，見[核對紀錄](security-notes.md) | 程式碼分類完成；GitGuardian 平台單筆 False positive 標記尚未操作。其他通知仍逐筆審查；真實憑證另須撤銷／輪替，不能以 Gitleaks 零發現取代核對 |
-| P0-20 | 進行中 | **公開與提交防護**：私人產物忽略規則、Git index 檔名／模式守門、本機 staged Gitleaks，以及文件也涵蓋的 push／PR 安全 CI；18 項守門測試通過，本工作區 hook 已安裝並實際執行，見[本批紀錄](milestones/2026-11-12-publication-protection.json) | GitHub 內建 Push Protection 的有效狀態與 main 強制審查／檢查需 owner 確認，API 整合無權設定；其他開發 checkout 需安裝 hook。CI 是推送後偵測，不能代替發布前防護；持續審查真實差異與掃描結果 |
+| P0-20 | 進行中 | **公開與提交防護**：私人產物忽略規則、Git index 檔名／模式守門、本機 staged Gitleaks，以及文件也涵蓋的 push／PR 安全 CI；18 項守門測試、本工作區 hook 與新增 GitHub 安全 CI 均已通過，見[本批紀錄](milestones/2026-11-12-publication-protection.json) | GitHub 內建 Push Protection 的有效狀態與 main 強制審查／檢查需 owner 確認，API 整合無權設定；其他開發 checkout 需安裝 hook。CI 是推送後偵測，不能代替發布前防護；持續審查真實差異與掃描結果 |
 
 ## P1：靜態證據、規則與品質
 

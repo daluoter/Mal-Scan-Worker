@@ -7,6 +7,7 @@
 P0-20 新增私人檔案守門、本機 staged Gitleaks 與全路徑 push／PR 安全 workflow，見[操作說明](publication-security.md)與[本機交付紀錄](milestones/2026-11-12-publication-protection.json)。
 守門程式檢查 Git index 而非工作目錄，包含 `git add -f` 的私人產物；秘密掃描只輸出安全摘要，不上傳原始 finding、私人設定或 CI artifact。
 本工作區 hook 已安裝；其他 clone 不會因 GitHub 推送而自動取得本機 hook 設定。測試包含實際 Git 暫存、改名、刪除、衝突、特殊檔名與讀取期間狀態改變。
+首次[安全 CI](https://github.com/daluoter/Mal-Scan-Worker/actions/runs/43134927494)已讀回成功，guard、快照／新增提交秘密掃描與守門測試步驟均通過；本機 18 項守門測試與 15 個 workflow／hook 契約案例也已通過。
 
 本次嘗試透過 GitHub API 啟用 Secret scanning／Push Protection，provider 回覆 `Resource not accessible by integration`，因此有效狀態未確認。
 owner 需在 repository 設定核對該功能與 main 的必要檢查／審查規則；本批不把一般 CI 當成拒絕第一次秘密推送的證據。
