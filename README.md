@@ -8,6 +8,8 @@
 
 ## 目前里程碑
 
+**2026-11-12：目前進入安全與維運驗收階段。** 雲端靜態分析、PDF／支援的 Office 解鎖、逐檔密碼與附件三案已有驗收；自動更新、告警、同候選復原及一次舊映像清理已實測。新增 P0-20 的[提交與公開防護](docs/publication-security.md)：私人檔案守門、本機秘密掃描與文件也涵蓋的安全 CI。GitHub 內建 Push Protection 與強制檢查仍需 owner 確認。下一步依序處理來源到期與費用、DO／新 root 清理、真實回退，再回到品質、格式與效能；見[目前進度](docs/project-status.md)與[更新路線圖](docs/roadmap.md)。
+
 **2026-11-12：P0-12 自動映像清理與最新缺席查詢通過一次限定案例驗收。** 使用者於台北 00:23 讀回 `completed`、選中與刪除各 1 個、無 pending 的清理 checkpoint；00:29:55–00:30:01 再查三個精確版本，舊版 `493fd6bd…bfc21c` 為 404，目前／回退角色對應的 `f4e433ab…f8cd68`／`4b81ba05…edc975` 均為 200。見[清理紀錄](docs/milestones/2026-11-12-automatic-image-cleanup-acceptance.json)。映像刪除及最新存在狀態證據已齊，下一步為[GCS 建置來源保留期觀察](docs/automatic-update-storage-observation.md)；實際容量回收與費用仍待驗證，P0-12 維持進行中。
 
 同日 GCS 保留設定與初始 metadata 基準也已讀回通過，保存 3 個來源物件；實際到期缺席仍待驗證。見[精簡摘要](docs/milestones/2026-11-12-build-source-retention-baseline.json)。精確物件資訊與私人基準保持私有，公開手冊的範圍與防誤提交措施見[安全核對](docs/security-notes.md#2026-11-12公開維運手冊的範圍核對)。

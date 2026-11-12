@@ -1,0 +1,58 @@
+{
+  "schema_version": 1,
+  "date_taipei": "2026-11-12",
+  "checklist_id": "P0-20",
+  "checklist_status": "in_progress",
+  "related_checklist_ids": [
+    "P0-16",
+    "P0-17"
+  ],
+  "scope": "Layered publication checks delivered locally and configured for GitHub CI; owner-side enforcement not verified",
+  "layers": {
+    "private_operator_output_gitignore": true,
+    "staged_private_artifact_guard": true,
+    "complete_index_private_artifact_guard_in_ci": true,
+    "local_staged_secret_scan": true,
+    "ci_tracked_snapshot_and_incoming_commit_scan": true,
+    "documents_included_in_push_and_pr_triggers": true,
+    "scanner_version": "8.24.3",
+    "scanner_source_and_ci_archive_pinned": true,
+    "repository_extra_ignore_rules_and_inline_allows_used": false,
+    "ci_findings_or_raw_log_artifacts_published": false,
+    "ci_cloud_credentials_or_oidc_permission_used": false
+  },
+  "local_validation": {
+    "private_artifact_guard_tests_passed": 18,
+    "real_git_index_test_cases": true,
+    "black_and_ruff": "passed for the guard and its tests",
+    "current_checkout_hook_installed": true,
+    "official_pinned_secret_scan_hook_executed_successfully": true,
+    "other_developer_or_cloud_shell_checkouts_automatically_protected": false,
+    "workflow_and_hook_contract_cases_passed": 15,
+    "official_pinned_hook_blocks_a_staged_synthetic_secret": true
+  },
+  "github_owner_settings": {
+    "secret_scanning_and_push_protection_enable_attempt": "provider_denied_integration_access",
+    "effective_push_protection_state_verified": false,
+    "branch_rules_modified": false,
+    "required_status_check_and_review_enforcement_verified": false
+  },
+  "ci_validation": {
+    "configuration_delivered": true,
+    "live_run_acceptance": "Recorded separately after the delivery commit is pushed; not inferred from local tests"
+  },
+  "evidence_limits": [
+    "GitHub Actions checks run after a push and cannot undo disclosure from that push",
+    "Each developer checkout must install its local hook; hooks can be bypassed",
+    "Filename rules and default secret detectors have defined coverage and do not prove absence of every secret format",
+    "The original 50 checklist IDs retain their identity and status; publication protection is tracked separately as P0-20",
+    "No Google Cloud IAM, workload, quota, approved source bundle or frozen controller source was changed"
+  ],
+  "remaining": [
+    "Repository owner verifies GitHub Secret scanning and Push Protection settings",
+    "Repository owner verifies main branch review and required publication-security checks",
+    "Other development checkouts install hooks",
+    "Continue redacted scanning and review for every publication"
+  ],
+  "credentials_raw_logs_private_job_configuration_or_financial_data_published": false
+}

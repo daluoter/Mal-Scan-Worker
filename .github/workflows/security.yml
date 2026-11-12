@@ -1,0 +1,152 @@
+name: Publication security
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publication-security-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  publication-security:
+    if: github.event_name != 'push' || github.event.deleted != true
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: '3.12'
+
+      - name: Reject tracked private operator artifacts
+        run: python3 scripts/check_publication.py --tracked
+
+      - name: Scan tracked snapshot and incoming commits without publishing findings
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          MALSCAN_SCAN_ROOT=$(mktemp -d "$RUNNER_TEMP/malscan-publication.XXXXXX")
+          export MALSCAN_SCAN_ROOT
+          trap 'rm -rf "$MALSCAN_SCAN_ROOT"' EXIT
+          curl --fail --silent --show-error --location \
+            https://github.com/gitleaks/gitleaks/releases/download/v8.24.3/gitleaks_8.24.3_linux_x64.tar.gz \
+            --output "$MALSCAN_SCAN_ROOT/gitleaks.tar.gz"
+          printf '%s  %s\n' \
+            9991e0b2903da4c8f6122b5c3186448b927a5da4deef1fe45271c3793f4ee29c \
+            "$MALSCAN_SCAN_ROOT/gitleaks.tar.gz" | sha256sum --check --status
+          tar -xzf "$MALSCAN_SCAN_ROOT/gitleaks.tar.gz" -C "$MALSCAN_SCAN_ROOT" gitleaks
+          python3 - <<'PY_SCAN'
+          import json
+          import os
+          import re
+          import subprocess
+          from pathlib import Path
+
+          def command(arguments, *, env=None):
+              result = subprocess.run(
+                  arguments, capture_output=True, check=False, timeout=300, env=env
+              )
+              if result.returncode:
+                  raise RuntimeError("publication_command_failed")
+              return result.stdout.decode("utf-8").strip()
+
+          def sha(value):
+              if not isinstance(value, str) or not re.fullmatch(r"[0-9a-f]{40}", value):
+                  raise RuntimeError("commit_identity_invalid")
+              if value == "0" * 40:
+                  raise RuntimeError("commit_identity_missing")
+              command(["git", "cat-file", "-e", value + "^{commit}"])
+              return value
+
+          def incoming_range(event, name):
+              head = sha(command(["git", "rev-parse", "HEAD"]))
+              if name == "pull_request":
+                  before = sha(event["pull_request"]["base"]["sha"])
+                  after = sha(event["pull_request"]["head"]["sha"])
+                  command(["git", "merge-base", "--is-ancestor", after, head])
+                  return before + ".." + after
+              if name == "push":
+                  after = sha(event["after"])
+                  if after != head:
+                      raise RuntimeError("push_checkout_differs")
+                  before = event["before"]
+                  if before != "0" * 40:
+                      return sha(before) + ".." + after
+                  default = event["repository"]["default_branch"]
+                  if not isinstance(default, str):
+                      raise RuntimeError("default_branch_invalid")
+                  command(["git", "check-ref-format", "refs/heads/" + default])
+                  if event["ref"] == "refs/heads/" + default:
+                      # First default-branch push has no prior boundary: inspect its full ancestry.
+                      return after
+                  before = sha(command([
+                      "git", "rev-parse", "--verify", "--end-of-options",
+                      "refs/remotes/origin/" + default,
+                  ]))
+                  return before + ".." + after
+              if name == "workflow_dispatch":
+                  # Manual checks inspect the current snapshot and current commit.
+                  return head + "^!"
+              raise RuntimeError("event_not_supported")
+
+          def scan(binary, root, mode, target, label):
+              report = root / (label + ".json")
+              arguments = [
+                  str(binary), mode, str(target), "--no-banner", "--redact=100",
+                  "--config", str(root / "rules.toml"),
+                  "--gitleaks-ignore-path", str(root / "empty-ignore"),
+                  "--ignore-gitleaks-allow", "--report-format", "json",
+                  "--report-path", str(report),
+              ]
+              if mode == "git":
+                  arguments.extend(["--log-opts", "--no-show-signature " + history])
+              result = subprocess.run(arguments, capture_output=True, check=False, timeout=300)
+              if result.returncode not in (0, 1) or not report.is_file():
+                  raise RuntimeError("secret_scan_not_verified")
+              findings = json.loads(report.read_text())
+              if not isinstance(findings, list) or (result.returncode == 0 and findings):
+                  raise RuntimeError("secret_scan_result_invalid")
+              print(json.dumps({
+                  "scope": "publication_secret_scan", "check": label,
+                  "success": result.returncode == 0, "finding_count": len(findings),
+              }))
+              if result.returncode:
+                  raise SystemExit(1)
+
+          try:
+              root = Path(os.environ["MALSCAN_SCAN_ROOT"])
+              binary = root / "gitleaks"
+              if command([str(binary), "version"]) != "8.24.3":
+                  raise RuntimeError("scanner_version_differs")
+              (root / "rules.toml").write_text("[extend]\nuseDefault = true\n")
+              (root / "empty-ignore").write_text("")
+              snapshot = root / "snapshot"
+              snapshot.mkdir(mode=0o700)
+              snapshot_env = dict(os.environ, GIT_INDEX_FILE=str(root / "snapshot.index"))
+              command(["git", "read-tree", "HEAD"], env=snapshot_env)
+              command(
+                  ["git", "checkout-index", "--all", "--prefix=" + str(snapshot) + "/"],
+                  env=snapshot_env,
+              )
+              event = json.loads(Path(os.environ["GITHUB_EVENT_PATH"]).read_text())
+              history = incoming_range(event, os.environ["GITHUB_EVENT_NAME"])
+              scan(binary, root, "dir", snapshot, "tracked_snapshot")
+              scan(binary, root, "git", ".", "incoming_commits")
+          except Exception:
+              print(json.dumps({"scope": "publication_secret_scan", "success": False,
+                                "error": "publication_scan_not_verified"}))
+              raise SystemExit(1)
+          PY_SCAN
+
+      - name: Test publication guard
+        run: python3 -m unittest discover -s scripts -p 'test_check_publication.py' -v

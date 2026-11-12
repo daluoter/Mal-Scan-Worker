@@ -24,3 +24,48 @@ repos:
         files: ^(backend|worker)/
       - id: ruff-format
         files: ^(backend|worker)/
+
+  # Private filenames are blocked even when staged with git add -f.
+  - repo: local
+    hooks:
+      - id: publication-private-artifacts
+        name: Reject private operator artifacts
+        entry: python3 scripts/check_publication.py --staged
+        language: system
+        pass_filenames: false
+        always_run: true
+
+  # Gitleaks v8.24.3; immutable source revision and built-in rules only.
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: 107a41827bb6698dbbff756b2300537774a1d84c
+    hooks:
+      - id: gitleaks
+        name: Scan staged changes for secrets (summary only)
+        language_version: '1.27.4'
+        always_run: true
+        entry: |
+          python3 -c '
+          import json
+          import subprocess
+          import sys
+          import tempfile
+          from pathlib import Path
+          try:
+              with tempfile.TemporaryDirectory(prefix="malscan-staged-secrets-") as value:
+                  root = Path(value)
+                  config = root / "rules.toml"
+                  config.write_text("[extend]\nuseDefault = true\n")
+                  ignored = root / "empty-ignore"
+                  ignored.write_text("")
+                  result = subprocess.run([
+                      "gitleaks", "git", "--pre-commit", "--staged", "--no-banner",
+                      "--redact=100", "--config", str(config),
+                      "--gitleaks-ignore-path", str(ignored), "--ignore-gitleaks-allow",
+                  ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False, timeout=300)
+              print(json.dumps({"scope": "staged_secret_scan", "success": result.returncode == 0}))
+              sys.exit(0 if result.returncode == 0 else 1)
+          except Exception:
+              print(json.dumps({"scope": "staged_secret_scan", "success": False,
+                                "error": "staged_secret_scan_not_verified"}))
+              sys.exit(1)
+          '
