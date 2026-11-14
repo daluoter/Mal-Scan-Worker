@@ -131,6 +131,24 @@ class PublicationGuardTests(unittest.TestCase):
         report = self.guard(expect=1)
         self.assertEqual(report["blocked_files"], len(names))
 
+    def test_forced_legacy_cleanup_binding_and_nested_journal_are_blocked(self):
+        self.stage(".gitignore", "guarded-registry-operation.json\nmalscan-v2-legacy-cleanup.*/\n")
+        names = [
+            "copied/guarded-registry-operation.json",
+            "backup/malscan-v2-legacy-cleanup.private/operation/state/state.json",
+        ]
+        for name in names:
+            self.stage(name, PRIVATE)
+        report = self.guard(expect=1)
+        self.assertEqual(report["blocked_files"], len(names))
+        self.assertEqual(
+            report["rules"],
+            [
+                {"rule": "private_operator_directory", "count": 1},
+                {"rule": "private_operator_state", "count": 1},
+            ],
+        )
+
     def test_private_directory_is_not_bypassed_by_example_suffix(self):
         self.stage(".malscan-v2-operations/secret.example", PRIVATE)
         self.assertEqual(self.guard(expect=1)["blocked_files"], 1)

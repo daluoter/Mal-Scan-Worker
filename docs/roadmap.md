@@ -16,6 +16,7 @@ completed、無 pending、刪除 digest 符合已審閱批次，版本數 14 →
 見[限定批次紀錄](milestones/2026-10-22-registry-cleanup.json)與[映像清理手冊](registry-cleanup.md)。
 清理後倉庫容量讀數仍幾乎不變；接著核對容量回收、保留政策及後續儲存 SKU／帳單。
 P0-07／P0-14 都維持進行中，不把版本刪除當成已節省費用或停止計費。
+11/14 的目前完整私人盤點已審查，另選出 3 個舊 full-worker schema 2 候選；本輪先依[暫停核對清理流程](guarded-registry-cleanup.md)執行並讀回結果，保留目前／回退版、dispatcher 及整組 engine-poc。候選審查不代表已刪除，後續容量與儲存 SKU 仍需可比較期間的證據。
 
 **目前接續順序：** 11/2 的兩份 partial 報告保留於[跟進紀錄](milestones/2026-11-03-document-embedded-cloud-followup.json)。
 受控刷新後，11/4 的新 Flate EICAR／Office 報告之 10 個節點適用掃描皆完整，daily 28172；

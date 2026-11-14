@@ -110,6 +110,8 @@ deployments-after.txt
 
 # Private automatic-update operator state (also when copied into a checkout)
 malscan-v2-auto-plan.*/
+malscan-v2-legacy-cleanup.*/
+guarded-registry-operation.json
 build-source-retention-baseline.json
 recovery-rehearsal.json
 notification-test.json

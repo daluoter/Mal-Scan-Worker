@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "date_taipei": "2026-11-14",
+  "checklist_id": "P0-07",
+  "checklist_status": "in_progress",
+  "related_checklist_ids": ["P0-12", "P0-14"],
+  "scope": "Review of one private projected registry inventory for a bounded legacy full-worker cleanup",
+  "evidence_source": "User-provided projected registry metadata reviewed locally with the existing normalization and candidate-selection guards; no authenticated provider query by agent",
+  "review": {
+    "inventory_version_count": 10,
+    "eligible_legacy_full_worker_versions": 3,
+    "candidate_media_type": "application/vnd.docker.distribution.manifest.v2+json",
+    "candidates_older_than_all_protected_worker_versions": true,
+    "retained_full_worker_versions": 2,
+    "retained_dispatcher_versions": 2,
+    "retained_engine_poc_versions": 3,
+    "oci_manifest_graph_verified": false,
+    "non_cloud_run_consumers_verified": false
+  },
+  "execution": {
+    "fresh_paused_inventory_required_before_plan": true,
+    "reviewed_candidate_set_may_expand": false,
+    "remote_mutations": false,
+    "cloud_run_executed": false,
+    "deletion_result_verified": false,
+    "capacity_reclamation_verified": false,
+    "billed_savings_verified": false
+  },
+  "local_delivery_validation": {
+    "new_guarded_cleanup_tests_passed": 17,
+    "maintenance_tests_run": 319,
+    "maintenance_tests_skipped": 1,
+    "publication_guard_tests_passed": 19,
+    "approved_controller_files_changed": false,
+    "live_cleanup_executed_by_agent": false
+  },
+  "evidence_limits": [
+    "Candidate eligibility reflects the saved inventory observation and does not replace fresh provider checks",
+    "The engine-poc OCI dependency graph is unverified; all versions remain retained",
+    "The private setup plan, paused Scheduler, disabled idle coordinator, absent lease and stable generation must be checked throughout execution",
+    "Provider reads and deletion are not atomic; operators must avoid concurrent deployment, build and tag changes",
+    "Only a completed cleanup readback can establish this batch's deletion result; image sizes and version counts cannot establish billed savings"
+  ],
+  "raw_inventory_digests_tags_private_paths_financial_data_or_credentials_published": false
+}

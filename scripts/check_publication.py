@@ -44,6 +44,7 @@ PRIVATE_FILES = frozenset(
         "build-source-retention-baseline.json",
         "recovery-rehearsal.json",
         "notification-test.json",
+        "guarded-registry-operation.json",
         ".checkpoint-auth.key",
         "deployments-before.txt",
         "deployments-after.txt",
@@ -72,7 +73,8 @@ def private_rule(path: str, mode: str) -> str | None:
     parts = path.casefold().split("/")
     name = parts[-1]
     if any(
-        part in PRIVATE_DIRECTORIES or part.startswith("malscan-v2-auto-plan.")
+        part in PRIVATE_DIRECTORIES
+        or part.startswith(("malscan-v2-auto-plan.", "malscan-v2-legacy-cleanup."))
         for part in parts[:-1]
     ):
         return "private_operator_directory"
