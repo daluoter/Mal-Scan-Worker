@@ -45,7 +45,7 @@
     "Provider reads and deletion are not atomic; operators must avoid concurrent deployment, build and tag changes",
     "The completed guarded cleanup readback establishes this batch result within the tool checks; no separate exact Version GET or agent provider query was supplied",
     "The review-stage execution flags are historical and do not describe the later user-performed deletion",
-    "Scheduler enablement was observed, but the activation heartbeat was not yet verified in the supplied output",
+    "The initial enable readback did not yet verify a heartbeat; a subsequent user-provided status readback verifies post-enable health",
     "Image sizes and version counts cannot establish capacity reclamation or billed savings"
   ],
   "raw_inventory_digests_tags_private_paths_financial_data_or_credentials_published": false,
@@ -78,6 +78,25 @@
     "controller_lease_present": false,
     "activation_heartbeat_verified": false,
     "post_enable_health_readback_pending": true,
-    "cloud_run_executed": false
+    "cloud_run_executed": false,
+    "historical_initial_enable_readback": true
+  },
+  "post_cleanup_reactivation_health_acceptance": {
+    "evidence_source": "Subsequent explicit user-provided setup status readback",
+    "phase": "activation_submitted",
+    "scheduler_state": "ENABLED",
+    "automatic_updates_enabled": true,
+    "registered_source_matches": true,
+    "runtime_repair_status": "confirmed",
+    "controller_in_flight": false,
+    "controller_lease_present": false,
+    "activation_heartbeat_verified": true,
+    "healthy_timestamp_advanced_after_enable": true,
+    "post_enable_health_readback_pending": false,
+    "new_cloud_scan_executed": false,
+    "live_automatic_update_or_notification_delivery_verified_by_this_readback": false,
+    "agent_authenticated_provider_query_performed": false,
+    "capacity_reclamation_verified": false,
+    "billed_savings_verified": false
   }
 }

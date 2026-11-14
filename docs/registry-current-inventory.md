@@ -118,4 +118,4 @@ engine-poc 的 2 個未分類版本為 OCI manifest，但與受保護 index 的�
 該檔是 Inspector 已投影的 metadata，不是原始 Job 設定或 coordinator state；不要改傳其他 checkpoint、環境設定、憑證或 bundle。
 原始 metadata 報告保持私有，不提交公開 GitHub；公開紀錄只保留必要彙總。
 
-本輪依[自動更新啟用後的限定清理](guarded-registry-cleanup.md)完成，使用者提供的 guarded readback 為 `completed`、3 個候選全部刪除、無 pending、版本數 10 → 7；沒有啟動掃描。接受本批工具前後引用核對內的刪除結果，沒有新增 agent provider 查詢或另行精確 Version GET。原排程已恢復啟用，下一步為[只讀心跳確認](guarded-registry-cleanup.md#目前接續只讀確認啟用後心跳)，再核對容量／儲存 SKU；不重跑本批或 10/22 批次。
+本輪依[自動更新啟用後的限定清理](guarded-registry-cleanup.md)完成，使用者提供的 guarded readback 為 `completed`、3 個候選全部刪除、無 pending、版本數 10 → 7；沒有啟動掃描。接受本批工具前後引用核對內的刪除結果，沒有新增 agent provider 查詢或另行精確 Version GET。原排程已恢復啟用且新心跳確認通過，接著[核對容量／儲存 SKU](guarded-registry-cleanup.md#目前接續容量與費用觀察)；不重跑本批或 10/22 批次。

@@ -4,7 +4,7 @@
 目前自動更新已啟用，先依[目前映像與引用盤點](registry-current-inventory.md)讀回即時 coordinator checkpoint、版本與引用。以下舊批次命令留存供核對，不重新 prepare／apply。
 本階段處理 `P0-07` 保留政策及 `P0-14` 成本；既有部署、月 execution 額度及測試資料保留政策不在只讀盤點中修改。
 
-本輪已取得[目前盤點摘要](milestones/2026-11-14-current-registry-inventory-acceptance.json)、完整私人 metadata 及逐版審查，後續使用者已完成 3 個舊 full-worker 的限定清理：completed、無 pending、版本數 10 → 7，沒有啟動掃描。見[本批驗收](milestones/2026-11-14-legacy-registry-review.json)。目前／回退版、dispatcher 及整組 engine-poc 按工具引用核對保留；原排程已恢復，現在只接續[啟用後心跳讀回](guarded-registry-cleanup.md#目前接續只讀確認啟用後心跳)及容量／費用觀察。本批及下方 10/22 歷史批次均不重跑 prepare／apply。
+本輪已取得[目前盤點摘要](milestones/2026-11-14-current-registry-inventory-acceptance.json)、完整私人 metadata 及逐版審查，後續使用者已完成 3 個舊 full-worker 的限定清理：completed、無 pending、版本數 10 → 7，沒有啟動掃描。見[本批驗收](milestones/2026-11-14-legacy-registry-review.json)。目前／回退版、dispatcher 及整組 engine-poc 按工具引用核對保留；原排程已恢復且啟用後新心跳已確認，接續[容量／費用觀察](guarded-registry-cleanup.md#目前接續容量與費用觀察)。本批及下方 10/22 歷史批次均不重跑 prepare／apply。
 
 本月 SKU 報表已確認映像儲存是主要淨費用來源，另有少量 Cloud Storage 操作、傳輸與儲存費。
 原始帳單、精確金額、帳單帳戶資料與私人盤點檔均不加入 Git。降低未來留存量不能撤銷已產生的費用，
