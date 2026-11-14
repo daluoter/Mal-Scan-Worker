@@ -4,6 +4,9 @@
 此指令讀取原私人基準，查詢**已達七天的既有物件 generation**；不重新保存基準、不建立或刪除物件，也不下載內容。
 沿用現有 Cloud Shell 來源目錄與原 plan，不需要重新 clone、建置或部署。
 
+11/14 已收到[第一個符合年齡物件回傳 404 的結果](milestones/2026-11-14-build-source-expiry-acceptance.json)，其餘兩個當時尚未符合年齡且未查詢。
+後續在私人摘要的 `next_age_eligible_at_taipei` 之後沿用本指令，繼續觀察同一批保存 generation；不重建初始基準。
+
 ```bash
 (
   set -e

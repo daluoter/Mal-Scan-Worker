@@ -16,20 +16,21 @@
 | 靜態分析與報告 | ClamAV／YARA／IOC、遞迴來源樹、JSON 與風險呈現已有正式案例 |
 | 密碼與文件 | PDF／支援的 Office 解鎖、逐檔三次、錯誤提示及 F-11 附件三案完成限定驗收 |
 | 自動維護 | 排程、告警、一次更新、同候選復原與一次舊映像清理已取得證據；P0-12 整項仍進行中 |
-| 資料與成本 | GCS 三個來源物件基準已保存；實際到期、DO 清理、新 root 清理、真實回退與長期費用仍待辦 |
+| 資料與成本 | GCS 已取得 1 個到期 generation 缺席案例，另 2 個待各自期限；11 月專案服務彙總已私下核對，SKU／容量與費用趨勢、DO／新 root 清理及真實回退仍待驗證 |
 | 後續功能 | 先處理 Office XML 弱 XOR 雜訊與規則來源／授權，再擴充封存、PE／LNK／scripts，之後做排隊體驗與效能；真實 CAPE 後排 |
 
 本批新增 **P0-20**，補上[提交與公開防護](publication-security.md)：私人檔案守門、本機秘密掃描與每次 push／PR 的安全 CI，見[本機交付紀錄](milestones/2026-11-12-publication-protection.json)。
 本機 hook 需各開發 checkout 安裝；GitHub 內建 Push Protection 與 main 強制檢查仍需 owner 確認，未因交付 workflow 就宣稱已強制阻擋推送。
 
-**F-11 已完成三個限定案例的雲端驗收；P0-12 已完成一次排程更新、中斷／重連復原及自動映像刪除的限定案例驗收，包含舊版最新 404 與兩個保留版 200；安裝、Monitoring 與受控告警也有使用者證據。GCS 建置來源到期、容量回收與成本仍待核對，維護待辦繼續追蹤。**
+**F-11 已完成三個限定案例的雲端驗收；P0-12 已完成一次排程更新、中斷／重連復原、自動映像刪除與第一個 GCS 來源到期後缺席案例；安裝、Monitoring 與受控告警也有使用者證據。其餘保存來源、容量回收與成本趨勢仍待核對，維護待辦繼續追蹤。**
 
 11/12 台北 00:23:06 使用者讀回已驗證的清理 checkpoint：`completed`、`candidate_count: 1`、`removed_count: 1`、`pending: null`。
 選中與刪除皆為舊自動映像 `493fd6bd…bfc21c`；目前 `f4e433ab…f8cd68` 與回退 `4b81ba05…edc975` 保留。這是控制器保存的刪除與當時完整盤點讀回證據，接受本次自動清理案例；未另由 agent 查詢 provider。
 清理計畫於台北 11/11 23:32:06 建立，該時間不是刪除完成時間。後續台北 11/12 00:29:55–00:30:01 的精確 Version GET 為 **404／200／200**，`fresh_registry_absence_verified: true`，接受本輪舊版最新缺席與兩個保留版仍存在；這是三次個別查詢，未重讀 live Job 設定。見[清理驗收紀錄](milestones/2026-11-12-automatic-image-cleanup-acceptance.json)。下一步為[GCS 建置來源保留期觀察](automatic-update-storage-observation.md)，實際到期、儲存空間與帳單仍待驗證。
 
-後續使用者已讀回 GCS 保留期初始基準：設定與完整前綴清單核對通過，保存 3 個物件，當時皆未達七天。公開僅保留[精簡摘要](milestones/2026-11-12-build-source-retention-baseline.json)，精確名稱、generation、時間與 fingerprint 留在私人基準；實際到期缺席與費用仍未驗證。
-11/14 已越過本輪最早 age 門檻，可以執行[到期後只讀查詢](build-source-expiry-readback.md)；每個物件分別計算，尚未取得使用者查詢結果前不標記到期驗收通過。
+後續使用者已讀回 GCS 保留期初始基準：設定與完整前綴清單核對通過，保存 3 個物件，當時皆未達七天。公開僅保留[初始摘要](milestones/2026-11-12-build-source-retention-baseline.json)，精確名稱、generation、時間與 fingerprint 留在私人基準；初始報告的 false 旗標保持歷史原貌。
+11/14 使用者提供[到期後只讀結果](milestones/2026-11-14-build-source-expiry-acceptance.json)：3 個保存物件中，1 個符合年齡條件並回傳精確 generation 404，另 2 個尚未達條件且未查詢；設定與私人基準不變，接受第一筆到期後缺席的限定案例。這不是整批或整個 bucket 已清空，也未取得 lifecycle 刪除事件或容量回收證據；依私人摘要的下一個期限再執行[同一只讀查詢](build-source-expiry-readback.md)。
+同日私下解析 11 月服務彙總 CSV，使用者明確確認篩選本專案；當期主要淨費用來自 Artifact Registry，Cloud Run 使用費由報表優惠抵銷。CSV 未含 SKU、逐日入帳截止或清理前後可比較資料，不能據此宣稱儲存 SKU、清理節省或最終月結；原始資料與金額保持私有，P0-14 繼續追蹤。
 公開維運手冊已另完成指定範圍的[安全核對](security-notes.md#2026-11-12公開維運手冊的範圍核對)，補上私人 sidecar 的 Git 忽略規則；這不代替現行 IAM 的 provider 查核。
 
 11/9 接續環境恢復前的中斷演練工具草稿，補齊受控 parent 取消、未知回應讀回、同一候選接續與完整設定／日誌證據核對。
@@ -180,14 +181,14 @@ Durable Object（DO）像工作登記簿，另存工作、票證與派送狀態�
 | P0-04 | 進行中 | client 保存 POST 意圖、可重連查詢，已有密碼恢復與執行關聯證據 | 補齊刷新／斷線／不確定派送的端到端證據，核對沒有未授權的額外 execution |
 | P0-05 | 完成 | 四筆早期驗收工作的 28 個 R2 指定前綴皆空，工作／報告 API 到期撤權 | 限列出的前綴與觀察時點；不是整個 bucket 或之後新工作的清理證明 |
 | P0-06 | 待辦 | **DO 工作狀態實體清理**尚未取得管理端證據 | 核對到期工作資料列／相關狀態實際刪除，與 R2 檔案清理分開驗證 |
-| P0-07 | 進行中 | **保留政策與映像盤點**：首批 7 個舊 `full-worker` 清理已核對 completed／無 pending、版本數 14 → 7，見[10/22 批次](milestones/2026-10-22-registry-cleanup.json)。11/12 另讀回自動流程刪除 1 個已登記舊版的 completed checkpoint，後續精確版本查詢為舊版 404、兩個保留版 200，見[本次紀錄](milestones/2026-11-12-automatic-image-cleanup-acceptance.json) | 已接受列出批次的版本刪除與本輪最新缺席，GCS 保留設定及 3 個物件的初始基準也已通過；實際到期、容量回收、長期保留運作與 R2 lifecycle 仍待核對。持續保留現行參照、必要回退映像及完整 index 依賴 |
+| P0-07 | 進行中 | **保留政策與映像盤點**：首批 7 個舊 `full-worker` 清理已核對 completed／無 pending、版本數 14 → 7，見[10/22 批次](milestones/2026-10-22-registry-cleanup.json)。11/12 另讀回自動流程刪除 1 個已登記舊版的 completed checkpoint，後續精確版本查詢為舊版 404、兩個保留版 200，見[本次紀錄](milestones/2026-11-12-automatic-image-cleanup-acceptance.json) | 已接受列出批次的映像刪除與最新缺席；GCS 設定、初始基準及首個到期 generation 404 也已通過，見[11/14 紀錄](milestones/2026-11-14-build-source-expiry-acceptance.json)。另 2 個保存物件的到期、容量回收、長期保留運作與 R2 lifecycle 仍待核對。持續保留現行參照、必要回退映像及完整 index 依賴 |
 | P0-08 | 進行中 | 日／月 execution 額度已有程式與設定；本輪取得正式月額度拒絕畫面，Office root 顯示 failed／execution_admission_limit，見[部分驗收](milestones/2026-10-20-document-embedded-cloud-acceptance.json) | 尚需每日限額、實際 counter、密碼續跑／不確定派送計數與 provider 證據；截圖不能單獨證明確實用滿預設 40 次。全站共用 UTC 月份，換裝置或隔天不重置 |
 | P0-09 | 完成 | **人工簽章病毒庫更新與映像切換**：官方簽章、正常／EICAR 離線控制、digest、Job 與執行映像已核對 | 按時持續維護；此項完成不代表已有自動排程 |
 | P0-10 | 完成 | **回退工具與本機測試**：保留舊映像／設定，受保護的 image-only 切換與檢查 | 工具交付完成；真實雲端回退是獨立的 P0-11 |
 | P0-11 | 待辦 | **真實雲端回退演練**尚未執行 | 在受控時段切回已驗證映像、核對設定與掃描，再恢復指定版並留證據 |
-| P0-12 | 進行中 | **自動官方簽章病毒庫更新**：固定來源控制器、私人 generation 檢查點、失敗／缺心跳告警、限定自動映像清理與分階段安裝工具；每 12 小時檢查、daily 達三天才建置，每 UTC 日／月最多 1／12 次新候選意圖、自動持有版本上限四個，不執行分析 Job；見[安裝手冊](automatic-database-updates.md) | 停用安裝、runtime 修補、啟用心跳、Monitoring、受控告警收信及一次排程更新已通過限定驗收。11/11 另取得[同候選復原](milestones/2026-11-11-automatic-update-recovery-acceptance.json)，11/12 取得[自動刪除交易及最新 404／200／200 查詢](milestones/2026-11-12-automatic-image-cleanup-acceptance.json)。GCS 建置來源設定與初始基準已通過，實際到期、容量回收與費用仍待驗證；排程已啟用；真實映像回退另列 P0-11 |
-| P0-13 | 完成 | 一份月內 TWD 專案帳單已核對歸屬，費用極低但非精確零 | 僅該報表期間；不是最終月結或長期免費承諾，原始財務資料保持私有 |
-| P0-14 | 進行中 | **長期成本與儲存費控制**：10/22 SKU 報表已確認映像儲存為當期主要淨費用；首批 7 個舊 `full-worker` 清理結果已核對，但倉庫容量讀數仍幾乎不變，原始財務資料不公開 | 容量回收及後續儲存 SKU／帳單節省仍未驗證；補齊每次工作／每月維護、建置來源、映像、儲存、日誌、secrets、抵用額種類及最終月結，觀察多個期間；版本數或映像顯示大小加總不能代替成本證據，不宣稱零費用 |
+| P0-12 | 進行中 | **自動官方簽章病毒庫更新**：固定來源控制器、私人 generation 檢查點、失敗／缺心跳告警、限定自動映像清理與分階段安裝工具；每 12 小時檢查、daily 達三天才建置，每 UTC 日／月最多 1／12 次新候選意圖、自動持有版本上限四個，不執行分析 Job；見[安裝手冊](automatic-database-updates.md) | 停用安裝、runtime 修補、啟用心跳、Monitoring、受控告警收信及一次排程更新已通過限定驗收。11/11 另取得[同候選復原](milestones/2026-11-11-automatic-update-recovery-acceptance.json)，11/12 取得[自動刪除交易及最新 404／200／200 查詢](milestones/2026-11-12-automatic-image-cleanup-acceptance.json)。GCS 建置來源設定、初始基準與[首筆到期後缺席](milestones/2026-11-14-build-source-expiry-acceptance.json)已通過；另 2 個保存物件、容量回收與費用趨勢仍待驗證；排程已啟用；真實映像回退另列 P0-11 |
+| P0-13 | 完成 | 10 月月內 TWD 專案帳單已核對；11 月服務彙總也已私下核對，專案篩選依使用者明確確認，淨額為正 | 僅各報表匯出時的範圍；11 月 CSV 未含 SKU／逐日截止，不能推定最終月結、清理節省或長期免費，原始財務資料保持私有 |
+| P0-14 | 進行中 | **長期成本與儲存費控制**：10/22 SKU 報表已確認映像儲存為當期主要淨費用；首批 7 個舊 `full-worker` 清理結果已核對，但當時倉庫容量讀數仍幾乎不變；11 月專案服務彙總仍以 Artifact Registry 為主要淨費用，具體 SKU／趨勢待核對，金額與原始財務資料不公開 | 容量回收及後續儲存 SKU／帳單節省仍未驗證；補齊每次工作／每月維護、建置來源、映像、儲存、日誌、secrets、抵用額種類及最終月結，觀察多個期間；版本數或映像顯示大小加總不能代替成本證據，不宣稱零費用 |
 | P0-15 | 待辦 | Cloudflare 實際用量與費用仍待獨立核對 | 核對 Workers／DO／R2／Pages 用量及可用額度，連同 GCP 判斷成本 |
 | P0-16 | 完成 | 共用核心、前端、控制層與 dispatcher 的持續整合已建立並執行 | 新改動持續通過相關 CI；不等於正式 provider 驗收 |
 | P0-17 | 待辦 | 仍有 advisory 的開發／部署相依工具需持續審查 | 依影響做相容升級，保存 audit 差異與回歸結果，不直接強制升級所有套件 |

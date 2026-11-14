@@ -152,12 +152,15 @@ PY_STORAGE
 三個物件各自從建立時間起算七天，最早一個達 age 不代表三個同時到期；未到期物件保持保存是正常結果。
 請使用該節的新查詢，不重跑第 1 節初始基準來推定已刪除。
 
+11/14 已取得[第一筆到期後缺席紀錄](milestones/2026-11-14-build-source-expiry-acceptance.json)：1 個符合年齡的保存 generation 回傳 404，另 2 個尚未符合條件而未查詢。
+本次 `actual_object_expiry_verified: true` 僅涵蓋符合條件者；`all_saved_objects_absent_verified: false` 保留整批未完成的差別。之後依私人摘要的下一個時間沿用同一指令觀察。
+
 `next_age_eligible_at_taipei` 由本次實際物件 `timeCreated + 7 天` 計算，表示下一個符合 age 條件的時刻，**不是保證刪除時間**。
 `saved_objects_now_age_eligible` 只計算保存基準中的物件年齡，不表示它們目前仍存在或已刪除；重跑基準命令不會更新物件清單。
 若清單為空、所有物件已達 age，或回傳 null，先提供摘要，不新增測試物件、不改 lifecycle。
 
 設定核對與物件到期後的缺席分開驗收。新的讀回使用保存的精確名稱／generation 發出 metadata GET，並再次核對 soft delete／versioning；不使用 `alt=media` 下載內容。
-尚未收到本輪後續缺席結果前，公開里程碑的 `actual_object_expiry_verified` 保持 false；不能僅憑 lifecycle 設定或日期已到宣稱清理成功。
+初始基準的 `actual_object_expiry_verified: false` 保持歷史紀錄，不改寫；後續缺席驗收另記新紀錄。不能僅憑 lifecycle 設定或日期已到宣稱清理成功。
 
 官方 [Object Lifecycle Management](https://cloud.google.com/storage/docs/lifecycle) 說明正數 age 從物件建立時間計算，動作非同步執行，沒有保證的最長延遲。
 到點後可再次觀察，未消失就保存仍存在的結果，不能自行補一個固定二十分鐘或二十四小時的刪除承諾。
@@ -186,3 +189,7 @@ gcloud artifacts repositories describe malscan-v2-poc \
 預算百分比通知與實際請款分開判讀：通知表示依該預算的專案範圍與抵用設定，計算金額觸及門檻；它不列出造成費用的服務／SKU，也不能單獨證明信用卡已扣款。
 使用者提供的本輪通知日期早於已驗收的映像清理，不能用這封通知推定清理後費用仍新增；後續仍需相同日期範圍、專案與 SKU 的實際報表。
 原始郵件、帳單識別資訊、精確財務數字及 CSV 不提交公開 GitHub。
+
+11/14 已收到並解析當期服務彙總 CSV，專案篩選由使用者明確確認；原檔不需要重傳。
+服務彙總足以觀察哪個服務佔主要淨費用，不能代替 SKU 或逐日資料。下一份請在同一專案與期間將「分組依據（服務）」改為 **SKU**，保留使用費、優惠與未捨入淨額，再匯出 CSV。
+若要判斷清理前後變化，另需對應日期與入帳更新時間；同一份月內累計增加，不能單獨證明每日成本增加或清理失效。

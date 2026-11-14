@@ -1,0 +1,64 @@
+{
+  "schema_version": 1,
+  "date_taipei": "2026-11-14",
+  "checklist_id": "P0-12",
+  "checklist_status": "in_progress",
+  "related_checklist_ids": ["P0-07", "P0-14"],
+  "scope": "Bounded acceptance of one saved build-source generation being absent after reaching the seven-day age condition",
+  "evidence_source": "User-provided read_only_saved_build_source_expiry summary from Cloud Shell; no independent authenticated provider query by agent",
+  "previous_record": "docs/milestones/2026-11-12-build-source-retention-baseline.json",
+  "acceptance": {
+    "one_age_eligible_saved_generation_absence_case_passed": true,
+    "original_private_baseline_and_bucket_configuration_reported_unchanged": true,
+    "all_saved_objects_expiry_complete": false,
+    "overall_p0_12_complete": false,
+    "interpretation": "One saved generation had reached the age condition and returned HTTP 404. The other two saved objects were not yet age-eligible and were not queried in this readback"
+  },
+  "readback_summary": {
+    "scope": "read_only_saved_build_source_expiry",
+    "read_only": true,
+    "baseline_configuration_unchanged": true,
+    "private_baseline_unchanged": true,
+    "saved_object_count": 3,
+    "age_eligible_saved_count": 1,
+    "not_yet_age_eligible_saved_count": 2,
+    "not_yet_age_eligible_saved_objects_queried": false,
+    "age_eligible_absent_count": 1,
+    "age_eligible_present_count": 0,
+    "age_eligible_http_404_count": 1,
+    "actual_object_expiry_verified": true,
+    "all_saved_objects_absent_verified": false,
+    "lifecycle_deletion_cause_verified": false,
+    "billed_savings_verified": false,
+    "remote_mutations": false,
+    "cloud_run_executed": false
+  },
+  "publication_minimization": {
+    "exact_object_names_generations_and_private_baseline_fingerprint_published": false,
+    "exact_observation_and_next_eligibility_timestamps_published": false,
+    "exact_size_bytes_or_financial_values_published": false,
+    "full_private_baseline_published": false
+  },
+  "evidence_limits": [
+    "The accepted result covers the one age-eligible saved generation queried by the helper, not every object or generation in the bucket",
+    "The two not-yet-eligible saved objects were not queried, so their current presence or absence is not inferred",
+    "The prior baseline remains a historical initial-presence record; its original false expiry flags are not rewritten",
+    "An exact-generation HTTP 404 after the age threshold is absence evidence, not proof of which actor performed deletion",
+    "No corresponding provider deletion event, physical storage reclamation or billed savings is supplied",
+    "This readback does not verify the current existence of bundles or coordinator state, Durable Object row cleanup, or an actual image rollback exercise"
+  ],
+  "remaining": {
+    "other_two_saved_generations_after_their_individual_age_thresholds_verified": false,
+    "all_saved_objects_absent_verified": false,
+    "lifecycle_deletion_cause_verified": false,
+    "protected_bundle_and_state_existence_verified_by_this_readback": false,
+    "repository_storage_reclamation_verified": false,
+    "actual_billed_cost_and_savings_verified": false
+  },
+  "next_priority": [
+    "Reuse the preserved private baseline to check the other saved generations after their individual age thresholds",
+    "Verify bundle and coordinator-state metadata separately if confirming protected-prefix retention",
+    "Observe capacity and project-filtered billed usage independently of this object-absence result"
+  ],
+  "credentials_raw_logs_private_job_configuration_or_financial_data_published": false
+}
