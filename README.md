@@ -8,7 +8,7 @@
 
 ## 目前里程碑
 
-**2026-11-14：GCS 建置來源取得第一個到期後缺席案例。** 私人基準保存 3 個物件，其中 1 個已滿七天且精確 generation 回傳 404；另 2 個尚未到期，本次未查詢。設定與原基準均未變，見[本次驗收](docs/milestones/2026-11-14-build-source-expiry-acceptance.json)。後續沿用相同基準追蹤其餘物件，容量回收與費用節省另行核對。11 月服務彙總費用也已私下核對，使用者確認只含本專案；目前主要淨費用來自 Artifact Registry，SKU 與前後期間仍需補齊，原始帳單及金額不公開。
+**2026-11-14：GCS 建置來源取得第一個到期後缺席案例。** 私人基準保存 3 個物件，其中 1 個已滿七天且精確 generation 回傳 404；另 2 個尚未到期，本次未查詢。設定與原基準均未變，見[本次驗收](docs/milestones/2026-11-14-build-source-expiry-acceptance.json)。後續沿用相同基準追蹤其餘物件，容量回收與費用節省另行核對。11 月服務與 SKU 報表已私下核對，主要淨費用確認為 **Artifact Registry 映像儲存**，見[觀察摘要](docs/milestones/2026-11-14-sku-cost-observation.json)；接著核對目前容量與前後期間，原始帳單及金額不公開。
 
 **2026-11-12：目前進入安全與維運驗收階段。** 雲端靜態分析、PDF／支援的 Office 解鎖、逐檔密碼與附件三案已有驗收；自動更新、告警、同候選復原及一次舊映像清理已實測。新增 P0-20 的[提交與公開防護](docs/publication-security.md)：私人檔案守門、本機秘密掃描與文件也涵蓋的安全 CI。GitHub 內建 Push Protection 與強制檢查仍需 owner 確認。下一步依序處理來源到期與費用、DO／新 root 清理、真實回退，再回到品質、格式與效能；見[目前進度](docs/project-status.md)與[更新路線圖](docs/roadmap.md)。
 
