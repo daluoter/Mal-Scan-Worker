@@ -1,6 +1,6 @@
 # 自動更新建置來源的保留期觀察
 
-更新日期：2026-11-12（Asia/Taipei）。映像版本刪除與 GCS 建置來源物件是兩項證據；本頁只觀察私人 operations bucket 的 `build-sources/`。
+更新日期：2026-11-14（Asia/Taipei）。映像版本刪除與 GCS 建置來源物件是兩項證據；本頁只觀察私人 operations bucket 的 `build-sources/`。
 不建立 Build、不執行分析、不修改 lifecycle，也不下載物件內容。舊的 multi-region `malscan-v2-poc_cloudbuild` bucket 不在本次範圍。
 
 先保存目前實際存在物件的 metadata，之後才能對同一個名稱與 generation 確認到期後缺席。
@@ -148,12 +148,16 @@ PY_STORAGE
 
 ## 2. 依實際觀察時間安排到期讀回
 
+本輪最早的 age 門檻已過，現在可依[到期後只讀查詢](build-source-expiry-readback.md)檢查保存的精確 generation。
+三個物件各自從建立時間起算七天，最早一個達 age 不代表三個同時到期；未到期物件保持保存是正常結果。
+請使用該節的新查詢，不重跑第 1 節初始基準來推定已刪除。
+
 `next_age_eligible_at_taipei` 由本次實際物件 `timeCreated + 7 天` 計算，表示下一個符合 age 條件的時刻，**不是保證刪除時間**。
 `saved_objects_now_age_eligible` 只計算保存基準中的物件年齡，不表示它們目前仍存在或已刪除；重跑基準命令不會更新物件清單。
 若清單為空、所有物件已達 age，或回傳 null，先提供摘要，不新增測試物件、不改 lifecycle。
 
-設定核對與物件到期後的實體缺席分開驗收。後續將用保存的精確名稱／generation 發出 metadata GET，並再次核對 soft delete／versioning；不使用 `alt=media` 下載內容。
-這一步尚未提供後續缺席結果，`actual_object_expiry_verified` 保持 false；不能僅憑 lifecycle 設定或日期已到宣稱清理成功。
+設定核對與物件到期後的缺席分開驗收。新的讀回使用保存的精確名稱／generation 發出 metadata GET，並再次核對 soft delete／versioning；不使用 `alt=media` 下載內容。
+尚未收到本輪後續缺席結果前，公開里程碑的 `actual_object_expiry_verified` 保持 false；不能僅憑 lifecycle 設定或日期已到宣稱清理成功。
 
 官方 [Object Lifecycle Management](https://cloud.google.com/storage/docs/lifecycle) 說明正數 age 從物件建立時間計算，動作非同步執行，沒有保證的最長延遲。
 到點後可再次觀察，未消失就保存仍存在的結果，不能自行補一個固定二十分鐘或二十四小時的刪除承諾。
@@ -178,3 +182,7 @@ gcloud artifacts repositories describe malscan-v2-poc \
 
 若缺少 `sizeBytes`，記為未觀察到，不能當成零。倉庫大小與單一映像顯示大小、共享 layer、當期儲存計費仍有不同範圍；版本已刪除不表示費用歸零。
 此基準沒有精確的清理前容量，後續趨勢需要多個觀察時點與對應 SKU 報表一起判讀。上述命令不更動資源。
+
+預算百分比通知與實際請款分開判讀：通知表示依該預算的專案範圍與抵用設定，計算金額觸及門檻；它不列出造成費用的服務／SKU，也不能單獨證明信用卡已扣款。
+使用者提供的本輪通知日期早於已驗收的映像清理，不能用這封通知推定清理後費用仍新增；後續仍需相同日期範圍、專案與 SKU 的實際報表。
+原始郵件、帳單識別資訊、精確財務數字及 CSV 不提交公開 GitHub。

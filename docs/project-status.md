@@ -1,6 +1,6 @@
 # 專案進度清單
 
-更新日期：2026-11-12（Asia/Taipei）。這份清單集中記錄已完成、進行中與尚未完成的工作；
+更新日期：2026-11-14（Asia/Taipei）。這份清單集中記錄已完成、進行中與尚未完成的工作；
 [路線圖](roadmap.md)說明排序，[支援矩陣](analysis-support.md)說明目前可用能力。
 每一批開發、測試或部署都要更新相關 ID 的狀態、證據與剩餘條件。項目未取得完成條件的證據前，不標為完成。
 
@@ -29,6 +29,7 @@
 清理計畫於台北 11/11 23:32:06 建立，該時間不是刪除完成時間。後續台北 11/12 00:29:55–00:30:01 的精確 Version GET 為 **404／200／200**，`fresh_registry_absence_verified: true`，接受本輪舊版最新缺席與兩個保留版仍存在；這是三次個別查詢，未重讀 live Job 設定。見[清理驗收紀錄](milestones/2026-11-12-automatic-image-cleanup-acceptance.json)。下一步為[GCS 建置來源保留期觀察](automatic-update-storage-observation.md)，實際到期、儲存空間與帳單仍待驗證。
 
 後續使用者已讀回 GCS 保留期初始基準：設定與完整前綴清單核對通過，保存 3 個物件，當時皆未達七天。公開僅保留[精簡摘要](milestones/2026-11-12-build-source-retention-baseline.json)，精確名稱、generation、時間與 fingerprint 留在私人基準；實際到期缺席與費用仍未驗證。
+11/14 已越過本輪最早 age 門檻，可以執行[到期後只讀查詢](build-source-expiry-readback.md)；每個物件分別計算，尚未取得使用者查詢結果前不標記到期驗收通過。
 公開維運手冊已另完成指定範圍的[安全核對](security-notes.md#2026-11-12公開維運手冊的範圍核對)，補上私人 sidecar 的 Git 忽略規則；這不代替現行 IAM 的 provider 查核。
 
 11/9 接續環境恢復前的中斷演練工具草稿，補齊受控 parent 取消、未知回應讀回、同一候選接續與完整設定／日誌證據核對。
