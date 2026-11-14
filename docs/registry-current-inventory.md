@@ -107,3 +107,15 @@ PY_INVENTORY
 `unclassified` 只表示未被本次已檢查的 Cloud Run 引用直接保護，不等於不用或可刪除。
 OCI index 子 manifest、attestation、共享 layer 與非 Cloud Run 消費者仍需額外核對；盤點本身不會核准或執行任何刪除。
 本次觀察不是跨資源的原子快照；雲端更新期間或出現 state／lease 變動會安全停止，未來任何刪除仍需新的完整引用核對與具體計畫。
+
+## 本輪摘要已取得：下一步提供私人 metadata 報告
+
+11/14 的[摘要讀回](milestones/2026-11-14-current-registry-inventory-acceptance.json)已通過：10 個版本、5 個受引用保護、5 個未分類，精確容量與目前／回退版存在皆已確認。
+其中 full-worker 的 3 個未分類版本只是待審查對象；是否為允許的 manifest、是否早於全部受保護 worker 版本，以及完整 digest／tags／引用，仍需逐版資料。
+engine-poc 的 2 個未分類版本可能涉及 index 依賴，不能由全倉庫 media 計數推定其關係或刪除安全性。
+
+下一步將摘要 `private_report_file` 指向的 **`registry-inventory.json`** 下載，透過私人對話提供維護者審查；可用 Cloud Shell 的「下載檔案」功能選取該完整路徑。
+該檔是 Inspector 已投影的 metadata，不是原始 Job 設定或 coordinator state；不要改傳其他 checkpoint、環境設定、憑證或 bundle。
+原始 metadata 報告保持私有，不提交公開 GitHub；公開紀錄只保留必要彙總。
+
+取得完整報告前不產生刪除命令。既有計畫還有新鮮度與即時引用檢查，舊人工 `apply` 也不會自動協調目前啟用的更新排程；未來操作需先形成具體批次與配套流程，不能略過保護或直接重跑舊批次。

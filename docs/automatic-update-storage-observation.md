@@ -199,4 +199,5 @@ GCS 來源到期清理與 Registry 的映像儲存分屬不同資源。下一步
 若要判斷清理前後變化，另需對應日期與入帳更新時間；同一份月內累計增加，不能單獨證明每日成本增加或清理失效。
 
 本輪已收到 CLI 的人類可讀容量說明，原 `describe` JSON 未含精確 bytes；不能將缺欄位視為零或精確刪除節省。
-接著可直接執行[目前映像與引用盤點](registry-current-inventory.md)，同時讀取容量、版本及保護引用，不需要為此重跑舊的刪除批次。
+後續[目前映像與引用盤點](registry-current-inventory.md)摘要也已取得，精確容量及 10 個版本已讀回、目前與回退版受保護；詳細結果見[彙總紀錄](milestones/2026-11-14-current-registry-inventory-acceptance.json)。
+下一步提供已產生的私人 metadata 報告審查逐版資訊，不需要重傳帳單或為此重跑舊的刪除批次。

@@ -35,7 +35,7 @@
     "Cost attribution does not prove physical layer reclamation, cleanup savings or zero future cost"
   ],
   "next_priority": [
-    "Read a fresh complete image/reference inventory against the current coordinator checkpoint and repository list size metadata",
+    "Review the full private registry-inventory.json for exact per-version eligibility before preparing any bounded cleanup plan",
     "Compare capacity and daily SKU cost over matching periods before choosing a cost optimization",
     "Continue saved GCS generation expiry checks after each object's individual age threshold"
   ],
@@ -50,6 +50,8 @@
     "sdk_describe_output_conversion_explains_missing_field": true,
     "exact_capacity_value_published": false,
     "complete_current_image_and_reference_inventory_received": false,
-    "capacity_reclamation_or_billed_savings_attributed_to_cleanup": false
-  }
+    "capacity_reclamation_or_billed_savings_attributed_to_cleanup": false,
+    "scope": "Historical initial CLI describe output, preceding the separately recorded complete inventory summary"
+  },
+  "current_registry_inventory_record": "docs/milestones/2026-11-14-current-registry-inventory-acceptance.json"
 }

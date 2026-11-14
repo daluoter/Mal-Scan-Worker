@@ -1,0 +1,72 @@
+{
+  "schema_version": 1,
+  "date_taipei": "2026-11-14",
+  "checklist_id": "P0-07",
+  "checklist_status": "in_progress",
+  "related_checklist_ids": ["P0-14", "P0-12"],
+  "scope": "Acceptance of one complete current image and Cloud Run reference inventory; no deletion plan approved",
+  "evidence_source": "User-provided read_only_current_registry_inventory summary from Cloud Shell; no independent authenticated provider query by agent",
+  "acceptance": {
+    "bounded_inventory_readback_passed": true,
+    "current_checkpoint_and_retained_pair_reported_verified": true,
+    "exact_repository_size_reported_observed": true,
+    "deletion_plan_approved": false,
+    "overall_retention_or_cost_work_complete": false
+  },
+  "readback_summary": {
+    "scope": "read_only_current_registry_inventory",
+    "read_only": true,
+    "inventory_read_complete": true,
+    "coordinator_generation_unchanged": true,
+    "maintenance_lease_absent_at_reads": true,
+    "current_checkpoint_matches_job_image": true,
+    "current_and_rollback_versions_present": true,
+    "repository_size_bytes_observed": true,
+    "version_count": 10,
+    "classification_counts": {
+      "protected_reference": 5,
+      "unclassified": 5
+    },
+    "package_counts": {
+      "demo-dispatcher": {"protected_reference": 2},
+      "engine-poc": {"unclassified": 2, "protected_reference": 1},
+      "full-worker": {"unclassified": 3, "protected_reference": 2}
+    },
+    "media_type_counts": {
+      "application/vnd.docker.distribution.manifest.v2+json": 7,
+      "application/vnd.oci.image.index.v1+json": 1,
+      "application/vnd.oci.image.manifest.v1+json": 2
+    },
+    "readiness_issue_count": 0,
+    "deletion_plan_ready": false,
+    "oci_manifest_graph_verified": false,
+    "billed_savings_verified": false,
+    "remote_mutations": false,
+    "cloud_run_executed": false
+  },
+  "review_scope": {
+    "unclassified_full_worker_versions_for_review": 3,
+    "unclassified_engine_poc_versions_for_review": 2,
+    "exact_version_eligibility_review_complete": false,
+    "interpretation": "Unclassified versions require review rather than deletion. The full-worker versions are possible review targets only; engine-poc versions may be OCI index children, but the summary does not establish the manifest graph or per-version media mapping"
+  },
+  "publication_minimization": {
+    "exact_repository_size_published": false,
+    "exact_observation_timestamp_published": false,
+    "private_report_path_or_image_digests_published": false,
+    "raw_inventory_private_configuration_or_financial_values_published": false
+  },
+  "evidence_limits": [
+    "Completeness is limited to the existing Inspector's image and Cloud Run reference scope; other consumers and OCI manifest relationships remain unverified",
+    "The summary provides counts rather than the exact digests, tags, creation times and protection reasons needed to review a bounded deletion set",
+    "The two retained full-worker versions are present, but this readback is not a live rollback exercise",
+    "A repository size observation is not proof of reclaimed layers, cleanup attribution or billed savings",
+    "The inventory is not an atomic cross-resource snapshot; any future deletion needs fresh reference checks and a concrete reviewed plan"
+  ],
+  "next_priority": [
+    "Review the private projected inventory before selecting any full-worker digests",
+    "Preserve current, rollback and all protected references; keep engine-poc versions until OCI dependencies are verified",
+    "Compare capacity and billed storage over matching periods without inferring savings from image-size sums"
+  ],
+  "credentials_raw_logs_private_job_configuration_or_financial_data_published": false
+}

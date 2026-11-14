@@ -4,6 +4,8 @@
 目前自動更新已啟用，先依[目前映像與引用盤點](registry-current-inventory.md)讀回即時 coordinator checkpoint、版本與引用。以下舊批次命令留存供核對，不重新 prepare／apply。
 本階段處理 `P0-07` 保留政策及 `P0-14` 成本；既有部署、月 execution 額度及測試資料保留政策不在只讀盤點中修改。
 
+本輪已取得[目前盤點摘要](milestones/2026-11-14-current-registry-inventory-acceptance.json)，下一步審查已保存的完整私人 metadata 報告。未分類數量不是刪除清單，舊人工 apply 也未協調現行自動更新 lease；先形成可審查的逐版候選與安全執行流程。
+
 本月 SKU 報表已確認映像儲存是主要淨費用來源，另有少量 Cloud Storage 操作、傳輸與儲存費。
 原始帳單、精確金額、帳單帳戶資料與私人盤點檔均不加入 Git。降低未來留存量不能撤銷已產生的費用，
 保留正式及必要回退映像也不保證儲存帳單為零。
