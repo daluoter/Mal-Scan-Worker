@@ -1,9 +1,32 @@
 # 自動更新啟用後的限定舊映像清理
 
-更新日期：2026-11-14（Asia/Taipei）。本輪完整私人盤點已審查：只有 3 個舊 `full-worker` Docker schema 2 版本符合候選條件；目前版、回退版、dispatcher 及整組 engine-poc 保留。見[精簡審查紀錄](milestones/2026-11-14-legacy-registry-review.json)。這是候選審查，尚無本輪刪除或費用節省結果。
+更新日期：2026-11-14（Asia/Taipei）。**本批已完成限定刪除驗收：3 個候選全部移除、`completed`、無 pending，版本數 10 → 7，沒有啟動掃描。** 使用者已恢復原排程，Scheduler 為 `ENABLED`、`automatic_updates_enabled: true`；新 activation 心跳尚待讀回。見[本批審查與驗收](milestones/2026-11-14-legacy-registry-review.json)。目前版、回退版、dispatcher 及整組 engine-poc 按工具引用核對保留。容量回收與費用下降仍待驗證。
+
+## 目前接續：只讀確認啟用後心跳
+
+本批清理與啟用都已執行，現在只需在原 Cloud Shell 讀回一次狀態：
+
+```bash
+(
+  set -e
+  cd "$(cat "$HOME/malscan-v2-auto-update-source-path.txt")"
+  python3 deployment/cloud-run/setup-auto-update.py status \
+    --plan-dir "$(cat "$HOME/malscan-v2-auto-update-plan-path.txt")"
+)
+```
+
+確認 `scheduler_state: ENABLED`、`automatic_updates_enabled: true`、`registered_source_matches: true`，以及 `activation_heartbeat_verified: true`、`last_healthy_at` 較此次啟用前推進。若心跳尚未出現，稍後沿用同一只讀查詢；`phase` 可能仍為 `activation_submitted`，不要求它改名才判讀心跳。
+
+啟用會改變 coordinator generation。這個已完成批次的 `check/apply` 仍綁定當時暫停狀態，啟用後停止於 guard 是預期保護，不能用來判定已完成清理失敗。保留原 journal 作紀錄；不再重跑本批 `prepare`、`apply` 或 `enable`。
+
+心跳確認後，再讀回倉庫容量並比較後續相同期間的儲存 SKU。GCS 其餘來源另依私人基準於各自期限後讀回，下一筆在 11/15 到期；本批版本刪除不代替來源到期或費用節省證據。
+
+## 已完成批次的歷史操作
+
+下方第 1–4 節保留本批操作供核對，**本批不重新執行**。未來新批次仍需新盤點、逐版審查與獨立計畫。
 
 使用新入口 `guarded-registry-cleanup.py`，由原 setup plan 驗證已核准來源。原六個控制器檔案及雲端 bundle 保持原樣；清理入口不替換自動更新來源、不建置新映像、不執行分析 Job。最後恢復原排程的啟用流程另見第四節。
-以下在原已登入的 Cloud Shell 執行；操作期間不要同時部署、建置、改標籤或另外啟動維護流程。每次盤點前後及每次刪除前均會核對，但供應商讀取與刪除並非原子操作，也沒有取得跨服務的全域鎖。
+以下歷史步驟在原已登入的 Cloud Shell 執行；操作期間避免並行部署、建置、改標籤或另外啟動維護流程的要求，仍適用於未來每次新批次。每次盤點前後及每次刪除前均會核對，但供應商讀取與刪除並非原子操作，也沒有取得跨服務的全域鎖。
 
 ## 1. 更新本機工具並暫停排程
 

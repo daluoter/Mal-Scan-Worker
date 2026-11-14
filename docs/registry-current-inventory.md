@@ -108,7 +108,7 @@ PY_INVENTORY
 OCI index 子 manifest、attestation、共享 layer 與非 Cloud Run 消費者仍需額外核對；盤點本身不會核准或執行任何刪除。
 本次觀察不是跨資源的原子快照；雲端更新期間或出現 state／lease 變動會安全停止，未來任何刪除仍需新的完整引用核對與具體計畫。
 
-## 本輪完整報告已審查：接續限定清理流程
+## 本輪完整報告已審查並取得限定清理驗收
 
 11/14 的[摘要讀回](milestones/2026-11-14-current-registry-inventory-acceptance.json)已通過：10 個版本、5 個受引用保護、5 個未分類，精確容量與目前／回退版存在皆已確認。
 後續已收到同一私人 metadata 報告，完整 digest／tags／時間／media／引用經既有正規化與候選選擇核對；3 個舊 full-worker 均為允許的 schema 2 manifest，且早於全部受保護 worker 版本。見[逐版審查摘要](milestones/2026-11-14-legacy-registry-review.json)。
@@ -118,4 +118,4 @@ engine-poc 的 2 個未分類版本為 OCI manifest，但與受保護 index 的�
 該檔是 Inspector 已投影的 metadata，不是原始 Job 設定或 coordinator state；不要改傳其他 checkpoint、環境設定、憑證或 bundle。
 原始 metadata 報告保持私有，不提交公開 GitHub；公開紀錄只保留必要彙總。
 
-本輪依[自動更新啟用後的限定清理](guarded-registry-cleanup.md)接續：先用原 setup 暫停更新，再取得新的完整盤點並綁定相同已審查候選。舊人工 `apply` 不直接使用，不能略過保護或重跑 10/22 批次。原私人報告及具體計畫仍有新鮮度限制；目前尚無本輪刪除結果。
+本輪依[自動更新啟用後的限定清理](guarded-registry-cleanup.md)完成，使用者提供的 guarded readback 為 `completed`、3 個候選全部刪除、無 pending、版本數 10 → 7；沒有啟動掃描。接受本批工具前後引用核對內的刪除結果，沒有新增 agent provider 查詢或另行精確 Version GET。原排程已恢復啟用，下一步為[只讀心跳確認](guarded-registry-cleanup.md#目前接續只讀確認啟用後心跳)，再核對容量／儲存 SKU；不重跑本批或 10/22 批次。

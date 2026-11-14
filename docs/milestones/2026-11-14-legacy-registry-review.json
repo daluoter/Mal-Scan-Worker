@@ -3,9 +3,12 @@
   "date_taipei": "2026-11-14",
   "checklist_id": "P0-07",
   "checklist_status": "in_progress",
-  "related_checklist_ids": ["P0-12", "P0-14"],
-  "scope": "Review of one private projected registry inventory for a bounded legacy full-worker cleanup",
-  "evidence_source": "User-provided projected registry metadata reviewed locally with the existing normalization and candidate-selection guards; no authenticated provider query by agent",
+  "related_checklist_ids": [
+    "P0-12",
+    "P0-14"
+  ],
+  "scope": "Review and limited acceptance of one bounded legacy full-worker cleanup batch",
+  "evidence_source": "User-provided projected registry metadata and guarded cleanup operator readbacks reviewed locally; no authenticated provider query by agent",
   "review": {
     "inventory_version_count": 10,
     "eligible_legacy_full_worker_versions": 3,
@@ -24,7 +27,8 @@
     "cloud_run_executed": false,
     "deletion_result_verified": false,
     "capacity_reclamation_verified": false,
-    "billed_savings_verified": false
+    "billed_savings_verified": false,
+    "historical_review_stage": true
   },
   "local_delivery_validation": {
     "new_guarded_cleanup_tests_passed": 17,
@@ -39,7 +43,41 @@
     "The engine-poc OCI dependency graph is unverified; all versions remain retained",
     "The private setup plan, paused Scheduler, disabled idle coordinator, absent lease and stable generation must be checked throughout execution",
     "Provider reads and deletion are not atomic; operators must avoid concurrent deployment, build and tag changes",
-    "Only a completed cleanup readback can establish this batch's deletion result; image sizes and version counts cannot establish billed savings"
+    "The completed guarded cleanup readback establishes this batch result within the tool checks; no separate exact Version GET or agent provider query was supplied",
+    "The review-stage execution flags are historical and do not describe the later user-performed deletion",
+    "Scheduler enablement was observed, but the activation heartbeat was not yet verified in the supplied output",
+    "Image sizes and version counts cannot establish capacity reclamation or billed savings"
   ],
-  "raw_inventory_digests_tags_private_paths_financial_data_or_credentials_published": false
+  "raw_inventory_digests_tags_private_paths_financial_data_or_credentials_published": false,
+  "cleanup_acceptance": {
+    "evidence_source": "Explicit user-provided guarded cleanup and setup enable output",
+    "performed_by": "User in authenticated Cloud Shell",
+    "phase": "completed",
+    "candidate_count": 3,
+    "removed_count": 3,
+    "pending_intent_present": false,
+    "inventory_version_count_before": 10,
+    "observed_version_count_after": 7,
+    "approved_candidate_set_matched_by_tool": true,
+    "protected_references_checked_by_tool": true,
+    "remote_mutations_performed_by_user": true,
+    "remote_mutations_performed_by_agent": false,
+    "cloud_run_executed": false,
+    "automatic_delete_retry": false,
+    "deletion_result_accepted_for_this_batch": true,
+    "independent_exact_version_gets_observed": false,
+    "capacity_reclamation_verified": false,
+    "billed_savings_verified": false
+  },
+  "post_cleanup_reactivation": {
+    "phase": "activation_submitted",
+    "scheduler_state": "ENABLED",
+    "automatic_updates_enabled": true,
+    "registered_source_matches": true,
+    "controller_in_flight": false,
+    "controller_lease_present": false,
+    "activation_heartbeat_verified": false,
+    "post_enable_health_readback_pending": true,
+    "cloud_run_executed": false
+  }
 }
