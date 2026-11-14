@@ -3,7 +3,11 @@
   "date_taipei": "2026-11-14",
   "checklist_id": "P0-14",
   "checklist_status": "in_progress",
-  "related_checklist_ids": ["P0-07", "P0-12", "P0-13"],
+  "related_checklist_ids": [
+    "P0-07",
+    "P0-12",
+    "P0-13"
+  ],
   "scope": "Private review of November SKU-level billing; cost category identified, savings and final invoice not verified",
   "evidence_source": "User-uploaded SKU CSV parsed privately with Decimal arithmetic; no independent authenticated billing API query by agent",
   "scope_and_currency": {
@@ -31,7 +35,7 @@
     "Cost attribution does not prove physical layer reclamation, cleanup savings or zero future cost"
   ],
   "next_priority": [
-    "Read current Artifact Registry repository size metadata",
+    "Read a fresh complete image/reference inventory against the current coordinator checkpoint and repository list size metadata",
     "Compare capacity and daily SKU cost over matching periods before choosing a cost optimization",
     "Continue saved GCS generation expiry checks after each object's individual age threshold"
   ],
@@ -39,5 +43,13 @@
     "raw_csv_or_account_identifiers_published": false,
     "exact_amounts_usage_quantities_or_percentages_published": false
   },
-  "credentials_raw_logs_private_job_configuration_or_financial_data_published": false
+  "credentials_raw_logs_private_job_configuration_or_financial_data_published": false,
+  "repository_size_observation": {
+    "human_readable_cli_capacity_received": true,
+    "exact_size_bytes_in_describe_json_observed": false,
+    "sdk_describe_output_conversion_explains_missing_field": true,
+    "exact_capacity_value_published": false,
+    "complete_current_image_and_reference_inventory_received": false,
+    "capacity_reclamation_or_billed_savings_attributed_to_cleanup": false
+  }
 }

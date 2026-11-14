@@ -32,6 +32,7 @@
 11/14 使用者提供[到期後只讀結果](milestones/2026-11-14-build-source-expiry-acceptance.json)：3 個保存物件中，1 個符合年齡條件並回傳精確 generation 404，另 2 個尚未達條件且未查詢；設定與私人基準不變，接受第一筆到期後缺席的限定案例。這不是整批或整個 bucket 已清空，也未取得 lifecycle 刪除事件或容量回收證據；依私人摘要的下一個期限再執行[同一只讀查詢](build-source-expiry-readback.md)。
 同日私下解析 11 月服務彙總 CSV，使用者明確確認篩選本專案；當期主要淨費用來自 Artifact Registry，Cloud Run 使用費由報表優惠抵銷。CSV 未含 SKU、逐日入帳截止或清理前後可比較資料，不能據此宣稱儲存 SKU、清理節省或最終月結；原始資料與金額保持私有，P0-14 繼續追蹤。
 後續 SKU CSV 已收到並完成私下核對，主要淨費用確認為 **Artifact Registry Storage**，另有少量傳輸與 Cloud Storage multi-region 項目，見[精簡觀察紀錄](milestones/2026-11-14-sku-cost-observation.json)。儲存時間用量不是即時倉庫容量；不同匯出總額也不能代替逐日趨勢或清理節省證據。下一步先讀目前倉庫 `sizeBytes`，再核對相同期間的容量與費用；不重複要求已收到的 SKU 檔。
+使用者已提供 CLI 的人類可讀倉庫容量；`describe` 會把 `sizeBytes` 移出 JSON，原指令已改為 list。這份說明不是完整版本／引用盤點，也不能指出可刪清單；本輪下一步使用[即時 coordinator 盤點](registry-current-inventory.md)保留目前版與回退版，先核對安全範圍。
 公開維運手冊已另完成指定範圍的[安全核對](security-notes.md#2026-11-12公開維運手冊的範圍核對)，補上私人 sidecar 的 Git 忽略規則；這不代替現行 IAM 的 provider 查核。
 
 11/9 接續環境恢復前的中斷演練工具草稿，補齊受控 parent 取消、未知回應讀回、同一候選接續與完整設定／日誌證據核對。

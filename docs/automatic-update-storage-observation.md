@@ -178,12 +178,15 @@ PY_STORAGE
 容量可先讀取倉庫 metadata，作為後續同條件比較的基準：
 
 ```bash
-gcloud artifacts repositories describe malscan-v2-poc \
+gcloud artifacts repositories list \
   --project=malscan-v2-poc --location=us-central1 \
+  --filter='name="projects/malscan-v2-poc/locations/us-central1/repositories/malscan-v2-poc"' \
+  --limit=2 \
   --format='json(name,sizeBytes)'
 ```
 
-若缺少 `sizeBytes`，記為未觀察到，不能當成零。倉庫大小與單一映像顯示大小、共享 layer、當期儲存計費仍有不同範圍；版本已刪除不表示費用歸零。
+`describe` 會先印出人類可讀的 `Repository Size`，再移除格式化 JSON 的 `sizeBytes`；本頁改用既有盤點工具相同的 list 介面取得精確容量欄位。
+請確認只列出一個名稱完全相符的 repository；若仍缺少 `sizeBytes`，記為未觀察到，不能當成零。倉庫大小與單一映像顯示大小、共享 layer、當期儲存計費仍有不同範圍；版本已刪除不表示費用歸零。
 此基準沒有精確的清理前容量，後續趨勢需要多個觀察時點與對應 SKU 報表一起判讀。上述命令不更動資源。
 
 預算百分比通知與實際請款分開判讀：通知表示依該預算的專案範圍與抵用設定，計算金額觸及門檻；它不列出造成費用的服務／SKU，也不能單獨證明信用卡已扣款。
@@ -194,3 +197,6 @@ gcloud artifacts repositories describe malscan-v2-poc \
 服務彙總足以觀察哪個服務佔主要淨費用，不能代替 SKU 或逐日資料。後續 **SKU CSV 已收到**：主要淨費用確認為 **Artifact Registry Storage**，見[精簡觀察紀錄](milestones/2026-11-14-sku-cost-observation.json)，這份檔案不需要重傳。
 GCS 來源到期清理與 Registry 的映像儲存分屬不同資源。下一步可現在執行上方 `sizeBytes` 只讀命令，保存目前容量，再與後續相同口徑的容量及逐日 SKU 費用比較；不用等待另一個來源到期才開始觀察。
 若要判斷清理前後變化，另需對應日期與入帳更新時間；同一份月內累計增加，不能單獨證明每日成本增加或清理失效。
+
+本輪已收到 CLI 的人類可讀容量說明，原 `describe` JSON 未含精確 bytes；不能將缺欄位視為零或精確刪除節省。
+接著可直接執行[目前映像與引用盤點](registry-current-inventory.md)，同時讀取容量、版本及保護引用，不需要為此重跑舊的刪除批次。
