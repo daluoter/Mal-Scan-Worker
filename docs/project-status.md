@@ -1,6 +1,6 @@
 # 專案進度清單
 
-更新日期：2026-11-14（Asia/Taipei）。這份清單集中記錄已完成、進行中與尚未完成的工作；
+更新日期：2026-11-16（Asia/Taipei）。這份清單集中記錄已完成、進行中與尚未完成的工作；
 [路線圖](roadmap.md)說明排序，[支援矩陣](analysis-support.md)說明目前可用能力。
 每一批開發、測試或部署都要更新相關 ID 的狀態、證據與剩餘條件。項目未取得完成條件的證據前，不標為完成。
 
@@ -16,13 +16,13 @@
 | 靜態分析與報告 | ClamAV／YARA／IOC、遞迴來源樹、JSON 與風險呈現已有正式案例 |
 | 密碼與文件 | PDF／支援的 Office 解鎖、逐檔三次、錯誤提示及 F-11 附件三案完成限定驗收 |
 | 自動維護 | 排程、告警、一次更新、同候選復原與一次舊映像清理已取得證據；P0-12 整項仍進行中 |
-| 資料與成本 | GCS 已取得 1 個到期 generation 缺席案例，另 2 個待各自期限；11 月 SKU 已確認主要淨費用是映像儲存，容量／費用趨勢、DO／新 root 清理及真實回退仍待驗證 |
+| 資料與成本 | GCS 已取得 1 個到期 generation 缺席案例，另 2 個待各自期限；11 月 SKU 已確認主要淨費用是映像儲存；11/16 同倉庫回報容量下降已有比較證據，持續容量／費用趨勢、DO／新 root 清理及真實回退仍待驗證 |
 | 後續功能 | 先處理 Office XML 弱 XOR 雜訊與規則來源／授權，再擴充封存、PE／LNK／scripts，之後做排隊體驗與效能；真實 CAPE 後排 |
 
 本批新增 **P0-20**，補上[提交與公開防護](publication-security.md)：私人檔案守門、本機秘密掃描與每次 push／PR 的安全 CI，見[本機交付紀錄](milestones/2026-11-12-publication-protection.json)。
 本機 hook 需各開發 checkout 安裝；GitHub 內建 Push Protection 與 main 強制檢查仍需 owner 確認，未因交付 workflow 就宣稱已強制阻擋推送。
 
-**F-11 已完成三個限定案例的雲端驗收；P0-12 已完成一次排程更新、中斷／重連復原、自動映像刪除與第一個 GCS 來源到期後缺席案例；安裝、Monitoring 與受控告警也有使用者證據。其餘保存來源、容量回收與成本趨勢仍待核對，維護待辦繼續追蹤。**
+**F-11 已完成三個限定案例的雲端驗收；P0-12 已完成一次排程更新、中斷／重連復原、自動映像刪除與第一個 GCS 來源到期後缺席案例；安裝、Monitoring 與受控告警也有使用者證據。11/16 另已取得同倉庫回報容量下降的限定比較；其餘保存來源、受控歸因與成本趨勢仍待核對，維護待辦繼續追蹤。**
 
 11/12 台北 00:23:06 使用者讀回已驗證的清理 checkpoint：`completed`、`candidate_count: 1`、`removed_count: 1`、`pending: null`。
 選中與刪除皆為舊自動映像 `493fd6bd…bfc21c`；目前 `f4e433ab…f8cd68` 與回退 `4b81ba05…edc975` 保留。這是控制器保存的刪除與當時完整盤點讀回證據，接受本次自動清理案例；未另由 agent 查詢 provider。
@@ -33,13 +33,14 @@
 同日私下解析 11 月服務彙總 CSV，使用者明確確認篩選本專案；當期主要淨費用來自 Artifact Registry，Cloud Run 使用費由報表優惠抵銷。CSV 未含 SKU、逐日入帳截止或清理前後可比較資料，不能據此宣稱儲存 SKU、清理節省或最終月結；原始資料與金額保持私有，P0-14 繼續追蹤。
 後續 SKU CSV 已收到並完成私下核對，主要淨費用確認為 **Artifact Registry Storage**，另有少量傳輸與 Cloud Storage multi-region 項目，見[精簡觀察紀錄](milestones/2026-11-14-sku-cost-observation.json)。儲存時間用量不是即時倉庫容量；不同匯出總額也不能代替逐日趨勢或清理節省證據。下一步先讀目前倉庫 `sizeBytes`，再核對相同期間的容量與費用；不重複要求已收到的 SKU 檔。
 使用者已提供 CLI 的人類可讀倉庫容量；`describe` 會把 `sizeBytes` 移出 JSON，原指令已改為 list。
-後續[目前倉庫盤點摘要](milestones/2026-11-14-current-registry-inventory-acceptance.json)也已通過：精確容量已讀回、10 個版本中 5 個受引用保護／5 個未分類、無讀取缺口，state／lease 核對與目前／回退版均符合預期。同日完整私人報告已收到並逐版核對，3 個舊 full-worker 均符合 schema 2 及早於受保護版本的條件，見[審查紀錄](milestones/2026-11-14-legacy-registry-review.json)。後續使用者已完成[限定清理](guarded-registry-cleanup.md)：3 個候選全部刪除、`completed`、無 pending、版本數 10 → 7；沒有啟動掃描。這是工具前後完整引用核對內的使用者讀回驗收，未新增 agent provider 查詢或獨立精確 Version GET。原排程已恢復啟用，新的 activation 心跳已由後續只讀狀態確認，控制器閒置且無 lease；容量回收與節省仍待結果。engine-poc 的 2 個未分類 OCI manifest 與受保護 index 的關係尚未證明，整組 3 版保留。
+後續[目前倉庫盤點摘要](milestones/2026-11-14-current-registry-inventory-acceptance.json)也已通過：精確容量已讀回、10 個版本中 5 個受引用保護／5 個未分類、無讀取缺口，state／lease 核對與目前／回退版均符合預期。同日完整私人報告已收到並逐版核對，3 個舊 full-worker 均符合 schema 2 及早於受保護版本的條件，見[審查紀錄](milestones/2026-11-14-legacy-registry-review.json)。後續使用者已完成[限定清理](guarded-registry-cleanup.md)：3 個候選全部刪除、`completed`、無 pending、版本數 10 → 7；沒有啟動掃描。這是工具前後完整引用核對內的使用者讀回驗收，未新增 agent provider 查詢或獨立精確 Version GET。原排程已恢復啟用，新的 activation 心跳已由後續只讀狀態確認，控制器閒置且無 lease；後續容量比較見下方 11/16 紀錄，清理歸因與節省仍待結果。engine-poc 的 2 個未分類 OCI manifest 與受保護 index 的關係尚未證明，整組 3 版保留。
+11/16 收到同一 repository 的後續只讀容量輸出，與先前私人盤點核對後接受「回報容量較低」的限定觀察，見[容量紀錄](milestones/2026-11-16-registry-capacity-observation.json)。這是使用者提供的容量讀回，agent 未另查 provider；本次沒有 Job／版本／引用盤點或精確觀測時間，也未取得受控清理歸因、實體 layer 刪除事件或帳單節省。當前接續原私人基準的 [GCS 到期只讀查詢](build-source-expiry-readback.md)；下一筆的年齡門檻已於 11/15 越過，各物件仍逐一判讀。
 公開維運手冊已另完成指定範圍的[安全核對](security-notes.md#2026-11-12公開維運手冊的範圍核對)，補上私人 sidecar 的 Git 忽略規則；這不代替現行 IAM 的 provider 查核。
 
 11/9 接續環境恢復前的中斷演練工具草稿，補齊受控 parent 取消、未知回應讀回、同一候選接續與完整設定／日誌證據核對。
 11/11 使用者已完成[演練手冊](auto-update-recovery-rehearsal.md)的自然更新受控中斷與接續：原 controller `d26087e7-fd27-480c-b419-52eb3c80e1a3` 已確認中斷，候選 `196af19d-17ac-49f3-a62f-0023d869356c` 沿用，由接續 controller `1f3aef61-b0df-4228-b97c-fe2b10d303f8` 完成。
 結果為 `recovered`、`recovery_verified: true`、`candidate_build_reused: true`；發布 `db-20261111T152527Z-2fd604dfa556` 的映像為 `f4e433ab…f8cd68`，原目前版 `4b81ba05…edc975` 成為回退版。重連聲明保存於台北 23:30:36，通過核對保存於 23:37:35；兩者是紀錄時間，工具沒有查閱登入歷史，也不由此推定精確切換時間。
-本次依使用者提供的工具摘要接受同候選中斷／重連復原，未新增 agent 直接登入 provider 的查詢。完整核對範圍與限制見[11/11 驗收紀錄](milestones/2026-11-11-automatic-update-recovery-acceptance.json)。後續清理交易已取得上述使用者讀回，實際容量回收與帳單仍待驗證；P0-12 維持進行中，P0-11 真實回退仍待辦。
+本次依使用者提供的工具摘要接受同候選中斷／重連復原，未新增 agent 直接登入 provider 的查詢。完整核對範圍與限制見[11/11 驗收紀錄](milestones/2026-11-11-automatic-update-recovery-acceptance.json)。後續清理交易已取得上述使用者讀回，11/16 另有回報容量下降的限定比較；受控歸因與帳單節省仍待驗證；P0-12 維持進行中，P0-11 真實回退仍待辦。
 本批新增 35 項離線演練測試，維運工具共 302 項通過，另略過一個選用 SDK 類別；見[本機交付紀錄](milestones/2026-11-09-automatic-update-recovery-rehearsal.json)。
 
 P0-12 的[安裝與驗收手冊](automatic-database-updates.md)包含固定私有來源、generation 檢查點、失敗／缺心跳告警，以及只清理自動流程持有映像的保留限制。健康檢查每 12 小時進行，daily 達三天才建置，不執行分析 Job；初次安裝預設停用，目前部署已由使用者啟用；GitHub 推送不自行啟用雲端排程。程式交付不代表實際排程、通知、儲存回收或帳單已驗證。
@@ -53,7 +54,7 @@ P0-12 的[安裝與驗收手冊](automatic-database-updates.md)包含固定私�
 停用安裝與首次健康檢查已通過；後續使用者已啟用排程，`ENABLED`／來源匹配／啟用後新心跳均有讀回，
 健康時間為台北 11/4 16:45:18，`activation_heartbeat_verified: true`。該次只確認私有 checkpoint；11/5 使用者已提供完整只讀報告，`read_complete`、Monitoring 設定匹配與健康資料點入帳三項皆為 true。
 兩個 log metrics、兩個 enabled alert policies 與通知管道 metadata 均匹配；健康 Build `565b3318-57d5-4b0d-b3fd-db06f003b041` 的正值資料點已讀回。
-11/6 當時的發布簽章與排程更新已通過限定案例驗收；11/11 又完成上述同候選中斷／重連復原，11/12 讀回一次自動清理交易。保留期、容量回收與費用仍待驗證。
+11/6 當時的發布簽章與排程更新已通過限定案例驗收；11/11 又完成上述同候選中斷／重連復原，11/12 讀回一次自動清理交易。保留期持續運作、容量變化歸因與費用仍待驗證；11/16 的後續容量觀察見上方紀錄。
 使用者已提交受控 Build `99db3d04-426e-4453-8cbf-a198b696a157`；原工具遇到合法的日誌分頁便中止，
 已修正為有界追頁與提交時間範圍查詢，直接沿用原測試讀回。11/6 的使用者結果為 `failure_verified`、預期 `lease_owner_invalid`、兩個 marker 欄位皆 true，並明確確認收到告警信；此受控早停的通知鏈已通過。
 後續私人摘要已為 `delivery_recorded`／`notification_delivery_verified: true`，人工確認保存於台北 11/6 12:27:38；這是保存確認的時間，並非實際收信時間。
@@ -184,14 +185,14 @@ Durable Object（DO）像工作登記簿，另存工作、票證與派送狀態�
 | P0-04 | 進行中 | client 保存 POST 意圖、可重連查詢，已有密碼恢復與執行關聯證據 | 補齊刷新／斷線／不確定派送的端到端證據，核對沒有未授權的額外 execution |
 | P0-05 | 完成 | 四筆早期驗收工作的 28 個 R2 指定前綴皆空，工作／報告 API 到期撤權 | 限列出的前綴與觀察時點；不是整個 bucket 或之後新工作的清理證明 |
 | P0-06 | 待辦 | **DO 工作狀態實體清理**尚未取得管理端證據 | 核對到期工作資料列／相關狀態實際刪除，與 R2 檔案清理分開驗證 |
-| P0-07 | 進行中 | **保留政策與映像盤點**：首批 7 個舊 `full-worker` 清理已核對 completed／無 pending、版本數 14 → 7，見[10/22 批次](milestones/2026-10-22-registry-cleanup.json)。11/12 自動刪除 1 版及舊版 404／保留版 200 已接受；11/14 另完成 3 個舊 full-worker 的[限定清理](milestones/2026-11-14-legacy-registry-review.json)：completed、無 pending、版本數 10 → 7 | 已接受列出歷史批次的映像刪除與最新缺席；GCS 設定、初始基準及首個到期 generation 404 也已通過，見[11/14 紀錄](milestones/2026-11-14-build-source-expiry-acceptance.json)。本批恢復排程後的新心跳已確認；另 2 個保存物件的到期、容量回收、長期保留運作與 R2 lifecycle 仍待核對。持續保留現行參照、必要回退映像及完整 index 依賴 |
+| P0-07 | 進行中 | **保留政策與映像盤點**：首批 7 個舊 `full-worker` 清理已核對 completed／無 pending、版本數 14 → 7，見[10/22 批次](milestones/2026-10-22-registry-cleanup.json)。11/12 自動刪除 1 版及舊版 404／保留版 200 已接受；11/14 另完成 3 個舊 full-worker 的[限定清理](milestones/2026-11-14-legacy-registry-review.json)：completed、無 pending、版本數 10 → 7 | 已接受列出歷史批次的映像刪除與最新缺席；GCS 設定、初始基準及首個到期 generation 404 也已通過，見[11/14 紀錄](milestones/2026-11-14-build-source-expiry-acceptance.json)。本批恢復排程後的新心跳已確認，11/16 同倉庫回報容量下降已取得限定比較；另 2 個保存物件的到期、容量變化歸因、長期保留運作與 R2 lifecycle 仍待核對。持續保留現行參照、必要回退映像及完整 index 依賴 |
 | P0-08 | 進行中 | 日／月 execution 額度已有程式與設定；本輪取得正式月額度拒絕畫面，Office root 顯示 failed／execution_admission_limit，見[部分驗收](milestones/2026-10-20-document-embedded-cloud-acceptance.json) | 尚需每日限額、實際 counter、密碼續跑／不確定派送計數與 provider 證據；截圖不能單獨證明確實用滿預設 40 次。全站共用 UTC 月份，換裝置或隔天不重置 |
 | P0-09 | 完成 | **人工簽章病毒庫更新與映像切換**：官方簽章、正常／EICAR 離線控制、digest、Job 與執行映像已核對 | 按時持續維護；此項完成不代表已有自動排程 |
 | P0-10 | 完成 | **回退工具與本機測試**：保留舊映像／設定，受保護的 image-only 切換與檢查 | 工具交付完成；真實雲端回退是獨立的 P0-11 |
 | P0-11 | 待辦 | **真實雲端回退演練**尚未執行 | 在受控時段切回已驗證映像、核對設定與掃描，再恢復指定版並留證據 |
-| P0-12 | 進行中 | **自動官方簽章病毒庫更新**：固定來源控制器、私人 generation 檢查點、失敗／缺心跳告警、限定自動映像清理與分階段安裝工具；每 12 小時檢查、daily 達三天才建置，每 UTC 日／月最多 1／12 次新候選意圖、自動持有版本上限四個，不執行分析 Job；見[安裝手冊](automatic-database-updates.md) | 停用安裝、runtime 修補、啟用心跳、Monitoring、受控告警收信及一次排程更新已通過限定驗收。11/11 另取得[同候選復原](milestones/2026-11-11-automatic-update-recovery-acceptance.json)，11/12 取得[自動刪除交易及最新 404／200／200 查詢](milestones/2026-11-12-automatic-image-cleanup-acceptance.json)。GCS 建置來源設定、初始基準與[首筆到期後缺席](milestones/2026-11-14-build-source-expiry-acceptance.json)已通過；另 2 個保存物件、容量回收與費用趨勢仍待驗證；11/14 限定舊映像清理後排程已恢復，後續新 activation 心跳已確認、控制器閒置且無 lease；真實映像回退另列 P0-11 |
+| P0-12 | 進行中 | **自動官方簽章病毒庫更新**：固定來源控制器、私人 generation 檢查點、失敗／缺心跳告警、限定自動映像清理與分階段安裝工具；每 12 小時檢查、daily 達三天才建置，每 UTC 日／月最多 1／12 次新候選意圖、自動持有版本上限四個，不執行分析 Job；見[安裝手冊](automatic-database-updates.md) | 停用安裝、runtime 修補、啟用心跳、Monitoring、受控告警收信及一次排程更新已通過限定驗收。11/11 另取得[同候選復原](milestones/2026-11-11-automatic-update-recovery-acceptance.json)，11/12 取得[自動刪除交易及最新 404／200／200 查詢](milestones/2026-11-12-automatic-image-cleanup-acceptance.json)。GCS 建置來源設定、初始基準與[首筆到期後缺席](milestones/2026-11-14-build-source-expiry-acceptance.json)已通過；11/16 已取得同倉庫回報容量下降的限定比較；另 2 個保存物件、持續容量變化歸因與費用趨勢仍待驗證；11/14 限定舊映像清理後排程已恢復，後續新 activation 心跳已確認、控制器閒置且無 lease；真實映像回退另列 P0-11 |
 | P0-13 | 完成 | 10 月月內 TWD 專案帳單已核對；11 月服務彙總也已私下核對，專案篩選依使用者明確確認，淨額為正 | 僅各報表匯出時的範圍；11 月 SKU 已私下核對，但未含逐日截止與前後比較，不能推定最終月結、清理節省或長期免費，原始財務資料保持私有 |
-| P0-14 | 進行中 | **長期成本與儲存費控制**：10/22 SKU 報表已確認映像儲存為當期主要淨費用；首批 7 個舊 `full-worker` 清理結果已核對，但當時倉庫容量讀數仍幾乎不變；11 月 SKU 也已確認主要淨費用為 Artifact Registry Storage；目前精確容量與完整逐版盤點已審查，另 3 個舊 worker 已取得限定清理驗收、版本數 10 → 7；本批清理後容量、逐日趨勢與節省仍待核對，金額與原始財務資料不公開 | 容量回收及後續儲存 SKU／帳單節省仍未驗證；補齊每次工作／每月維護、建置來源、映像、儲存、日誌、secrets、抵用額種類及最終月結，觀察多個期間；版本數或映像顯示大小加總不能代替成本證據，不宣稱零費用 |
+| P0-14 | 進行中 | **長期成本與儲存費控制**：10/22 SKU 報表已確認映像儲存為當期主要淨費用；首批 7 個舊 `full-worker` 清理結果已核對，但當時倉庫容量讀數仍幾乎不變；11 月 SKU 也已確認主要淨費用為 Artifact Registry Storage；目前精確容量與完整逐版盤點已審查，另 3 個舊 worker 已取得限定清理驗收、版本數 10 → 7；11/16 已取得[同倉庫後續回報容量下降](milestones/2026-11-16-registry-capacity-observation.json)的限定比較，逐日趨勢與節省仍待核對，原始容量、金額與財務資料不公開 | 下降量對單一清理批次的受控歸因及後續儲存 SKU／帳單節省仍未驗證；補齊每次工作／每月維護、建置來源、映像、儲存、日誌、secrets、抵用額種類及最終月結，觀察多個期間；版本數或映像顯示大小加總不能代替成本證據，不宣稱零費用 |
 | P0-15 | 待辦 | Cloudflare 實際用量與費用仍待獨立核對 | 核對 Workers／DO／R2／Pages 用量及可用額度，連同 GCP 判斷成本 |
 | P0-16 | 完成 | 共用核心、前端、控制層與 dispatcher 的持續整合已建立並執行 | 新改動持續通過相關 CI；不等於正式 provider 驗收 |
 | P0-17 | 待辦 | 仍有 advisory 的開發／部署相依工具需持續審查 | 依影響做相容升級，保存 audit 差異與回歸結果，不直接強制升級所有套件 |

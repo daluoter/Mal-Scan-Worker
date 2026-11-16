@@ -1,10 +1,12 @@
 # 自動更新啟用後的限定舊映像清理
 
-更新日期：2026-11-14（Asia/Taipei）。**本批已完成限定刪除驗收：3 個候選全部移除、`completed`、無 pending，版本數 10 → 7，沒有啟動掃描。** 使用者已恢復原排程，Scheduler 為 `ENABLED`、`automatic_updates_enabled: true`；後續只讀狀態已確認新 activation 心跳、健康時間推進、控制器閒置且無 lease。見[本批審查與驗收](milestones/2026-11-14-legacy-registry-review.json)。目前版、回退版、dispatcher 及整組 engine-poc 按工具引用核對保留。容量回收與費用下降仍待驗證。
+更新日期：2026-11-16（Asia/Taipei）。**本批已完成限定刪除驗收：3 個候選全部移除、`completed`、無 pending，版本數 10 → 7，沒有啟動掃描。** 使用者已恢復原排程，Scheduler 為 `ENABLED`、`automatic_updates_enabled: true`；後續只讀狀態已確認新 activation 心跳、健康時間推進、控制器閒置且無 lease。見[本批審查與驗收](milestones/2026-11-14-legacy-registry-review.json)。目前版、回退版、dispatcher 及整組 engine-poc 按工具引用核對保留。11/16 已取得[同倉庫後續回報容量下降](milestones/2026-11-16-registry-capacity-observation.json)的限定比較；下降量對本批的受控歸因及帳單節省仍待驗證。
 
 ## 目前接續：容量與費用觀察
 
-本批清理、啟用及後續新心跳皆已完成限定驗收。現在先取得目前倉庫容量，隔日或數日後再以相同指令比較：
+本批清理、啟用及後續新心跳皆已完成限定驗收，11/16 的同倉庫容量比較也已通過。現在沿用原私人基準執行 [GCS 來源到期只讀查詢](build-source-expiry-readback.md)：下一筆年齡門檻已於 11/15 越過，其餘保存物件仍依各自期限與實際回應逐一判讀。
+
+後續可隔日或數日後沿用下方容量查詢，並比較相同期間的儲存 SKU；原始讀值留在私人紀錄：
 
 ```bash
 gcloud artifacts repositories list \
@@ -15,7 +17,7 @@ gcloud artifacts repositories list \
   --format='json(name,sizeBytes)'
 ```
 
-此查詢只讀 metadata，不建立映像或啟動掃描。容量可能受背景回收及正常自動建置影響，仍需後續可比較期間的儲存 SKU 才能評估費用。GCS 其餘來源另依私人基準於各自期限後讀回，下一筆在 11/15 到期。
+此查詢只讀 metadata，不建立映像或啟動掃描。容量可能受背景回收及正常自動建置影響，仍需後續可比較期間的儲存 SKU 才能評估費用。GCS 來源到期沿用上方私人基準，不從容量下降推定其刪除結果。
 
 ### 已通過的啟用後心跳讀回
 
@@ -34,7 +36,7 @@ gcloud artifacts repositories list \
 
 啟用會改變 coordinator generation。這個已完成批次的 `check/apply` 仍綁定當時暫停狀態，啟用後停止於 guard 是預期保護，不能用來判定已完成清理失敗。保留原 journal 作紀錄；不再重跑本批 `prepare`、`apply` 或 `enable`。
 
-啟用後心跳已確認；版本刪除與心跳通過仍不代替容量回收或費用節省證據。GCS 其餘來源另依私人基準於各自期限後讀回，下一筆在 11/15 到期；本批版本刪除不代替來源到期或費用節省證據。
+啟用後心跳與回報容量下降皆已有列出範圍的證據；受控清理歸因、GCS 其餘來源到期及費用節省仍分別追蹤。
 
 ## 已完成批次的歷史操作
 

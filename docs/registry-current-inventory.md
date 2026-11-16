@@ -1,6 +1,6 @@
 # 自動更新啟用後的映像只讀盤點
 
-更新日期：2026-11-14（Asia/Taipei）。用來核對目前倉庫版本與 Cloud Run 引用，供費用評估使用；不是刪除計畫。
+更新日期：2026-11-16（Asia/Taipei）。用來核對目前倉庫版本與 Cloud Run 引用，供費用評估使用；不是刪除計畫。
 沿用現有 Cloud Shell 來源目錄，不需要重新建置或更新服務。盤點會讀多區域 Job、未完成 execution、服務與 revision，可能需要一些時間。
 
 自動更新已切換過映像，Cloud Shell HOME 的舊人工 checkpoint 不一定對應目前 Job。
@@ -119,3 +119,5 @@ engine-poc 的 2 個未分類版本為 OCI manifest，但與受保護 index 的�
 原始 metadata 報告保持私有，不提交公開 GitHub；公開紀錄只保留必要彙總。
 
 本輪依[自動更新啟用後的限定清理](guarded-registry-cleanup.md)完成，使用者提供的 guarded readback 為 `completed`、3 個候選全部刪除、無 pending、版本數 10 → 7；沒有啟動掃描。接受本批工具前後引用核對內的刪除結果，沒有新增 agent provider 查詢或另行精確 Version GET。原排程已恢復啟用且新心跳確認通過，接著[核對容量／儲存 SKU](guarded-registry-cleanup.md#目前接續容量與費用觀察)；不重跑本批或 10/22 批次。
+
+11/16 使用者另提供精確篩選同一倉庫的容量 metadata，已接受[後續回報容量較低](milestones/2026-11-16-registry-capacity-observation.json)的限定比較。這份容量輸出沒有重新盤點版本、Job 或引用，不能更新上述歷史保護集合，也不能用來核准新刪除；單一批次歸因與帳單節省仍待證據。

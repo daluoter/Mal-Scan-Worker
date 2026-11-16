@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "received_date_taipei": "2026-11-16",
+  "checklist_id": "P0-14",
+  "checklist_status": "in_progress",
+  "related_checklist_ids": [
+    "P0-07",
+    "P0-12"
+  ],
+  "scope": "One lower reported repository capacity readback compared with the previously accepted private inventory",
+  "evidence_source": "User-provided exact-repository metadata listing; compared locally with the prior accepted private inventory; no authenticated provider query by agent",
+  "accepted_observations": {
+    "project_location_and_repository_match_prior_readback": true,
+    "exact_repository_filter_returned_one_repository": true,
+    "reported_size_bytes_received_and_parsed": true,
+    "later_reported_capacity_is_lower": true,
+    "comparison_with_prior_accepted_capacity_verified": true,
+    "new_observation_timestamp_supplied_in_cli_output": false,
+    "received_date_is_not_a_provider_observation_timestamp": true
+  },
+  "verification_limits": {
+    "controlled_attribution_to_legacy_cleanup_batch_verified": false,
+    "background_reclamation_cause_verified": false,
+    "physical_layer_deletion_verified": false,
+    "new_live_job_or_registry_inventory_verified": false,
+    "new_version_classification_verified": false,
+    "billed_savings_verified": false,
+    "final_monthly_invoice_verified": false,
+    "agent_authenticated_provider_query_performed": false
+  },
+  "related_public_records": [
+    "2026-11-14-current-registry-inventory-acceptance.json",
+    "2026-11-14-legacy-registry-review.json",
+    "2026-11-14-sku-cost-observation.json"
+  ],
+  "next_evidence": [
+    "Read the remaining saved GCS source generations after their individual age thresholds using the original private baseline",
+    "Observe comparable later repository capacity and storage SKU billing periods"
+  ],
+  "evidence_limits": [
+    "A lower reported capacity is accepted for this repository comparison; the reduction cannot be assigned entirely to one cleanup batch",
+    "Background reclamation and normal automatic builds may affect repository capacity between observations",
+    "The readback contains no new Job, image reference, version count, lifecycle deletion event or billed cost evidence",
+    "Historical false flags in earlier records retain their original evidence scope"
+  ],
+  "exact_capacity_values_percentages_raw_output_private_paths_or_financial_data_published": false,
+  "remote_mutations": false,
+  "cloud_run_executed": false
+}

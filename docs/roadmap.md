@@ -1,6 +1,6 @@
 # Mal-Scan-Worker v2 後續路線圖
 
-更新日期：2026-11-14（Asia/Taipei）。起點是[首筆雲端 demo 成功里程碑](milestones/2026-10-15-cloud-demo.md)。優先目標是讓使用者取得可信、詳盡且可追溯的靜態分析報告；低成本雲端用來展示，自架動態分析保留為可選擴充。
+更新日期：2026-11-16（Asia/Taipei）。起點是[首筆雲端 demo 成功里程碑](milestones/2026-10-15-cloud-demo.md)。優先目標是讓使用者取得可信、詳盡且可追溯的靜態分析報告；低成本雲端用來展示，自架動態分析保留為可選擴充。
 
 所有計畫項目的固定 ID、完成／進行中／待辦狀態與完成條件集中在[專案進度清單](project-status.md)。
 每批開發、驗證或部署都要同步更新該清單；下文保留各階段的目標與排序。
@@ -16,7 +16,7 @@ completed、無 pending、刪除 digest 符合已審閱批次，版本數 14 →
 見[限定批次紀錄](milestones/2026-10-22-registry-cleanup.json)與[映像清理手冊](registry-cleanup.md)。
 清理後倉庫容量讀數仍幾乎不變；接著核對容量回收、保留政策及後續儲存 SKU／帳單。
 P0-07／P0-14 都維持進行中，不把版本刪除當成已節省費用或停止計費。
-11/14 的完整私人盤點及逐版審查後，3 個舊 full-worker 已取得限定清理驗收：completed、無 pending、版本數 10 → 7，見[本批紀錄](milestones/2026-11-14-legacy-registry-review.json)。工具引用核對保留目前／回退版、dispatcher 及整組 engine-poc。排程已恢復啟用且啟用後新心跳已確認，接著[讀回容量並比較儲存 SKU](guarded-registry-cleanup.md#目前接續容量與費用觀察)；其餘 GCS 來源仍依私人基準於各自期限後查詢。本批不重跑清理，容量回收與費用下降仍未驗證。
+11/14 的完整私人盤點及逐版審查後，3 個舊 full-worker 已取得限定清理驗收：completed、無 pending、版本數 10 → 7，見[本批紀錄](milestones/2026-11-14-legacy-registry-review.json)。工具引用核對保留目前／回退版、dispatcher 及整組 engine-poc。排程已恢復啟用且啟用後新心跳已確認，11/16 後續只讀輸出已取得[同倉庫回報容量下降](milestones/2026-11-16-registry-capacity-observation.json)的限定比較；清理歸因與帳單節省仍待核對。本批不重跑清理，接續[容量／費用觀察](guarded-registry-cleanup.md#目前接續容量與費用觀察)及原私人基準的 GCS 到期查詢，下一筆年齡門檻已於 11/15 越過。
 
 **目前接續順序：** 11/2 的兩份 partial 報告保留於[跟進紀錄](milestones/2026-11-03-document-embedded-cloud-followup.json)。
 受控刷新後，11/4 的新 Flate EICAR／Office 報告之 10 個節點適用掃描皆完整，daily 28172；
@@ -35,7 +35,7 @@ P0-12 的[自動簽章病毒庫更新](automatic-database-updates.md)已安裝�
 可續跑 client、映像離線控制、病毒庫更新／回退、GCP metadata 取證與 R2 保留期核對工具見
 [雲端操作手冊](cloud-demo-operations.md)。20 MB 去混淆大小限制已如實記為 partial；
 DO 資料列／lifecycle、Cloudflare 實際用量、每月維護成本、真實回退及更新排程的後續可靠性仍持續追蹤，
-尚不宣稱下列 P0 全部出口條件已滿足；成本回收／用量沒有新增證據，後續格式能力與持續維護按上述順序安排。
+尚不宣稱下列 P0 全部出口條件已滿足；11/16 新增的容量下降比較不代替帳單節省或其他用量證據，後續格式能力與持續維護按上述順序安排。
 
 P1 第二批已擴充為 32 案例／28 fixture，32／32 真實引擎案例已通過；一般網址、Java API 與正常
 OOXML 的已知誤報，以及 PE／Office／PDF 的結構與 partial 呈現是本批重點。
