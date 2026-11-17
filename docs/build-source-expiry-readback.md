@@ -1,13 +1,14 @@
 # 建置來源到期後的只讀確認
 
-更新日期：2026-11-17（Asia/Taipei）。今天可再次確認已滿七天但仍存在的保存物件。
+更新日期：2026-11-17（Asia/Taipei）。目前已符合年齡的 2 個保存物件皆已確認缺席，下一步確認第三個。
 此指令讀取原私人基準，查詢**已達七天的既有物件 generation**；不重新保存基準、不建立或刪除物件，也不下載內容。
 沿用現有 Cloud Shell 來源目錄與原 plan，不需要重新 clone、建置或部署。
 
 11/14 已收到[第一個符合年齡物件回傳 404 的結果](milestones/2026-11-14-build-source-expiry-acceptance.json)，其餘兩個當時尚未符合年齡且未查詢。
-11/16 的[後續結果](milestones/2026-11-16-build-source-expiry-followup.json)為 2 個已符合年齡，1 個回傳 404、1 個回傳 200，另 1 個尚未符合年齡。本次 `actual_object_expiry_verified: false` 正確表示已符合年齡者尚未全部缺席；11/14 的單筆缺席驗收仍有效。
+11/16 的[後續結果](milestones/2026-11-16-build-source-expiry-followup.json)為 2 個已符合年齡，1 個回傳 404、1 個回傳 200，另 1 個尚未符合年齡。當次 `actual_object_expiry_verified: false` 正確表示已符合年齡者尚未全部缺席；該歷史紀錄與 11/14 的單筆缺席驗收均保留。
+11/17 的[最新結果](milestones/2026-11-17-build-source-expiry-acceptance.json)已確認 2 個符合年齡者皆回傳 404，`actual_object_expiry_verified: true`；第三個尚未符合年齡且未查詢，所以 `all_saved_objects_absent_verified` 仍為 false。上次仍存在者在兩次觀察之間變為缺席，精確刪除時間與原因未驗證。
 
-今天 11/17 沿用下方同一指令再確認仍存在者。`next_age_eligible_at_taipei` 只指出下一個新物件達到年齡條件的時間，已到期但仍存在者可以先重查，不必等到該欄位的時間。第三個物件依私人期限在 11/18 門檻後或 11/19 白天再查；保持原私人基準。
+目前符合年齡者的缺席已通過，下一次依私人期限確認第三個。`next_age_eligible_at_taipei` 只指出下一個新物件達到年齡條件的時間，已到期但仍存在者可以先重查，不必等到該欄位的時間。第三個物件依私人期限在 11/18 門檻後或 11/19 白天再查；保持原私人基準。
 
 ```bash
 (

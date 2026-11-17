@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "observed_date_taipei": "2026-11-17",
+  "checklist_id": "P0-12",
+  "checklist_status": "in_progress",
+  "related_checklist_ids": [
+    "P0-07",
+    "P0-14"
+  ],
+  "scope": "Bounded acceptance that both currently age-eligible saved build-source generations are absent",
+  "evidence_source": "User-provided read-only exact-generation metadata summary; no authenticated provider query by agent",
+  "previous_public_records": [
+    "2026-11-14-build-source-expiry-acceptance.json",
+    "2026-11-16-build-source-expiry-followup.json"
+  ],
+  "readback_summary": {
+    "scope": "read_only_saved_build_source_expiry",
+    "read_only": true,
+    "baseline_configuration_unchanged": true,
+    "private_baseline_unchanged": true,
+    "saved_object_count": 3,
+    "age_eligible_saved_count": 2,
+    "not_yet_age_eligible_saved_count": 1,
+    "age_eligible_absent_count": 2,
+    "age_eligible_present_count": 0,
+    "age_eligible_http_404_count": 2,
+    "actual_object_expiry_verified": true,
+    "all_saved_objects_absent_verified": false,
+    "lifecycle_deletion_cause_verified": false,
+    "billed_savings_verified": false,
+    "remote_mutations": false,
+    "cloud_run_executed": false
+  },
+  "acceptance": {
+    "all_currently_age_eligible_saved_generations_absent": true,
+    "previously_present_eligible_generation_now_absent": true,
+    "original_private_baseline_and_bucket_configuration_reported_unchanged": true,
+    "not_yet_eligible_generation_queried": false,
+    "not_yet_eligible_generation_presence_or_absence_inferred": false,
+    "all_saved_objects_expiry_complete": false,
+    "overall_p0_12_complete": false
+  },
+  "next_steps": [
+    "Check the third saved generation after its individual age threshold on November 18, or during the day on November 19",
+    "Reuse the original private baseline and the same read-only exact-generation query",
+    "Observe comparable storage SKU billing independently"
+  ],
+  "evidence_limits": [
+    "The current result accepts the two eligible saved generations and does not establish that all three saved generations are absent",
+    "The previously present eligible generation became absent between the two observations; the exact deletion time and deleting actor are not verified",
+    "The unqueried third generation has not yet met the age condition, so its current presence or absence is not inferred",
+    "Earlier observation records and their false flags retain their historical scopes",
+    "No physical storage reclamation or billed savings is proved by the absence result"
+  ],
+  "publication_minimization": {
+    "exact_timestamps_object_names_generations_indices_or_private_fingerprints_published": false,
+    "exact_sizes_or_financial_values_published": false
+  },
+  "agent_authenticated_provider_query_performed": false,
+  "remote_mutations_performed_by_agent": false
+}

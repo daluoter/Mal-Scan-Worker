@@ -153,7 +153,7 @@ PY_STORAGE
 請使用該節的新查詢，不重跑第 1 節初始基準來推定已刪除。
 
 11/14 已取得[第一筆到期後缺席紀錄](milestones/2026-11-14-build-source-expiry-acceptance.json)：1 個符合年齡的保存 generation 回傳 404，另 2 個尚未符合條件而未查詢。
-該次 `actual_object_expiry_verified: true` 僅涵蓋當時符合條件者；`all_saved_objects_absent_verified: false` 保留整批未完成的差別。11/16 的[後續讀回](milestones/2026-11-16-build-source-expiry-followup.json)則是 2 個已到期者中 1 個 404、1 個 200，另 1 個未到期，因此當次 `actual_object_expiry_verified: false`；原先單筆缺席驗收保留。今天 11/17 可用同一指令再查仍存在者。
+該次 `actual_object_expiry_verified: true` 僅涵蓋當時符合條件者；`all_saved_objects_absent_verified: false` 保留整批未完成的差別。11/16 的[後續讀回](milestones/2026-11-16-build-source-expiry-followup.json)則是 2 個已到期者中 1 個 404、1 個 200，另 1 個未到期，因此當次 `actual_object_expiry_verified: false`；原先單筆缺席驗收保留。11/17 的[最新讀回](milestones/2026-11-17-build-source-expiry-acceptance.json)已確認 2 個已到期者皆為 404，目前群組缺席旗標為 true；第三個仍未符合年齡且未查詢，整批缺席仍為 false。上次仍存在者本次已缺席，沒有取得精確刪除時間或原因。下一步在第三個的私人期限後重查。
 
 `next_age_eligible_at_taipei` 由本次實際物件 `timeCreated + 7 天` 計算，表示下一個新物件符合 age 條件的時刻，**不是保證刪除時間，也不是已到期者再次查詢的最早時間**。第三個保存物件依私人期限在 11/18 門檻後或 11/19 白天查詢。
 `saved_objects_now_age_eligible` 只計算保存基準中的物件年齡，不表示它們目前仍存在或已刪除；重跑基準命令不會更新物件清單。
