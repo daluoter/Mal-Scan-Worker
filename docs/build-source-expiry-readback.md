@@ -1,11 +1,13 @@
 # 建置來源到期後的只讀確認
 
-更新日期：2026-11-14（Asia/Taipei）。本輪最早符合七天條件的時刻已過，可以現在執行。
+更新日期：2026-11-17（Asia/Taipei）。今天可再次確認已滿七天但仍存在的保存物件。
 此指令讀取原私人基準，查詢**已達七天的既有物件 generation**；不重新保存基準、不建立或刪除物件，也不下載內容。
 沿用現有 Cloud Shell 來源目錄與原 plan，不需要重新 clone、建置或部署。
 
 11/14 已收到[第一個符合年齡物件回傳 404 的結果](milestones/2026-11-14-build-source-expiry-acceptance.json)，其餘兩個當時尚未符合年齡且未查詢。
-後續在私人摘要的 `next_age_eligible_at_taipei` 之後沿用本指令，繼續觀察同一批保存 generation；不重建初始基準。
+11/16 的[後續結果](milestones/2026-11-16-build-source-expiry-followup.json)為 2 個已符合年齡，1 個回傳 404、1 個回傳 200，另 1 個尚未符合年齡。本次 `actual_object_expiry_verified: false` 正確表示已符合年齡者尚未全部缺席；11/14 的單筆缺席驗收仍有效。
+
+今天 11/17 沿用下方同一指令再確認仍存在者。`next_age_eligible_at_taipei` 只指出下一個新物件達到年齡條件的時間，已到期但仍存在者可以先重查，不必等到該欄位的時間。第三個物件依私人期限在 11/18 門檻後或 11/19 白天再查；保持原私人基準。
 
 ```bash
 (
@@ -139,6 +141,8 @@ PY_EXPIRY
 - `all_saved_objects_absent_verified: true`：另表示保存的整批物件皆符合年齡條件且缺席。只有最早一個物件到期，不代表三個物件應同時刪除。
 - 仍為 200 或尚無符合年齡的物件：會照實列出計數，不能當成已刪除，不手動補刪或重建基準。
 - 403、逾時、身份不符、基準變更或 bucket 設定漂移：輸出固定錯誤，不會被當成 404。
+
+官方 [Object Lifecycle Management](https://docs.cloud.google.com/storage/docs/lifecycle) 說明刪除動作非同步執行，不能依賴固定時間內完成。文件提到的二十四小時是設定變更可能生效的延遲，不是物件刪除的最長等待時間。若重查仍為 200，先保存結果，再核對物件 hold／retention metadata；不以手動刪除或重建基準補成通過。
 
 這是個別 metadata 查詢，沒有原子快照或刪除動作。即使時間與設定相符，若無對應 provider 刪除事件，仍不能斷言由 lifecycle 執行刪除；也不能據此宣稱底層容量已回收或帳單已下降。
 這份確認只涵蓋保存的 `build-sources/` 物件；`bundles/` 與 state 的實際存在需另行核對，lease 在 idle 時可以正常不存在。

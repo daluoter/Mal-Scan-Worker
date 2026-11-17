@@ -8,6 +8,8 @@
 
 ## 目前里程碑
 
+**2026-11-17：GCS 來源到期追蹤仍進行中。** 11/16 的[後續只讀結果](docs/milestones/2026-11-16-build-source-expiry-followup.json)顯示，3 個保存物件中 2 個已滿七天，其中 1 個缺席、1 個仍存在，另 1 個尚未到期。首筆缺席驗收保留，本次已到期群組尚未全部清除。今天沿用[同一只讀查詢](docs/build-source-expiry-readback.md)再確認仍存在者；第三個依私人期限於 11/18 門檻後或 11/19 白天查詢。
+
 **2026-11-16：同一倉庫的後續回報容量已下降。** 使用者提供精確 repository 篩選的只讀 metadata，與先前私人盤點比較通過，見[容量觀察](docs/milestones/2026-11-16-registry-capacity-observation.json)。這是回報容量下降的限定證據，尚未受控歸因至單一清理批次，也未驗證帳單節省。接著沿用私人基準，執行已越過下一個年齡門檻的 [GCS 來源到期只讀查詢](docs/build-source-expiry-readback.md)，並觀察後續相同期間的儲存 SKU；原始容量與財務資料保持私有。
 
 **2026-11-14：GCS 建置來源取得第一個到期後缺席案例。** 私人基準保存 3 個物件，其中 1 個已滿七天且精確 generation 回傳 404；另 2 個尚未到期，本次未查詢。設定與原基準均未變，見[本次驗收](docs/milestones/2026-11-14-build-source-expiry-acceptance.json)。後續沿用相同基準追蹤其餘物件，容量回收與費用節省另行核對。11 月服務與 SKU 報表已私下核對，主要淨費用確認為 **Artifact Registry 映像儲存**，見[觀察摘要](docs/milestones/2026-11-14-sku-cost-observation.json)；目前 10 版盤點及私人逐版審查後，3 個舊 full-worker 已完成限定清理：`completed`、無 pending，版本數 10 → 7，見[本批驗收](docs/milestones/2026-11-14-legacy-registry-review.json)。目前／回退版及其他 package 按工具引用核對保留；排程已恢復且啟用後新心跳已確認，容量與費用進展見上方 11/16 [後續觀察](docs/guarded-registry-cleanup.md#目前接續容量與費用觀察)。原始盤點、帳單及金額不公開。

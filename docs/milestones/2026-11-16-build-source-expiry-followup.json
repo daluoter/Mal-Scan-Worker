@@ -1,0 +1,57 @@
+{
+  "schema_version": 1,
+  "observed_date_taipei": "2026-11-16",
+  "record_updated_date_taipei": "2026-11-17",
+  "checklist_id": "P0-12",
+  "checklist_status": "in_progress",
+  "related_checklist_ids": [
+    "P0-07",
+    "P0-14"
+  ],
+  "scope": "Follow-up observation of the original saved build-source generations; not all age-eligible generations are absent",
+  "evidence_source": "User-provided read-only exact-generation metadata summary; no authenticated provider query by agent",
+  "previous_public_record": "2026-11-14-build-source-expiry-acceptance.json",
+  "readback_summary": {
+    "scope": "read_only_saved_build_source_expiry",
+    "read_only": true,
+    "baseline_configuration_unchanged": true,
+    "private_baseline_unchanged": true,
+    "saved_object_count": 3,
+    "age_eligible_saved_count": 2,
+    "not_yet_age_eligible_saved_count": 1,
+    "age_eligible_absent_count": 1,
+    "age_eligible_present_count": 1,
+    "age_eligible_http_404_count": 1,
+    "age_eligible_http_200_count": 1,
+    "actual_object_expiry_verified": false,
+    "all_saved_objects_absent_verified": false,
+    "lifecycle_deletion_cause_verified": false,
+    "billed_savings_verified": false,
+    "remote_mutations": false,
+    "cloud_run_executed": false
+  },
+  "interpretation": {
+    "prior_one_generation_absence_acceptance_remains_valid": true,
+    "current_eligible_group_absence_accepted": false,
+    "not_yet_eligible_generation_queried": false,
+    "lifecycle_failure_established": false,
+    "all_saved_objects_expiry_complete": false
+  },
+  "next_steps": [
+    "Repeat the same read-only query on the original private baseline now for the already age-eligible generation that remains present",
+    "Check the third saved generation after its individual age threshold; the next threshold date is November 18",
+    "If the eligible generation remains present, preserve the result and inspect object hold and retention metadata before considering any change",
+    "Observe storage SKU billing separately"
+  ],
+  "evidence_limits": [
+    "The false current-group result does not reverse the earlier one-generation absence case",
+    "Cloud Storage lifecycle actions are asynchronous; no fixed deletion delay is guaranteed",
+    "The next-age field identifies a new generation reaching the age condition, not the earliest allowed repeat query for an already eligible generation",
+    "This metadata readback does not prove a deletion actor, storage reclamation or billed savings"
+  ],
+  "publication_minimization": {
+    "exact_timestamps_object_names_generations_indices_or_private_fingerprints_published": false,
+    "exact_sizes_or_financial_values_published": false
+  },
+  "remote_mutations_performed_by_agent": false
+}

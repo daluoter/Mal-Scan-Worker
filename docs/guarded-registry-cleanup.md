@@ -1,10 +1,10 @@
 # 自動更新啟用後的限定舊映像清理
 
-更新日期：2026-11-16（Asia/Taipei）。**本批已完成限定刪除驗收：3 個候選全部移除、`completed`、無 pending，版本數 10 → 7，沒有啟動掃描。** 使用者已恢復原排程，Scheduler 為 `ENABLED`、`automatic_updates_enabled: true`；後續只讀狀態已確認新 activation 心跳、健康時間推進、控制器閒置且無 lease。見[本批審查與驗收](milestones/2026-11-14-legacy-registry-review.json)。目前版、回退版、dispatcher 及整組 engine-poc 按工具引用核對保留。11/16 已取得[同倉庫後續回報容量下降](milestones/2026-11-16-registry-capacity-observation.json)的限定比較；下降量對本批的受控歸因及帳單節省仍待驗證。
+更新日期：2026-11-17（Asia/Taipei）。**本批已完成限定刪除驗收：3 個候選全部移除、`completed`、無 pending，版本數 10 → 7，沒有啟動掃描。** 使用者已恢復原排程，Scheduler 為 `ENABLED`、`automatic_updates_enabled: true`；後續只讀狀態已確認新 activation 心跳、健康時間推進、控制器閒置且無 lease。見[本批審查與驗收](milestones/2026-11-14-legacy-registry-review.json)。目前版、回退版、dispatcher 及整組 engine-poc 按工具引用核對保留。11/16 已取得[同倉庫後續回報容量下降](milestones/2026-11-16-registry-capacity-observation.json)的限定比較；下降量對本批的受控歸因及帳單節省仍待驗證。
 
 ## 目前接續：容量與費用觀察
 
-本批清理、啟用及後續新心跳皆已完成限定驗收，11/16 的同倉庫容量比較也已通過。現在沿用原私人基準執行 [GCS 來源到期只讀查詢](build-source-expiry-readback.md)：下一筆年齡門檻已於 11/15 越過，其餘保存物件仍依各自期限與實際回應逐一判讀。
+本批清理、啟用及後續新心跳皆已完成限定驗收，11/16 的同倉庫容量比較也已通過。現在沿用原私人基準執行 [GCS 來源到期只讀查詢](build-source-expiry-readback.md)：11/16 的[來源追蹤](milestones/2026-11-16-build-source-expiry-followup.json)為已到期 2 個中 1 個缺席、1 個仍存在，另 1 個未到期。今天 11/17 先重查仍存在者；第三個依私人期限在 11/18 門檻後或 11/19 白天查詢。
 
 後續可隔日或數日後沿用下方容量查詢，並比較相同期間的儲存 SKU；原始讀值留在私人紀錄：
 
