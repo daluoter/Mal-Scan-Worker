@@ -8,7 +8,7 @@
 
 ## 目前里程碑
 
-**2026-11-17：GCS 目前已到期的 2 個保存來源皆確認缺席。** 最新[只讀驗收](docs/milestones/2026-11-17-build-source-expiry-acceptance.json)為 2 個符合年齡者皆回傳 404，`actual_object_expiry_verified: true`；第三個尚未符合年齡且未查詢，整批旗標仍為 false。11/16 的等待結果保留為歷史，這次未證明刪除時間、執行者或帳單節省。下一步依私人期限在 11/18 門檻後或 11/19 白天沿用[同一只讀查詢](docs/build-source-expiry-readback.md)確認第三個。
+**2026-11-19：3 個 GCS 建置來源均已滿七天，2 個回傳 404，第三個仍為 200。** 11/17 的兩筆缺席驗收仍有效，整批缺席驗證待最後一筆。建議台北 11/20 上午沿用原私人基準再查。 [本次讀回](docs/milestones/2026-11-19-build-source-expiry-followup.json) · [只讀查詢](docs/build-source-expiry-readback.md)
 
 **2026-11-16：同一倉庫的後續回報容量已下降。** 使用者提供精確 repository 篩選的只讀 metadata，與先前私人盤點比較通過，見[容量觀察](docs/milestones/2026-11-16-registry-capacity-observation.json)。這是回報容量下降的限定證據，尚未受控歸因至單一清理批次，也未驗證帳單節省。接著沿用私人基準，執行已越過下一個年齡門檻的 [GCS 來源到期只讀查詢](docs/build-source-expiry-readback.md)，並觀察後續相同期間的儲存 SKU；原始容量與財務資料保持私有。
 
