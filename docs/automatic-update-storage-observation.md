@@ -1,6 +1,6 @@
 # 自動更新建置來源的保留期觀察
 
-更新日期：2026-11-19（Asia/Taipei）。映像版本刪除與 GCS 建置來源物件是兩項證據；本頁只觀察私人 operations bucket 的 `build-sources/`。
+更新日期：2026-11-20（Asia/Taipei）。映像版本刪除與 GCS 建置來源物件是兩項證據；本頁只觀察私人 operations bucket 的 `build-sources/`。
 不建立 Build、不執行分析、不修改 lifecycle，也不下載物件內容。舊的 multi-region `malscan-v2-poc_cloudbuild` bucket 不在本次範圍。
 
 先保存目前實際存在物件的 metadata，之後才能對同一個名稱與 generation 確認到期後缺席。
@@ -148,14 +148,14 @@ PY_STORAGE
 
 ## 2. 依實際觀察時間安排到期讀回
 
-本輪最早的 age 門檻已過，現在可依[到期後只讀查詢](build-source-expiry-readback.md)檢查保存的精確 generation。
+本批以原私人基準逐筆查詢精確 generation，已完成到期驗證。 [到期後只讀查詢](build-source-expiry-readback.md)
 三個物件各自從建立時間起算七天，最早一個達 age 不代表三個同時到期；未到期物件保持保存是正常結果。
-請使用該節的新查詢，不重跑第 1 節初始基準來推定已刪除。
+各次只讀查詢均沿用第 1 節保存的初始基準。
 
 11/14 已取得[第一筆到期後缺席紀錄](milestones/2026-11-14-build-source-expiry-acceptance.json)：1 個符合年齡的保存 generation 回傳 404，另 2 個尚未符合條件而未查詢。
 該次 `actual_object_expiry_verified: true` 僅涵蓋當時符合條件者；`all_saved_objects_absent_verified: false` 保留整批未完成的差別。11/16 的[後續讀回](milestones/2026-11-16-build-source-expiry-followup.json)則是 2 個已到期者中 1 個 404、1 個 200，另 1 個未到期，因此當次 `actual_object_expiry_verified: false`；原先單筆缺席驗收保留。11/17 的[驗收讀回](milestones/2026-11-17-build-source-expiry-acceptance.json)確認當時已到期的兩筆皆為 404。第三個當時尚未符合年齡，整批缺席仍待驗證。
 
-11/19 核對原設定與私人基準一致，3 個保存物件都已符合年齡。前兩筆仍為 404，第三筆為 200，整批缺席仍待驗證。`next_age_eligible_at_taipei` 為 `null`，代表基準中的物件都已達年齡門檻，可直接重查。建議台北 11/20 上午沿用同一只讀查詢。 [11/19 讀回](milestones/2026-11-19-build-source-expiry-followup.json) · [只讀查詢](build-source-expiry-readback.md)
+11/19 三筆已符合年齡，兩筆為 `404`，一筆仍為 `200`。11/20 精確 generation 查詢確認三筆皆為 `404`，bucket 設定與私人基準核對一致，本批到期缺席驗證完成。 [11/19 讀回](milestones/2026-11-19-build-source-expiry-followup.json) · [11/20 驗收](milestones/2026-11-20-build-source-expiry-acceptance.json)
 `saved_objects_now_age_eligible` 只計算保存基準中的物件年齡，不表示它們目前仍存在或已刪除；重跑基準命令不會更新物件清單。
 若清單為空、所有物件已達 age，或回傳 null，先提供摘要，不新增測試物件、不改 lifecycle。
 
@@ -166,16 +166,15 @@ PY_STORAGE
 到點後可再次觀察，未消失就保存仍存在的結果，不能自行補一個固定二十分鐘或二十四小時的刪除承諾。官方的二十四小時說明是設定變更生效延遲，不是刪除時限。若再次觀察仍為 200，再核對物件 hold／retention metadata，保持原基準與規則。
 規則僅涵蓋 `build-sources/`；`bundles/`、協調 state、lease 與其他前綴繼續保留。物件缺席也不代表 registry layer 容量或帳單已下降，費用仍以專案／TWD／SKU／日期範圍另行核對。
 
-## 3. 等待來源到期時：並行觀察容量與費用
+## 3. 容量與費用觀察
 
-費用觀察不需要等本節來源到期驗證完成。先在 Billing Reports 匯出 **2026/11/1 至報表目前已入帳日期**的 CSV：
+下一步確認 11/14 清理前後的 Artifact Registry Storage 費用。比較期間選用報表的日期 11/11–11/13 與 11/16–11/18，各三天，略過清理及過渡日 11/14–11/15。
 
-- 幣別使用已確認的 **TWD**，篩選專案 **`malscan-v2-poc`**；保留篩選範圍的證據。
-- 依 SKU 分組，保留服務／SKU、使用費、抵用／折扣與淨額。若介面無法設定專案篩選，另匯出依專案分組的報表供核對，不直接假設整個帳單帳戶只有此專案。
-- 報表日期與資料更新時間一起保存；資料尚未入帳、前後期間長度不同或抵用不同，都不能直接歸因為清理節省。
-- 原始 CSV 與帳單身份資訊保持私人，可提供維護者核對，不提交 GitHub；Cloudflare 帳單與用量另外處理。
+1. 在 Cloud Billing 的 Reports 使用 **SKUs — daily costs this month** 預設。將 **Charge period** 設為 11/11–11/18，**Group by** 設為 **Date > SKU**，篩選專案 `malscan-v2-poc` 及 **Artifact Registry Storage** SKU，匯出一份 CSV。報表按美國太平洋時間切分每日用量。 [Google Cloud 報表說明](https://docs.cloud.google.com/billing/docs/how-to/reports)
+2. 若介面沒有 **Date > SKU**，改用 **SKU** 分組並針對兩個比較期間各匯出一份 CSV，可比較等長期間總額。保留日期範圍、幣別 TWD、專案篩選、抵用設定及匯出時間。使用量、使用費、抵用／折扣與淨額依報表可取得的欄位保存。
+3. 費用可能需要超過 24 小時才入帳。若 11/18 的資料仍在更新，可於台北 11/21 上午再匯出同一期間。若數字之後有變動，以後續讀回重新比較。原始 CSV 與帳單資訊留在私人紀錄。
 
-容量可先讀取倉庫 metadata，作為後續同條件比較的基準：
+11/14 與 11/16 已取得同一倉庫的容量讀值。日後若需加做同口徑比較，可沿用以下查詢。
 
 ```bash
 gcloud artifacts repositories list \
@@ -187,7 +186,7 @@ gcloud artifacts repositories list \
 
 `describe` 會先印出人類可讀的 `Repository Size`，再移除格式化 JSON 的 `sizeBytes`；本頁改用既有盤點工具相同的 list 介面取得精確容量欄位。
 請確認只列出一個名稱完全相符的 repository；若仍缺少 `sizeBytes`，記為未觀察到，不能當成零。倉庫大小與單一映像顯示大小、共享 layer、當期儲存計費仍有不同範圍；版本已刪除不表示費用歸零。
-此基準沒有精確的清理前容量，後續趨勢需要多個觀察時點與對應 SKU 報表一起判讀。上述命令不更動資源。
+11/16 的倉庫讀值低於 11/14 的盤點基準。節省金額仍待上方相同口徑的費用報表核對。 [容量觀察](milestones/2026-11-16-registry-capacity-observation.json)
 
 預算百分比通知與實際請款分開判讀：通知表示依該預算的專案範圍與抵用設定，計算金額觸及門檻；它不列出造成費用的服務／SKU，也不能單獨證明信用卡已扣款。
 使用者提供的本輪通知日期早於已驗收的映像清理，不能用這封通知推定清理後費用仍新增；後續仍需相同日期範圍、專案與 SKU 的實際報表。
@@ -195,9 +194,7 @@ gcloud artifacts repositories list \
 
 11/14 已收到並解析當期服務彙總 CSV，專案篩選由使用者明確確認；原檔不需要重傳。
 服務彙總足以觀察哪個服務佔主要淨費用，不能代替 SKU 或逐日資料。後續 **SKU CSV 已收到**：主要淨費用確認為 **Artifact Registry Storage**，見[精簡觀察紀錄](milestones/2026-11-14-sku-cost-observation.json)，這份檔案不需要重傳。
-GCS 來源到期清理與 Registry 的映像儲存分屬不同資源。下一步可現在執行上方 `sizeBytes` 只讀命令，保存目前容量，再與後續相同口徑的容量及逐日 SKU 費用比較；不用等待另一個來源到期才開始觀察。
+GCS 來源到期驗證已完成。Registry 的映像儲存費待逐日 SKU 報表核對，搭配同口徑的 `sizeBytes` 觀察判讀。
 若要判斷清理前後變化，另需對應日期與入帳更新時間；同一份月內累計增加，不能單獨證明每日成本增加或清理失效。
 
-本輪已收到 CLI 的人類可讀容量說明，原 `describe` JSON 未含精確 bytes；不能將缺欄位視為零或精確刪除節省。
-後續[目前映像與引用盤點](registry-current-inventory.md)摘要也已取得，精確容量及 10 個版本已讀回、目前與回退版受保護；詳細結果見[彙總紀錄](milestones/2026-11-14-current-registry-inventory-acceptance.json)。
-下一步提供已產生的私人 metadata 報告審查逐版資訊，不需要重傳帳單或為此重跑舊的刪除批次。
+11/14 已核對私人逐版 metadata，並完成 3 個舊映像的限定清理。前後盤點範圍與保護引用收錄於當批紀錄。 [盤點彙總](milestones/2026-11-14-current-registry-inventory-acceptance.json) · [清理驗收](milestones/2026-11-14-legacy-registry-review.json)

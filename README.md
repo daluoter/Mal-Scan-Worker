@@ -8,11 +8,11 @@
 
 ## 目前里程碑
 
-**2026-11-19：3 個 GCS 建置來源均已滿七天，2 個回傳 404，第三個仍為 200。** 11/17 的兩筆缺席驗收仍有效，整批缺席驗證待最後一筆。建議台北 11/20 上午沿用原私人基準再查。 [本次讀回](docs/milestones/2026-11-19-build-source-expiry-followup.json) · [只讀查詢](docs/build-source-expiry-readback.md)
+**2026-11-20：3 個保存的 GCS 建置來源均通過到期後缺席驗證。** 滿七天後的精確 generation 查詢皆回傳 `404`，設定與私人基準核對一致。接續核對 11/14 清理前後的逐日儲存 SKU。 [本次驗收](docs/milestones/2026-11-20-build-source-expiry-acceptance.json) · [費用觀察](docs/automatic-update-storage-observation.md#3-容量與費用觀察)
 
-**2026-11-16：同一倉庫的後續回報容量已下降。** 使用者提供精確 repository 篩選的只讀 metadata，與先前私人盤點比較通過，見[容量觀察](docs/milestones/2026-11-16-registry-capacity-observation.json)。這是回報容量下降的限定證據，尚未受控歸因至單一清理批次，也未驗證帳單節省。接著沿用私人基準，執行已越過下一個年齡門檻的 [GCS 來源到期只讀查詢](docs/build-source-expiry-readback.md)，並觀察後續相同期間的儲存 SKU；原始容量與財務資料保持私有。
+**2026-11-16：同一倉庫的後續回報容量已下降。** 使用者提供精確 repository 篩選的只讀 metadata，與先前私人盤點比較通過，見[容量觀察](docs/milestones/2026-11-16-registry-capacity-observation.json)。這是回報容量下降的限定證據，尚未受控歸因至單一清理批次，也未驗證帳單節省。接著比較 11/14 清理前後的逐日儲存 SKU；原始容量與財務資料保持私有。
 
-**2026-11-14：GCS 建置來源取得第一個到期後缺席案例。** 私人基準保存 3 個物件，其中 1 個已滿七天且精確 generation 回傳 404；另 2 個尚未到期，本次未查詢。設定與原基準均未變，見[本次驗收](docs/milestones/2026-11-14-build-source-expiry-acceptance.json)。後續沿用相同基準追蹤其餘物件，容量回收與費用節省另行核對。11 月服務與 SKU 報表已私下核對，主要淨費用確認為 **Artifact Registry 映像儲存**，見[觀察摘要](docs/milestones/2026-11-14-sku-cost-observation.json)；目前 10 版盤點及私人逐版審查後，3 個舊 full-worker 已完成限定清理：`completed`、無 pending，版本數 10 → 7，見[本批驗收](docs/milestones/2026-11-14-legacy-registry-review.json)。目前／回退版及其他 package 按工具引用核對保留；排程已恢復且啟用後新心跳已確認，容量與費用進展見上方 11/16 [後續觀察](docs/guarded-registry-cleanup.md#目前接續容量與費用觀察)。原始盤點、帳單及金額不公開。
+**2026-11-14：GCS 建置來源取得第一個到期後缺席案例。** 私人基準保存 3 個物件，其中 1 個已滿七天且精確 generation 回傳 404；另 2 個尚未到期，本次未查詢。設定與原基準均未變，見[本次驗收](docs/milestones/2026-11-14-build-source-expiry-acceptance.json)。其餘兩筆的追蹤已於 11/20 完成，費用節省待帳單核對。11 月服務與 SKU 報表已私下核對，主要淨費用確認為 **Artifact Registry 映像儲存**，見[觀察摘要](docs/milestones/2026-11-14-sku-cost-observation.json)；目前 10 版盤點及私人逐版審查後，3 個舊 full-worker 已完成限定清理：`completed`、無 pending，版本數 10 → 7，見[本批驗收](docs/milestones/2026-11-14-legacy-registry-review.json)。目前／回退版及其他 package 按工具引用核對保留；排程已恢復且啟用後新心跳已確認，容量與費用進展見上方 11/16 [後續觀察](docs/guarded-registry-cleanup.md#目前接續容量與費用觀察)。原始盤點、帳單及金額不公開。
 
 **2026-11-12：目前進入安全與維運驗收階段。** 雲端靜態分析、PDF／支援的 Office 解鎖、逐檔密碼與附件三案已有驗收；自動更新、告警、同候選復原及一次舊映像清理已實測。新增 P0-20 的[提交與公開防護](docs/publication-security.md)：私人檔案守門、本機秘密掃描與文件也涵蓋的安全 CI。GitHub 內建 Push Protection 與強制檢查仍需 owner 確認。下一步依序處理來源到期與費用、DO／新 root 清理、真實回退，再回到品質、格式與效能；見[目前進度](docs/project-status.md)與[更新路線圖](docs/roadmap.md)。
 

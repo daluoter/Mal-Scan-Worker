@@ -1,10 +1,10 @@
 # 自動更新啟用後的限定舊映像清理
 
-更新日期：2026-11-19（Asia/Taipei）。**本批已完成限定刪除驗收：3 個候選全部移除、`completed`、無 pending，版本數 10 → 7，沒有啟動掃描。** 使用者已恢復原排程，Scheduler 為 `ENABLED`、`automatic_updates_enabled: true`；後續只讀狀態已確認新 activation 心跳、健康時間推進、控制器閒置且無 lease。見[本批審查與驗收](milestones/2026-11-14-legacy-registry-review.json)。目前版、回退版、dispatcher 及整組 engine-poc 按工具引用核對保留。11/16 已取得[同倉庫後續回報容量下降](milestones/2026-11-16-registry-capacity-observation.json)的限定比較；下降量對本批的受控歸因及帳單節省仍待驗證。
+更新日期：2026-11-20（Asia/Taipei）。**本批已完成限定刪除驗收：3 個候選全部移除、`completed`、無 pending，版本數 10 → 7，沒有啟動掃描。** 使用者已恢復原排程，Scheduler 為 `ENABLED`、`automatic_updates_enabled: true`；後續只讀狀態已確認新 activation 心跳、健康時間推進、控制器閒置且無 lease。見[本批審查與驗收](milestones/2026-11-14-legacy-registry-review.json)。目前版、回退版、dispatcher 及整組 engine-poc 按工具引用核對保留。11/16 已取得[同倉庫後續回報容量下降](milestones/2026-11-16-registry-capacity-observation.json)的限定比較；下降量對本批的受控歸因及帳單節省仍待驗證。
 
 ## 目前接續：容量與費用觀察
 
-本批清理、啟用及後續新心跳皆已完成限定驗收，11/16 的同倉庫容量比較也已通過。GCS 11/19 讀回 3 個保存來源都已滿七天，2 個仍為 404，第三個為 200。建議台北 11/20 上午沿用原私人基準再查最後一筆。 [來源讀回](milestones/2026-11-19-build-source-expiry-followup.json) · [只讀查詢](build-source-expiry-readback.md)
+本批清理、啟用及後續新心跳皆已完成限定驗收，11/16 的同倉庫容量比較也已通過。11/20 已確認保存的三個 GCS 來源均在滿七天後回傳 `404`。接續比較 11/14 清理前後的逐日 Artifact Registry Storage SKU。 [來源驗收](milestones/2026-11-20-build-source-expiry-acceptance.json) · [費用觀察](automatic-update-storage-observation.md#3-容量與費用觀察)
 
 後續可隔日或數日後沿用下方容量查詢，並比較相同期間的儲存 SKU；原始讀值留在私人紀錄：
 
@@ -17,7 +17,7 @@ gcloud artifacts repositories list \
   --format='json(name,sizeBytes)'
 ```
 
-此查詢只讀 metadata，不建立映像或啟動掃描。容量可能受背景回收及正常自動建置影響，仍需後續可比較期間的儲存 SKU 才能評估費用。GCS 來源到期沿用上方私人基準，不從容量下降推定其刪除結果。
+此查詢只讀 metadata，不建立映像或啟動掃描。容量可能受背景回收及正常自動建置影響，仍需後續可比較期間的儲存 SKU 才能評估費用。GCS 來源到期驗證使用原私人基準的精確 generation 查詢。
 
 ### 已通過的啟用後心跳讀回
 
@@ -164,4 +164,4 @@ gcloud artifacts repositories list \
 啟用會恢復原維護告警與 Scheduler，並提交一次 activation controller Build；它可能依資料庫年齡執行正常維護，不執行分析 Job。稍後用第一節的 `status` 確認 `ENABLED`、`automatic_updates_enabled: true` 及新的 `activation_heartbeat_verified: true`。
 若清理未完成或結果不確定，保持原批次與暫停狀態供核對，不自行刪檢查點或另開批次繞過。
 
-刪除版本後，背景 layer 回收、容量統計與帳單入帳可能不同步。後續重新讀回容量並比較相同期間的儲存 SKU；保留正式／回退映像仍可能計費，版本數下降不等於已驗證節省。GCS 來源的七天期限與其餘兩個保存物件，仍依[既有私人基準](build-source-expiry-readback.md)獨立追蹤。
+刪除版本後，背景 layer 回收、容量統計與帳單入帳可能不同步。後續重新讀回容量並比較相同期間的儲存 SKU；保留正式／回退映像仍可能計費，版本數下降不等於已驗證節省。11/20 的到期驗收涵蓋原私人基準保存的三個 GCS 來源。 [驗收紀錄](milestones/2026-11-20-build-source-expiry-acceptance.json)

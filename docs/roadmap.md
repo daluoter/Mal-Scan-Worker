@@ -1,6 +1,6 @@
 # Mal-Scan-Worker v2 後續路線圖
 
-更新日期：2026-11-19（Asia/Taipei）。起點是[首筆雲端 demo 成功里程碑](milestones/2026-10-15-cloud-demo.md)。優先目標是讓使用者取得可信、詳盡且可追溯的靜態分析報告；低成本雲端用來展示，自架動態分析保留為可選擴充。
+更新日期：2026-11-20（Asia/Taipei）。起點是[首筆雲端 demo 成功里程碑](milestones/2026-10-15-cloud-demo.md)。優先目標是讓使用者取得可信、詳盡且可追溯的靜態分析報告；低成本雲端用來展示，自架動態分析保留為可選擴充。
 
 所有計畫項目的固定 ID、完成／進行中／待辦狀態與完成條件集中在[專案進度清單](project-status.md)。
 每批開發、驗證或部署都要同步更新該清單；下文保留各階段的目標與排序。
@@ -16,7 +16,7 @@ completed、無 pending、刪除 digest 符合已審閱批次，版本數 14 →
 見[限定批次紀錄](milestones/2026-10-22-registry-cleanup.json)與[映像清理手冊](registry-cleanup.md)。
 清理後倉庫容量讀數仍幾乎不變；接著核對容量回收、保留政策及後續儲存 SKU／帳單。
 P0-07／P0-14 都維持進行中，不把版本刪除當成已節省費用或停止計費。
-11/14 的完整私人盤點及逐版審查後，3 個舊 full-worker 已取得限定清理驗收：completed、無 pending、版本數 10 → 7，見[本批紀錄](milestones/2026-11-14-legacy-registry-review.json)。工具引用核對保留目前／回退版、dispatcher 及整組 engine-poc。排程已恢復啟用且啟用後新心跳已確認，11/16 後續只讀輸出已取得[同倉庫回報容量下降](milestones/2026-11-16-registry-capacity-observation.json)的限定比較；清理歸因與帳單節省仍待核對。接續容量與費用觀察，以及原私人基準的 GCS 到期查詢。11/19 三筆均已滿七天，前兩筆維持 404，第三筆為 200。建議台北 11/20 上午重查。 [容量／費用觀察](guarded-registry-cleanup.md#目前接續容量與費用觀察) · [GCS 讀回](milestones/2026-11-19-build-source-expiry-followup.json)
+11/14 的完整私人盤點及逐版審查後，3 個舊 full-worker 已取得限定清理驗收：completed、無 pending、版本數 10 → 7，見[本批紀錄](milestones/2026-11-14-legacy-registry-review.json)。工具引用核對保留目前／回退版、dispatcher 及整組 engine-poc。排程已恢復啟用且啟用後新心跳已確認，11/16 後續只讀輸出已取得[同倉庫回報容量下降](milestones/2026-11-16-registry-capacity-observation.json)的限定比較；清理歸因與帳單節省仍待核對。11/20 已確認三筆保存的 GCS 來源均在達到七天後回傳 `404`。接續比較 11/14 清理前後的逐日儲存 SKU。 [容量／費用觀察](guarded-registry-cleanup.md#目前接續容量與費用觀察) · [GCS 驗收](milestones/2026-11-20-build-source-expiry-acceptance.json)
 
 **目前接續順序：** 11/2 的兩份 partial 報告保留於[跟進紀錄](milestones/2026-11-03-document-embedded-cloud-followup.json)。
 受控刷新後，11/4 的新 Flate EICAR／Office 報告之 10 個節點適用掃描皆完整，daily 28172；
@@ -24,7 +24,7 @@ PDF 父子各 100 分、Office 根檔 0 分，連同歷史文字附件，F-11 �
 使用者確認長 URL／路徑介面已修正，截圖支持卡片內換行；沒有新的 provider image／Pages revision 獨立查詢。
 P0-12 的[自動簽章病毒庫更新](automatic-database-updates.md)已安裝並啟用，包含固定私有來源、可恢復狀態、失敗／缺心跳告警與限定自動映像清理；
 每 12 小時檢查，daily 達三天才建置，每 UTC 日最多一次、每月最多 12 次新候選意圖，自動持有版本上限四個。
-啟用心跳、Monitoring、告警收信、一次排程更新、同候選中斷／重連復原與舊映像刪除已通過所列限定驗收；維護不執行分析 Job，不消耗 demo 掃描額度。GCS 保留設定及三個來源物件的私人初始基準已取得；11/14 又接受第一個到期 generation 404 的[限定案例](milestones/2026-11-14-build-source-expiry-acceptance.json)，11/16 的[等待結果](milestones/2026-11-16-build-source-expiry-followup.json)保留為歷史，11/17 確認當時符合年齡的兩筆皆為 404。11/19 第三筆符合年齡，讀回仍為 200，整批尚未完成。
+啟用心跳、Monitoring、告警收信、一次排程更新、同候選中斷／重連復原與舊映像刪除已通過所列限定驗收；維護不執行分析 Job，不消耗 demo 掃描額度。GCS 保留設定及三個來源物件的私人初始基準已取得；11/14 又接受第一個到期 generation 404 的[限定案例](milestones/2026-11-14-build-source-expiry-acceptance.json)，11/16 的[等待結果](milestones/2026-11-16-build-source-expiry-followup.json)保留為歷史，11/17 確認當時符合年齡的兩筆皆為 404。11/19 第三筆符合年齡且仍為 `200`，11/20 三筆皆為 `404`，完成本批到期缺席驗證。
 接著依序確認來源物件到期（P0-07／P0-12），同時核對 TWD 專案／SKU 的容量與費用（P0-14／P0-15）；之後做 DO 工作登記清理（P0-06）、新 root 的 R2 到期證據（P0-18）及真實回退（P0-11）。不把映像已刪除當成費用歸零。提交與公開防護見[操作說明](publication-security.md)。
 之後接續 Q-05／Q-06 規則與品質（包含 Office XML 弱 XOR 各 +4 分的既有雜訊）、F-04 封存格式、F-05 PE／LNK／scripts，
 以及效能／介面與自架動態分析。其餘 ID 的狀態與完成條件仍以進度清單為準。

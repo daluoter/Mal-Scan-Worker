@@ -1,0 +1,44 @@
+{
+  "schema_version": 1,
+  "observed_date_taipei": "2026-11-20",
+  "checklist_id": "P0-12",
+  "checklist_status": "in_progress",
+  "related_checklist_ids": [
+    "P0-07",
+    "P0-14"
+  ],
+  "scope": "Acceptance of absence after the age threshold for the three saved build-source generations",
+  "evidence_source": "User-provided read-only exact-generation metadata summary",
+  "previous_public_record": "2026-11-19-build-source-expiry-followup.json",
+  "readback_summary": {
+    "scope": "read_only_saved_build_source_expiry",
+    "read_only": true,
+    "baseline_configuration_unchanged": true,
+    "private_baseline_unchanged": true,
+    "saved_object_count": 3,
+    "age_eligible_saved_count": 3,
+    "not_yet_age_eligible_saved_count": 0,
+    "age_eligible_absent_count": 3,
+    "age_eligible_present_count": 0,
+    "age_eligible_http_404_count": 3,
+    "age_eligible_http_200_count": 0,
+    "next_age_eligible_at_taipei": null,
+    "actual_object_expiry_verified": true,
+    "all_saved_objects_absent_verified": true,
+    "lifecycle_deletion_cause_verified": false,
+    "billed_savings_verified": false,
+    "remote_mutations": false,
+    "cloud_run_executed": false
+  },
+  "interpretation": {
+    "all_saved_objects_expiry_complete": true,
+    "overall_p0_07_complete": false,
+    "overall_p0_12_complete": false
+  },
+  "next_step": "Compare fully posted daily Artifact Registry Storage SKU usage and costs for equivalent periods before and after the November 14 cleanup under the same project and credit filters",
+  "evidence_limits": [
+    "Acceptance covers the three exact saved generations that returned HTTP 404",
+    "The last previously present generation became absent between observations",
+    "Deletion time, deletion cause, physical storage reclamation and billed savings remain unverified"
+  ]
+}

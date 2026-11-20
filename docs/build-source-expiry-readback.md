@@ -1,6 +1,6 @@
 # 建置來源到期後的只讀確認
 
-更新日期：2026-11-19（Asia/Taipei）。3 個保存物件都已滿七天。前兩個維持 404，第三個回傳 200。
+更新日期：2026-11-20（Asia/Taipei）。11/20 已完成這批 3 個保存物件的到期驗證，精確 generation 查詢皆回傳 `404`。
 此指令讀取原私人基準，查詢**已達七天的既有物件 generation**；不重新保存基準、不建立或刪除物件，也不下載內容。
 沿用現有 Cloud Shell 來源目錄與原 plan，不需要重新 clone、建置或部署。
 
@@ -8,9 +8,9 @@
 11/16 的[後續結果](milestones/2026-11-16-build-source-expiry-followup.json)為 2 個已符合年齡，1 個回傳 404、1 個回傳 200，另 1 個尚未符合年齡。當次 `actual_object_expiry_verified: false` 正確表示已符合年齡者尚未全部缺席；該歷史紀錄與 11/14 的單筆缺席驗收均保留。
 11/17 的[驗收結果](milestones/2026-11-17-build-source-expiry-acceptance.json)確認當時符合年齡的兩筆皆回傳 404，`actual_object_expiry_verified` 為 `true`。第三個當時尚未符合年齡，整批缺席仍待驗證。
 
-11/19 核對原設定與私人基準一致。3 個保存物件都已符合年齡，`next_age_eligible_at_taipei` 為 `null`。這次仍有一筆存在，因此 `actual_object_expiry_verified` 和 `all_saved_objects_absent_verified` 皆為 `false`。 [11/19 讀回](milestones/2026-11-19-build-source-expiry-followup.json)
+11/19 查詢時三筆均已符合七天條件，前兩筆回傳 `404`，最後一筆為 `200`。11/20 三筆都回傳 `404`，bucket 設定與原私人基準核對一致。`actual_object_expiry_verified` 和 `all_saved_objects_absent_verified` 均為 `true`。 [11/19 讀回](milestones/2026-11-19-build-source-expiry-followup.json) · [11/20 驗收](milestones/2026-11-20-build-source-expiry-acceptance.json)
 
-建議台北 11/20 上午沿用原私人基準執行下方只讀查詢。如果最後一筆仍為 200，可接著只讀核對該物件的 hold 與 retention metadata。
+下方保留歷史操作步驟供核對。接續比較 11/14 清理前後的逐日儲存 SKU。 [費用觀察](automatic-update-storage-observation.md#3-容量與費用觀察)
 
 ```bash
 (
