@@ -27,12 +27,12 @@
       "http://clean.test/landing"
     ],
     "domains": [
-      "clean.test",
       "clean-c2.test"
     ],
     "ips": [
       "8.8.8.8"
     ]
   },
-  "expect_improvement": false
+  "expect_improvement": false,
+  "strict_no_improvement": true
 }

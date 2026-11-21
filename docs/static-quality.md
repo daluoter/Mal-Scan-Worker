@@ -1,6 +1,13 @@
 # 靜態分析品質基準
 
-更新日期：2026-11-04（Asia/Taipei）。目標是讓偵測結果、分析範圍與子檔案證據可以重現及核對。
+更新日期：2026-11-21（Asia/Taipei）。目標是讓偵測結果、分析範圍與子檔案證據可以重現及核對。
+
+Q-06 本批修正 `office-embedded-pdf` 的三個 XML 子檔各加 4 分的問題。啟發式選出的 XOR 金鑰 `0x00` 會逐位元組保留原文，原本卻因 XML 命名空間含網址而被列為解碼證據。解碼器現在只嘗試非零金鑰。
+以原始 DOCX 的固定子檔重跑去混淆、IOC 與報告評分，`[Content_Types].xml`、`_rels/.rels`、`word/_rels/document.xml.rels` 皆移除多出的 XOR 分數，原始網址及其來源仍可查閱。真正以非零金鑰編碼的網址仍可還原，並保留來源、金鑰及既有 4 分。純文字對照也保留完整網址，移除了先前由零金鑰重複列出的網址網域。
+四個新增回歸案例通過。Worker 全套測試為 1,383 通過、4 跳過，其中 3 項需另行啟用 PostgreSQL，1 項需安裝 `7z`。Ruff、Black 與 worker mypy 檢查通過。
+
+雲端驗收使用同一份 `office-embedded-pdf` 樣本重新掃描。確認三個子檔無 XOR 加分、原始網址仍可查閱，且 PDF 附件成功提取及掃描。部署時需把新 worker 版本與自動病毒庫更新的核准來源一起切換。[自動更新與手動部署](automatic-database-updates.md#核准來源與手動部署)
+
 F-03 PDF 附件／Office 嵌入檔案的 `document-embedded-v1.json` 固定套件已完成 12／12 原生驗收。
 這批核對實際提取 bytes、SHA-256、來源與完整子檔掃描，包含 PDF 壓縮附件、aliases／同名來源、
 密碼續跑、OOXML 非 `.bin` member／內部 package relationship、OLE native／Package 與不支援／損壞對照。
@@ -15,7 +22,7 @@ F-03 PDF 附件／Office 嵌入檔案的 `document-embedded-v1.json` 固定套�
 10 月的部分驗收與 11/2 的過期 AV 報告仍保留為歷史；11/4 新 EICAR／Office 完整報告已核對，
 F-11 完成三個限定 smoke。EICAR 父子檔皆 100 分且有實際 AV／YARA 偵測，Office 8 節點／根檔 0 分，
 所有節點適用掃描 complete，見[完成紀錄](milestones/2026-11-04-document-embedded-cloud-acceptance.json)。
-三個 XML 子檔各有 4 分 XOR 觀察，仍列 Q-06 品質雜訊；這不是 YARA 資訊規則重新加分，也不因此重開已符合提取／掃描條件的 F-11。
+該次報告的三個 XML 子檔各有 4 分 XOR 觀察，已列為 Q-06 並於 11/21 取得本機修正。F-11 保留原提取與掃描驗收結果。
 
 目前一般基準為 `corpus-v6.json`（40 案／36 fixture、`msrs-v1.2`），PDF 密碼另用 `pdf-password-v2.json`（12 案），
 Office 密碼另用 `office-password-v1.json`（14 個 profile）。F-02 本批已完成程式／本機驗證。

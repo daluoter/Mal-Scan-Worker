@@ -119,7 +119,9 @@ class XorDecoder(DecoderBase):
         seen: set[int] = set()
         for key in [*common_keys, *sorted(heuristic_keys)]:
             key &= 0xFF
-            if key in seen:
+            # A zero key returns the input unchanged. Plaintext URLs and
+            # keywords would otherwise count as decoded XOR evidence.
+            if key == 0 or key in seen:
                 continue
             ordered.append(key)
             seen.add(key)
