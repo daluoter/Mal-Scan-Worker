@@ -1,0 +1,38 @@
+{
+  "schema_version": 1,
+  "received_date_taipei": "2026-11-21",
+  "checklist_id": "P0-14",
+  "checklist_status": "in_progress",
+  "scope": "Artifact Registry storage cost identification and repository capacity follow-up",
+  "evidence_source": "User-provided billing export and read-only Cloud Shell results",
+  "billing_observation": {
+    "report_date_range": ["2026-11-11", "2026-11-18"],
+    "multi_sku_period_summary": true,
+    "date_column_present": false,
+    "project_column_present": false,
+    "currency_column_present": false,
+    "artifact_registry_storage_dominates_reported_net_cost": true,
+    "other_storage_and_egress_cost_present": true,
+    "project_filter_verified_from_export": false,
+    "before_after_cost_comparison_verified": false,
+    "billed_savings_verified": false
+  },
+  "capacity_observation": {
+    "repository_matches_prior_readback": true,
+    "reported_capacity_close_to_november_16": true,
+    "reported_capacity_below_november_14_baseline": true,
+    "billing_account_storage_usage_verified": false
+  },
+  "build_source_baseline": {
+    "saved_baseline_reused": true,
+    "fresh_provider_reads_performed": false,
+    "november_20_exact_generation_expiry_acceptance_retained": true
+  },
+  "related_public_records": [
+    "2026-11-14-sku-cost-observation.json",
+    "2026-11-16-registry-capacity-observation.json",
+    "2026-11-20-build-source-expiry-acceptance.json"
+  ],
+  "next_evidence": "A date-grouped storage SKU export with a date column, or two exports for equal-length periods with identical project, SKU, currency and credit settings",
+  "agent_authenticated_provider_query_performed": false
+}

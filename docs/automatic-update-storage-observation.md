@@ -1,6 +1,6 @@
 # 自動更新建置來源的保留期觀察
 
-更新日期：2026-11-20（Asia/Taipei）。映像版本刪除與 GCS 建置來源物件是兩項證據；本頁只觀察私人 operations bucket 的 `build-sources/`。
+更新日期：2026-11-21（Asia/Taipei）。本頁追蹤私人 operations bucket 的 `build-sources/` 保留期與 Artifact Registry 儲存費。
 不建立 Build、不執行分析、不修改 lifecycle，也不下載物件內容。舊的 multi-region `malscan-v2-poc_cloudbuild` bucket 不在本次範圍。
 
 先保存目前實際存在物件的 metadata，之後才能對同一個名稱與 generation 確認到期後缺席。
@@ -156,6 +156,7 @@ PY_STORAGE
 該次 `actual_object_expiry_verified: true` 僅涵蓋當時符合條件者；`all_saved_objects_absent_verified: false` 保留整批未完成的差別。11/16 的[後續讀回](milestones/2026-11-16-build-source-expiry-followup.json)則是 2 個已到期者中 1 個 404、1 個 200，另 1 個未到期，因此當次 `actual_object_expiry_verified: false`；原先單筆缺席驗收保留。11/17 的[驗收讀回](milestones/2026-11-17-build-source-expiry-acceptance.json)確認當時已到期的兩筆皆為 404。第三個當時尚未符合年齡，整批缺席仍待驗證。
 
 11/19 三筆已符合年齡，兩筆為 `404`，一筆仍為 `200`。11/20 精確 generation 查詢確認三筆皆為 `404`，bucket 設定與私人基準核對一致，本批到期缺席驗證完成。 [11/19 讀回](milestones/2026-11-19-build-source-expiry-followup.json) · [11/20 驗收](milestones/2026-11-20-build-source-expiry-acceptance.json)
+11/21 執行基準命令時沿用舊快照，`fresh_provider_reads_performed: false`。到期後缺席以 11/20 的精確 generation 驗收為準。
 `saved_objects_now_age_eligible` 只計算保存基準中的物件年齡，不表示它們目前仍存在或已刪除；重跑基準命令不會更新物件清單。
 若清單為空、所有物件已達 age，或回傳 null，先提供摘要，不新增測試物件、不改 lifecycle。
 
@@ -168,11 +169,13 @@ PY_STORAGE
 
 ## 3. 容量與費用觀察
 
-下一步確認 11/14 清理前後的 Artifact Registry Storage 費用。比較期間選用報表的日期 11/11–11/13 與 11/16–11/18，各三天，略過清理及過渡日 11/14–11/15。
+11/21 收到 11/11–11/18 的 SKU 彙總，主要費用仍來自 Artifact Registry Storage，另有少量其他儲存與傳輸費。匯出缺少日期、專案及幣別欄位，待取得帶日期的報表與篩選範圍後再做前後比較。同一倉庫的新容量讀值接近 11/16，仍低於 11/14 盤點基準。 [11/21 摘要](milestones/2026-11-21-storage-cost-readback.json)
 
-1. 在 Cloud Billing 的 Reports 使用 **SKUs — daily costs this month** 預設。將 **Charge period** 設為 11/11–11/18，**Group by** 設為 **Date > SKU**，篩選專案 `malscan-v2-poc` 及 **Artifact Registry Storage** SKU，匯出一份 CSV。報表按美國太平洋時間切分每日用量。 [Google Cloud 報表說明](https://docs.cloud.google.com/billing/docs/how-to/reports)
-2. 若介面沒有 **Date > SKU**，改用 **SKU** 分組並針對兩個比較期間各匯出一份 CSV，可比較等長期間總額。保留日期範圍、幣別 TWD、專案篩選、抵用設定及匯出時間。使用量、使用費、抵用／折扣與淨額依報表可取得的欄位保存。
-3. 費用可能需要超過 24 小時才入帳。若 11/18 的資料仍在更新，可於台北 11/21 上午再匯出同一期間。若數字之後有變動，以後續讀回重新比較。原始 CSV 與帳單資訊留在私人紀錄。
+比較 11/14 清理前後的費用時，選用報表日期 11/11–11/13 與 11/16–11/18，各三天，略過清理及過渡日 11/14–11/15。
+
+1. 在 Cloud Billing 的 Reports 使用 **SKUs — daily costs this month** 預設。將 **Charge period** 設為 11/11–11/18，**Group by** 設為 **Date > SKU**，篩選專案 `malscan-v2-poc` 及 **Artifact Registry Storage** SKU。匯出一份 CSV 並確認有日期欄。報表按美國太平洋時間切分每日用量。 [Google Cloud 報表說明](https://docs.cloud.google.com/billing/docs/how-to/reports)
+2. 若無法匯出日期欄，依 **SKU** 分組並針對兩個期間各匯出一份 CSV，比較等長期間總額。兩段使用相同專案、SKU、幣別與抵用設定，並保存日期範圍及匯出時間。
+3. 費用可能需要超過 24 小時才入帳。若報表數字有變動，以後續讀回重新比較。原始 CSV 與帳單資訊留在私人紀錄。
 
 11/14 與 11/16 已取得同一倉庫的容量讀值。日後若需加做同口徑比較，可沿用以下查詢。
 

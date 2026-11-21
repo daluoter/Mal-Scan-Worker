@@ -1,6 +1,6 @@
 # 專案進度清單
 
-更新日期：2026-11-20（Asia/Taipei）。這份清單集中記錄已完成、進行中與尚未完成的工作；
+更新日期：2026-11-21（Asia/Taipei）。這份清單集中記錄已完成、進行中與尚未完成的工作。
 [路線圖](roadmap.md)說明排序，[支援矩陣](analysis-support.md)說明目前可用能力。
 每一批開發、測試或部署都要更新相關 ID 的狀態、證據與剩餘條件。項目未取得完成條件的證據前，不標為完成。
 
@@ -37,6 +37,7 @@
 使用者已提供 CLI 的人類可讀倉庫容量；`describe` 會把 `sizeBytes` 移出 JSON，原指令已改為 list。
 後續[目前倉庫盤點摘要](milestones/2026-11-14-current-registry-inventory-acceptance.json)也已通過：精確容量已讀回、10 個版本中 5 個受引用保護／5 個未分類、無讀取缺口，state／lease 核對與目前／回退版均符合預期。同日完整私人報告已收到並逐版核對，3 個舊 full-worker 均符合 schema 2 及早於受保護版本的條件，見[審查紀錄](milestones/2026-11-14-legacy-registry-review.json)。後續使用者已完成[限定清理](guarded-registry-cleanup.md)：3 個候選全部刪除、`completed`、無 pending、版本數 10 → 7；沒有啟動掃描。這是工具前後完整引用核對內的使用者讀回驗收，未新增 agent provider 查詢或獨立精確 Version GET。原排程已恢復啟用，新的 activation 心跳已由後續只讀狀態確認，控制器閒置且無 lease；後續容量比較見下方 11/16 紀錄，清理歸因與節省仍待結果。engine-poc 的 2 個未分類 OCI manifest 與受保護 index 的關係尚未證明，整組 3 版保留。
 11/16 收到同一 repository 的後續只讀容量輸出，與先前私人盤點核對後接受「回報容量較低」的限定觀察，見[容量紀錄](milestones/2026-11-16-registry-capacity-observation.json)。這是使用者提供的容量讀回，agent 未另查 provider；本次沒有 Job／版本／引用盤點或精確觀測時間，也未取得受控清理歸因、實體 layer 刪除事件或帳單節省。GCS 讀回持續沿用原私人基準，各物件逐一判讀。
+11/21 同一倉庫容量接近 11/16，仍低於 11/14 盤點基準。11/11–11/18 的 SKU 彙總顯示主要費用仍為 Artifact Registry Storage，另有少量其他儲存與傳輸費。待取得含日期的 SKU 報表或兩個等長期間使用相同篩選的匯出，再核對費用變化。GCS 基準輸出沿用舊資料，11/20 的三筆精確 generation 驗收仍適用。 [11/21 摘要](milestones/2026-11-21-storage-cost-readback.json)
 公開維運手冊已另完成指定範圍的[安全核對](security-notes.md#2026-11-12公開維運手冊的範圍核對)，補上私人 sidecar 的 Git 忽略規則；這不代替現行 IAM 的 provider 查核。
 
 11/9 接續環境恢復前的中斷演練工具草稿，補齊受控 parent 取消、未知回應讀回、同一候選接續與完整設定／日誌證據核對。
